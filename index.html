@@ -230,7 +230,16 @@ figcaption b{color:var(--fg);display:block;font-size:1rem}
 .c-card .val{font-family:var(--f-num);font-size:1.1rem;direction:ltr;unicode-bidi:isolate;overflow-wrap:anywhere}
 .contact>*,.c-card>div{min-width:0}
 .masked{filter:blur(5px);user-select:none;opacity:.85}
-footer{border-top:1px solid var(--line);padding-block:28px;color:var(--muted);font-size:.9rem}
+/* WhatsApp */
+a.c-card{text-decoration:none;color:inherit;transition:border-color .2s ease}
+a.c-card:hover{border-color:var(--accent)}
+.btn.wa{background:#25D366;border-color:#25D366;color:#06301a}
+.btn.wa svg{width:22px;height:22px}
+.wa-float{position:fixed;left:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:40;width:60px;height:60px;border-radius:50%;background:#25D366;color:#fff;display:grid;place-items:center;box-shadow:0 12px 30px -8px rgba(0,0,0,.55)}
+.wa-float svg{width:32px;height:32px}
+.wa-float:hover{transform:scale(1.07)}
+@media (prefers-reduced-motion:no-preference){.wa-float{transition:transform .2s ease}}
+footer{border-top:1px solid var(--line);padding-block:28px 100px;color:var(--muted);font-size:.9rem}
 footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 
 @media (prefers-reduced-motion:no-preference){
@@ -244,6 +253,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 </head>
 <body>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-wa" viewBox="0 0 448 512"><path fill="currentColor" d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zm-157 341.6c-33.2 0-65.7-8.9-94-25.7l-6.7-4-69.8 18.3L72 359.2l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-5.7-9.8 5.7-9.1 16.3-30.3 1.8-3.7.9-6.9-.5-9.7-1.4-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></symbol>
   <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
   <symbol id="i-phone" viewBox="0 0 24 24"><path d="M6.6 3h3l1.6 4.2-2 1.3a11 11 0 0 0 6.3 6.3l1.3-2 4.2 1.6v3a2 2 0 0 1-2.2 2A17 17 0 0 1 4.6 5.2 2 2 0 0 1 6.6 3z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/></symbol>
   <symbol id="i-mail" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M4 7l8 6 8-6" fill="none" stroke="currentColor" stroke-width="1.8"/></symbol>
@@ -498,7 +508,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
             <li><svg><use href="#i-check"/></svg>3 חודשי תמיכה במקום חודש</li>
           </ul>
           <div style="display:grid;gap:8px"><small style="color:var(--muted)">5 מקומות במחיר ההשקה</small><div class="seats" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
-          <a class="btn primary" href="#contact" style="justify-self:start">שמרו לי מקום</a>
+          <a class="btn primary" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A8%20%D7%9E%D7%A7%D7%95%D7%9D%20%D7%91%D7%9E%D7%91%D7%A6%D7%A2%20%D7%94%D7%94%D7%A9%D7%A7%D7%94%20%D7%A9%D7%9C%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" style="justify-self:start">שמרו לי מקום בוואטסאפ</a>
         </div>
       </div>
       <div class="calm">
@@ -523,7 +533,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
         <p class="lead">ספרו לי מה התחום שלכם ואיך אתם מתמחרים היום, ואראה לכם איך המערכת תיראה אצלכם.</p>
       </div>
       <div class="c-cards">
-        <div class="c-card"><svg><use href="#i-phone"/></svg><div><small>טלפון / וואטסאפ</small><span class="val">051-2440252</span></div></div>
+        <a class="btn wa" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%A8%D7%90%D7%99%D7%AA%D7%99%20%D7%90%D7%AA%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%D7%95%D7%94%D7%97%D7%95%D7%96%D7%99%D7%9D%20%D7%95%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" style="justify-content:center"><svg aria-hidden="true"><use href="#i-wa"/></svg>שלחו הודעה בוואטסאפ</a>
+        <a class="c-card" href="tel:+972512440252"><svg><use href="#i-phone"/></svg><div><small>טלפון</small><span class="val">051-2440252</span></div></a>
         <p class="note">מוזמנים לשלוח הודעה בוואטסאפ לכל שאלה.</p>
       </div>
     </div>
@@ -610,5 +621,6 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   q.addEventListener('input', calc); m.addEventListener('input', calc); calc();
 })();
 </script>
+<a class="wa-float" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%A8%D7%90%D7%99%D7%AA%D7%99%20%D7%90%D7%AA%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%D7%95%D7%94%D7%97%D7%95%D7%96%D7%99%D7%9D%20%D7%95%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" aria-label="שלחו הודעה בוואטסאפ"><svg aria-hidden="true"><use href="#i-wa"/></svg></a>
 </body>
 </html>
