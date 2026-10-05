@@ -214,6 +214,12 @@ figcaption b{color:var(--fg);display:block;font-size:1rem}
 .plan li svg{width:18px;height:18px;color:var(--accent);margin-top:4px}
 .seats{display:flex;gap:6px}
 .seats i{flex:1;height:8px;border-radius:4px;background:var(--accent)}
+.support-line{margin-top:24px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;border:1px dashed var(--accent);border-radius:18px;padding:16px 22px;background:var(--surface)}
+.support-line>svg{width:26px;height:26px;color:var(--accent);flex:none}
+.support-line>div:nth-child(2){flex:1;min-width:180px;display:grid}
+.support-line span{color:var(--muted);font-size:.95rem}
+.support-price{font-weight:700;color:var(--fg)}
+.support-price .num{font-size:1.6rem;font-weight:600;color:var(--accent)}
 .calm{margin-top:32px;display:grid;gap:20px;border:1px solid var(--line);border-radius:22px;padding:28px;background:var(--surface-2)}
 .calm-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:24px}
 .calm-grid>div{display:grid;gap:6px;align-content:start;min-width:0}
@@ -484,32 +490,36 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
       <div class="sec-head">
         <span class="eyebrow">מחיר</span>
         <h2>מערכת מותאמת לעסק שלך, בתשלום חד-פעמי</h2>
-        <p class="lead">המערכת נבנית עם המחירון, החבילות, התנאים והמיתוג שלך. אין דמי מנוי חודשיים.</p>
+        <p class="lead">המערכת נבנית עם המחירון, החבילות, התנאים והמיתוג שלך. משלמים פעם אחת על המערכת, ותמיכה טכנית חודשית רק למי שרוצה.</p>
       </div>
       <div class="plans">
         <div class="plan">
           <h3>מחיר רגיל</h3>
-          <div class="price"><span class="amt num">₪2,000</span><span>תשלום חד-פעמי</span></div>
+          <div class="price"><span class="amt num">₪1,999</span><span>תשלום חד-פעמי</span></div>
           <ul>
             <li><svg><use href="#i-check"/></svg>מחולל הצעות עם המחירון והחבילות שלך</li>
             <li><svg><use href="#i-check"/></svg>דף הצעה ללקוח בעיצוב ובצבעים של העסק</li>
             <li><svg><use href="#i-check"/></svg>חתימה דיגיטלית, PDF ומייל אוטומטי</li>
             <li><svg><use href="#i-check"/></svg>לוח בקרה עם סטטוסים והכנסות</li>
             <li><svg><use href="#i-check"/></svg>עמודי תקנון, פרטיות ונגישות</li>
-            <li><svg><use href="#i-check"/></svg>הדרכה קצרה וחודש תמיכה</li>
           </ul>
         </div>
         <div class="plan launch">
           <span class="badge">מבצע השקה · 5 הפונים הראשונים</span>
           <h3>מחיר השקה</h3>
-          <div class="price"><span class="amt num">₪999</span><s>₪2,000</s><span>חצי מחיר</span></div>
+          <div class="price"><span class="amt num">₪1,499</span><s>₪1,999</s><span>חוסכים ₪500</span></div>
           <ul>
             <li><svg><use href="#i-check"/></svg>כל מה שכלול במחיר הרגיל</li>
-            <li><svg><use href="#i-check"/></svg>3 חודשי תמיכה במקום חודש</li>
+            <li><svg><use href="#i-check"/></svg>חודשיים של תמיכה טכנית</li>
           </ul>
           <div style="display:grid;gap:8px"><small style="color:var(--muted)">5 מקומות במחיר ההשקה</small><div class="seats" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
           <a class="btn primary" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A8%20%D7%9E%D7%A7%D7%95%D7%9D%20%D7%91%D7%9E%D7%91%D7%A6%D7%A2%20%D7%94%D7%94%D7%A9%D7%A7%D7%94%20%D7%A9%D7%9C%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" style="justify-self:start">שמרו לי מקום בוואטסאפ</a>
         </div>
+      </div>
+      <div class="support-line">
+        <svg aria-hidden="true"><use href="#i-clock"/></svg>
+        <div><b>תמיכה טכנית חודשית</b><span>לכל מי שרוצה ליווי שוטף אחרי ההתקנה</span></div>
+        <div class="support-price"><span class="num">₪69</span> לחודש</div>
       </div>
       <div class="calm">
         <h3>אני מכין לך את המערכת, ואת/ה פשוט עובד/ת איתה</h3>
