@@ -85,7 +85,7 @@
 - **השהיה** חוסמת את הספק מיד, אבל הלקוחות שלו עדיין יכולים לחתום על הצעות שכבר נשלחו.
 
 ## הערות עבודה ל-Claude
-- ה-branch **היחיד** כאן הוא `claude/friendly-bardeen-ki4o7d`, והוא ה-default ש-Pages מפרסם ממנו. **push אליו מעלה לאוויר מיד.** לבדוק לפני push.
+- ⚠️ GitHub Pages מפרסם מ-**`main`**. ה-branch `claude/friendly-bardeen-ki4o7d` מוגדר כ-default ב-GitHub, אבל **הוא לא מה שבאוויר**. עובדים על ה-branch, פותחים PR ל-`main` ועושים squash merge, ואז האתר מתעדכן. אחרי מיזוג: `git fetch origin main && git checkout -B claude/friendly-bardeen-ki4o7d FETCH_HEAD`, ואחרי ה-commit: `merge -s ours` של ה-branch הישן, ואז push (force חסום).
 - `create_repository` מחזיר 403. Force push חסום.
 - בסביבת הענן הרשת חוסמת את cdnjs, jsDelivr ו-gstatic. לבדיקות:
   - Playwright עם `executablePath: '/opt/pw-browsers/chromium'`.
