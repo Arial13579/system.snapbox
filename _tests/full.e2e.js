@@ -152,7 +152,7 @@ async function draw(p){
   const offerUrl = await O.p.inputValue('#o_url');
   check(/\/offer\/\?k=[a-z0-9]{10}$/.test(offerUrl), 'offer link is short (…/offer/?k=xxxxxxxxxx): ' + offerUrl);
   check(decodeURIComponent((await O.p.getAttribute('#o_wa', 'href')).split('text=')[1]) === offerUrl, 'WhatsApp message to vendor = only the short link (image preview)');
-  check((await O.p.getAttribute('#o_wa', 'href')).startsWith('https://wa.me/972527654321'), 'WhatsApp link goes to vendor phone');
+  check((await O.p.getAttribute('#o_wa', 'href')).startsWith('https://wa.me/?text='), 'WhatsApp asks whom to send to (like the original system)');
 
   console.log('D. Prospective vendor signs the offer');
   const P = await newPage(b, MOB, 'prospect');
@@ -304,7 +304,7 @@ async function draw(p){
   await axe(I.p, 'ilana generator');
   await I.p.screenshot({ path: SHOTS + 'ilana-generator.png', fullPage: true });
   await I.p.click('#gen-btn'); await I.p.waitForSelector('#link-result:not(.hidden)');
-  check((await I.p.getAttribute('#wa-share-btn', 'href')).startsWith('https://wa.me/972521112233?text='), 'WhatsApp goes straight to the client phone');
+  check((await I.p.getAttribute('#wa-share-btn', 'href')).startsWith('https://wa.me/?text='), 'WhatsApp asks whom to send to (like the original system)');
   check((await I.p.getAttribute('#wa-preview-img', 'src')).includes('/hatzaa/ilana/og.jpg'), 'result shows the WhatsApp preview image');
   await I.p.waitForFunction(() => document.getElementById('wa-preview-img').naturalWidth === 1200, null, { timeout: 10000 }).catch(() => {});
   check(await I.p.evaluate(() => document.getElementById('wa-preview-img').naturalWidth) === 1200, 'preview image loads (1200×630)');

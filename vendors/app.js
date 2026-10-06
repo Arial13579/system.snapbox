@@ -321,15 +321,13 @@
         showResult(q, short.url);
         btn.disabled = false; btn.textContent = 'יצירת הצעה ללקוח';
     });
-    function waNumber(p){ const d = String(p || '').replace(/\D/g, ''); return d.startsWith('972') ? d : d.startsWith('0') ? '972' + d.slice(1) : d.length === 9 ? '972' + d : ''; }
     // ההודעה בוואטסאפ = הקישור הקצר בלבד. וואטסאפ מציג מעליו את התמונה של העסק, ולחיצה עליה פותחת את ההצעה.
     function showResult(q, url){
         const B = T.business || {};
         const msg = url;
         $('shareable-url').value = url;
-        const phone = waNumber(q.clientPhone);
-        $('wa-share-btn').href = 'https://wa.me/' + (phone.length >= 11 ? phone : '') + '?text=' + encodeURIComponent(msg);
-        $('wa-share-btn').textContent = phone.length >= 11 ? `שליחה בוואטסאפ ל-${q.clientName}` : 'שליחה ללקוח בוואטסאפ';
+        // כמו במערכת המקורית: וואטסאפ שואל למי לשלוח, וההודעה נשלחת כתמונה בלבד
+        $('wa-share-btn').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
         $('preview-btn').href = url; $('wa-preview').href = url;
         const img = $('wa-preview-img');
         img.onerror = () => { img.onerror = null; img.src = Core.PF.customerBase + '/assets/og-default.jpg'; };
