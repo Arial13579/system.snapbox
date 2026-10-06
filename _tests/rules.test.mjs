@@ -56,6 +56,37 @@ await ok('anon signs check quote', updateDoc(doc(anon, 'check_quotes/c1'), { sta
 await ok('anon attaches pdf check', updateDoc(doc(anon, 'check_quotes/c1'), { pdfData: 'x' }));
 await ok('owner deletes check quote', deleteDoc(doc(owner, 'check_quotes/c1')));
 
+console.log('Vendor terms consent');
+const cons = (who, t, email, v, extra = {}) => setDoc(doc(who, `tenants/${t}/consents/${email}|${v}`), { email, version: v, acceptedAt: serverTimestamp(), userAgent: 'UA', ...extra });
+await ok('noa records consent v1', cons(noa, 'noa', 'noa@gmail.com', 'v1'));
+await no('noa cannot overwrite consent v1', cons(noa, 'noa', 'noa@gmail.com', 'v1'));
+await ok('noa records consent v2 (new terms)', cons(noa, 'noa', 'noa@gmail.com', 'v2'));
+await no('noa cannot delete consent', deleteDoc(doc(noa, 'tenants/noa/consents/noa@gmail.com|v1')));
+await no('noa cannot consent for someone else', cons(noa, 'noa', 'x@gmail.com', 'v1'));
+await no('id/version mismatch denied', setDoc(doc(noa, 'tenants/noa/consents/noa@gmail.com|v9'), { email: 'noa@gmail.com', version: 'v1', acceptedAt: serverTimestamp(), userAgent: 'UA' }));
+await no('noa cannot consent in yossi', cons(noa, 'yossi', 'noa@gmail.com', 'v1'));
+await no('consent with extra fields denied', cons(yossi, 'yossi', 'yossi@gmail.com', 'v1', { admin: true }));
+await ok('noa reads own consent', getDoc(doc(noa, 'tenants/noa/consents/noa@gmail.com|v1')));
+await ok('owner reads consents', getDocs(collection(owner, 'tenants/noa/consents')));
+await no('anon cannot read consent', getDoc(doc(anon, 'tenants/noa/consents/noa@gmail.com|v1')));
+
+console.log('Vendor cannot touch subscription fields');
+await no('noa cannot extend own support', updateDoc(doc(noa, 'tenants/noa'), { supportUntil: '2099-01-01' }));
+await ok('owner sets support', updateDoc(doc(owner, 'tenants/noa'), { supportUntil: '2027-01-01', plan: 'launch' }));
+
+console.log('Platform quotes (owner → prospective vendor)');
+await ok('owner creates platform quote', setDoc(doc(owner, 'platformQuotes/p1'), { vendorName: 'V', total: 1499, status: 'pending' }));
+await no('vendor cannot read platform quotes', getDoc(doc(noa, 'platformQuotes/p1')));
+await no('vendor cannot create platform quote', setDoc(doc(noa, 'platformQuotes/p2'), { status: 'pending' }));
+await no('anon cannot read platform quote', getDoc(doc(anon, 'platformQuotes/p1')));
+await no('anon cannot change total', updateDoc(doc(anon, 'platformQuotes/p1'), { total: 1 }));
+await ok('anon signs platform quote', updateDoc(doc(anon, 'platformQuotes/p1'), { status: 'signed', signedAt: serverTimestamp(), ip: '1.1.1.1', userAgent: 'UA' }));
+await ok('anon attaches pdf', updateDoc(doc(anon, 'platformQuotes/p1'), { pdfData: 'x' }));
+await no('anon cannot replace pdf', updateDoc(doc(anon, 'platformQuotes/p1'), { pdfData: 'y' }));
+await no('stranger cannot list platform quotes', getDocs(collection(stranger, 'platformQuotes')));
+await ok('owner lists platform quotes', getDocs(collection(owner, 'platformQuotes')));
+await ok('owner deletes platform quote', deleteDoc(doc(owner, 'platformQuotes/p1')));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);

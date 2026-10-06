@@ -12,18 +12,24 @@
 <title>כניסת ספקים | מחולל הצעות מחיר</title>
 </head>
 <body>
+<a class="skip" href="#main">דילוג לתוכן</a>
 <header class="bar"><div class="in"><a class="brand" href="../"><span class="brand-mark">₪</span>מחולל הצעות מחיר</a></div></header>
-<main class="wrap">
+<main class="wrap" id="main">
   <section class="gate card">
     <div class="card-b">
       <h1>כניסת ספקים</h1>
       <p id="msg">מתחברים עם חשבון הגוגל שנרשם אצלנו, ומגיעים ישר לחשבון העסק שלכם.</p>
       <button type="button" class="btn primary lg" id="signin" disabled>טוען…</button>
-      <p class="err hidden" id="err"></p>
+      <p class="err hidden" id="err" role="alert"></p>
+      <p class="hint" style="margin-top:4px">הכניסה מהווה הסכמה ל<a href="../legal/terms.html">תנאי השימוש</a> ול<a href="../legal/privacy.html">מדיניות הפרטיות</a>.</p>
       <button type="button" class="link hidden" id="other">התחברות עם חשבון אחר</button>
     </div>
   </section>
 </main>
+<footer class="site-foot">
+  <nav aria-label="מסמכים"><a href="../legal/terms.html">תנאי שימוש והסכם שירות</a><a href="../legal/privacy.html">מדיניות פרטיות</a><a href="../legal/accessibility.html">הצהרת נגישות</a><a href="../">לאתר הראשי</a></nav>
+  <p>Snap Box · מחולל הצעות מחיר וחוזים</p>
+</footer>
 <script src="platform.js"></script>
 <script src="core.js"></script>
 <script>
@@ -53,5 +59,8 @@
     });
 })();
 </script>
+<script>window.PRIVACY_URL = '../legal/privacy.html';</script>
+<script src="../common/cookie.js"></script>
+<script src="../common/a11y.js"></script>
 </body>
 </html>

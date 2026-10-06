@@ -11,5 +11,21 @@ window.PLATFORM = {
         messagingSenderId: '928170638673',
         appId:             '1:928170638673:web:878d75caeda5469296e770'
     },
-    firestoreDatabaseId: 'default'
+    firestoreDatabaseId: 'default',
+
+    // פרטי קשר של Snap Box (מוצגים לספקים ובהצעות המחיר לספקים)
+    contact: { phone: '051-2440252', whatsapp: '972512440252', email: 'arielkahalani1@gmail.com' },
+
+    // גרסת תנאי השימוש לספקים. שינוי הגרסה מחייב כל ספק לאשר מחדש בכניסה הבאה
+    termsVersion: '2026-10-06',
+
+    // מחירון מכירת המערכת לספקים (משמש את "הצעת מחיר לספק" בלוח הניהול)
+    sales: {
+        plans: {
+            launch:  { label: 'מחיר השקה', price: 1499, listPrice: 1999, freeSupportMonths: 2 },
+            regular: { label: 'מחיר רגיל', price: 1999, listPrice: 1999, freeSupportMonths: 0 },
+            custom:  { label: 'מחיר מותאם', price: 0,    listPrice: 0,    freeSupportMonths: 0 }
+        },
+        supportMonthly: 69
+    }
 };

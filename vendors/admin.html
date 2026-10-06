@@ -9,33 +9,125 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <link rel="stylesheet" href="vendor.css">
-<title>לוח ניהול ספקים | מחולל הצעות מחיר</title>
+<title>לוח ניהול | מחולל הצעות מחיר</title>
 </head>
 <body>
+<a class="skip" href="#main">דילוג לתוכן</a>
 <header class="bar"><div class="in">
-  <a class="brand" href="../"><span class="brand-mark">₪</span>לוח ניהול ספקים</a>
+  <a class="brand" href="../"><span class="brand-mark" aria-hidden="true">₪</span>לוח ניהול · Snap Box</a>
   <div class="who"><span id="user-email"></span><button type="button" class="btn sm" id="signout">התנתקות</button></div>
 </div></header>
-<main class="wrap">
+<main class="wrap" id="main">
   <p class="loading" id="loading">טוען…</p>
   <section class="gate card hidden" id="blocked"><div class="card-b"><h1>אין גישה</h1><p>הדף הזה מיועד לבעלי המערכת בלבד.</p><a class="btn" href="./">חזרה לכניסה</a></div></section>
-  <div id="main" class="hidden">
-    <div class="kpis" id="kpis"></div>
-    <div class="card">
-      <div class="card-h"><h2>הספקים במערכת</h2><span class="hint" id="sync-status"></span></div>
-      <div class="tbl-wrap">
+
+  <div id="main-app" class="hidden">
+    <nav class="admin-tabs" role="tablist" aria-label="אזורי ניהול">
+      <button type="button" class="on" data-tab="vendors" role="tab">ספקים</button>
+      <button type="button" data-tab="offer" role="tab">הצעת מחיר לספק</button>
+      <button type="button" data-tab="offers" role="tab">הצעות שנשלחו</button>
+    </nav>
+
+    <!-- ===== ספקים ===== -->
+    <section id="tab-vendors">
+      <div class="kpis k6" id="kpis"></div>
+      <div class="card">
+        <div class="card-h"><h2>הספקים במערכת</h2><span class="hint" id="sync-status" role="status"></span></div>
+        <div class="tbl-wrap">
+          <table>
+            <thead><tr><th>ספק</th><th>חבילה ורכישה</th><th>תמיכה טכנית</th><th>הצעות</th><th>פעילות אחרונה</th><th>תנאי שימוש</th><th>סטטוס</th><th>פעולות</th></tr></thead>
+            <tbody id="tbody"><tr><td colspan="8" class="loading">טוען…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+      <p class="hint" style="margin-top:12px">ספק חדש מתווסף דרך Claude ומסונכרן אוטומטית בכל כניסה לדף הזה. השהיה חוסמת מיד את הכניסה של הספק (הלקוחות שלו עדיין יכולים לחתום על הצעות שכבר נשלחו).</p>
+    </section>
+
+    <!-- ===== הצעת מחיר לספק ===== -->
+    <section id="tab-offer" class="hidden">
+      <div class="offer-grid">
+        <div class="card">
+          <div class="card-h"><h2>הצעת מחיר חדשה לספק</h2></div>
+          <div class="card-b">
+            <form id="offer-form" class="grid2" autocomplete="off">
+              <div><label class="lbl" for="o_vendor">שם העסק *</label><input class="field" id="o_vendor" required placeholder="למשל DJ נועה"></div>
+              <div><label class="lbl" for="o_contact">איש/אשת קשר *</label><input class="field" id="o_contact" required placeholder="שם מלא"></div>
+              <div><label class="lbl" for="o_phone">טלפון <small>· לשליחה בוואטסאפ</small></label><input class="field ltr" style="text-align:left" id="o_phone" inputmode="tel" placeholder="050-0000000"></div>
+              <div><label class="lbl" for="o_type">תחום העסק</label><input class="field" id="o_type" list="o_types" placeholder="DJ / צלם / עיצוב אירועים"><datalist id="o_types"><option value="DJ"><option value="צלם/ת"><option value="עמדת צילום"><option value="עיצוב ובלונים"><option value="הפקת אירועים"><option value="להקה / נגנים"><option value="קייטרינג"></datalist></div>
+              <div class="span2"><label class="lbl" for="o_plan">חבילה *</label><select class="field" id="o_plan"></select></div>
+              <div><label class="lbl" for="o_price">מחיר המערכת (₪) *</label><input class="field" type="number" min="0" id="o_price" required></div>
+              <div><label class="lbl" for="o_free">חודשי תמיכה כלולים</label><input class="field" type="number" min="0" max="24" id="o_free"></div>
+              <div class="span2">
+                <label class="toggle-row"><input type="checkbox" id="o_support_on"> הוספת תמיכה טכנית בתשלום</label>
+                <div class="grid2" id="o_support_box" style="margin-top:10px" hidden>
+                  <div><label class="lbl" for="o_months">מספר חודשי תמיכה</label><input class="field" type="number" min="1" max="36" id="o_months" value="6"></div>
+                  <div><label class="lbl" for="o_monthly">מחיר לחודש (₪)</label><input class="field" type="number" min="0" id="o_monthly"></div>
+                  <div class="quick span2" id="o_quick"><button type="button" class="btn sm" data-m="3">3 חודשים</button><button type="button" class="btn sm" data-m="6">6 חודשים</button><button type="button" class="btn sm" data-m="12">שנה</button><button type="button" class="btn sm" data-m="24">שנתיים</button></div>
+                </div>
+              </div>
+              <div><label class="lbl" for="o_discount">הנחה (₪)</label><input class="field" type="number" min="0" id="o_discount" value="0"></div>
+              <div><label class="lbl" for="o_valid">תוקף ההצעה (ימים)</label><input class="field" type="number" min="1" id="o_valid" value="14"></div>
+              <div class="span2"><label class="lbl" for="o_notes">הערות / סיכום שיחה <small>· יופיע בהצעה</small></label><textarea class="field" id="o_notes" rows="2"></textarea></div>
+              <button type="submit" class="btn primary lg block span2" id="o_gen">יצירת קישור להצעה</button>
+            </form>
+            <div id="o_result" class="result hidden" role="status">
+              <b>✓ ההצעה נשמרה והקישור מוכן</b>
+              <div class="row"><input type="text" id="o_url" readonly dir="ltr" class="field" aria-label="קישור להצעה"><button type="button" id="o_copy" class="btn sm">העתק</button></div>
+              <div class="row"><a id="o_wa" href="#" target="_blank" rel="noopener" class="btn wa block">שליחה בוואטסאפ</a><a id="o_preview" href="#" target="_blank" rel="noopener" class="btn">תצוגה</a></div>
+            </div>
+          </div>
+        </div>
+        <aside class="card sum-card" aria-label="סיכום ההצעה">
+          <div class="card-h"><h2>סיכום</h2></div>
+          <div class="card-b" id="o_summary"></div>
+        </aside>
+      </div>
+    </section>
+
+    <!-- ===== הצעות שנשלחו ===== -->
+    <section id="tab-offers" class="hidden">
+      <div class="kpis" id="okpis"></div>
+      <div class="card tbl-wrap">
         <table>
-          <thead><tr><th>ספק</th><th>כתובת</th><th>מורשים להתחבר</th><th>הצעות</th><th>נחתמו</th><th>סטטוס</th><th>פעולות</th></tr></thead>
-          <tbody id="tbody"><tr><td colspan="7" class="loading">טוען…</td></tr></tbody>
+          <thead><tr><th>נשלחה</th><th>עסק</th><th>חבילה</th><th>תמיכה</th><th>סה"כ</th><th>סטטוס</th><th>קובץ</th><th>פעולות</th></tr></thead>
+          <tbody id="otbody"><tr><td colspan="8" class="loading">טוען…</td></tr></tbody>
         </table>
       </div>
-    </div>
-    <p class="hint" style="margin-top:14px">ספק חדש מתווסף לרשימה דרך Claude, ומסונכרן אוטומטית בכל כניסה לדף הזה. השהיה חוסמת מיד את הכניסה של הספק לחשבון (הלקוחות שלו עדיין יכולים לחתום על הצעות שכבר נשלחו).</p>
+    </section>
   </div>
 </main>
+
+<!-- חלון עריכת פרטי ספק -->
+<dialog class="modal" id="edit-dlg" aria-labelledby="edit-title">
+  <form method="dialog" id="edit-form">
+    <div class="card-h"><h2 id="edit-title">פרטי ספק</h2><button type="button" class="btn sm" id="edit-close" aria-label="סגירה">✕</button></div>
+    <div class="card-b grid2">
+      <div><label class="lbl" for="e_contact">איש/אשת קשר</label><input class="field" id="e_contact"></div>
+      <div><label class="lbl" for="e_phone">טלפון</label><input class="field ltr" style="text-align:left" id="e_phone" inputmode="tel"></div>
+      <div><label class="lbl" for="e_plan">חבילה</label><select class="field" id="e_plan"></select></div>
+      <div><label class="lbl" for="e_paid">סכום ששולם (₪)</label><input class="field" type="number" min="0" id="e_paid"></div>
+      <div><label class="lbl" for="e_purchase">תאריך רכישה</label><input class="field" type="date" id="e_purchase"></div>
+      <div><label class="lbl" for="e_until">תמיכה בתוקף עד</label><input class="field" type="date" id="e_until"></div>
+      <div class="span2"><span class="lbl">הארכת תמיכה מהיום או מסוף התקופה הנוכחית</span>
+        <div class="quick" id="e_quick"><button type="button" class="btn sm" data-m="1">+ חודש</button><button type="button" class="btn sm" data-m="2">+ חודשיים</button><button type="button" class="btn sm" data-m="3">+ 3 חודשים</button><button type="button" class="btn sm" data-m="6">+ חצי שנה</button><button type="button" class="btn sm" data-m="12">+ שנה</button><button type="button" class="btn sm danger" data-m="0">ביטול תמיכה</button></div>
+      </div>
+      <div class="span2"><label class="lbl" for="e_notes">הערות פנימיות <small>· רק אתה רואה</small></label><textarea class="field" id="e_notes" rows="3"></textarea></div>
+      <p class="hint span2" id="e_status" role="status"></p>
+      <button type="submit" class="btn primary block span2" id="e_save" value="save">שמירה</button>
+    </div>
+  </form>
+</dialog>
+
+<footer class="site-foot">
+  <nav aria-label="מסמכים"><a href="../legal/terms.html">תנאי שימוש והסכם שירות</a><a href="../legal/privacy.html">מדיניות פרטיות</a><a href="../legal/accessibility.html">הצהרת נגישות</a></nav>
+  <p>Snap Box · לוח ניהול</p>
+</footer>
 <script src="platform.js"></script>
 <script src="registry.js"></script>
 <script src="core.js"></script>
 <script src="admin.js"></script>
+<script>window.PRIVACY_URL = '../legal/privacy.html';</script>
+<script src="../common/cookie.js"></script>
+<script src="../common/a11y.js"></script>
 </body>
 </html>

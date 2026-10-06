@@ -2,9 +2,9 @@
 (async () => {
     const $ = id => document.getElementById(id), esc = Core.esc;
     const slug = (new URLSearchParams(location.search).get('t') || '').toLowerCase();
-    let fb, T, P, user, isOwnerView = false;
+    let fb, T, P, user, tenantData = {}, isOwnerView = false;
 
-    function block(msg){ $('loading').classList.add('hidden'); $('main').classList.add('hidden'); $('blocked').classList.remove('hidden'); $('blocked-msg').textContent = msg; }
+    function block(msg){ $('loading').classList.add('hidden'); $('main-app').classList.add('hidden'); $('consent').classList.add('hidden'); $('blocked').classList.remove('hidden'); $('blocked-msg').textContent = msg; }
     $('signout').addEventListener('click', () => Core.signOut());
 
     try { fb = await Core.fb(); } catch(e) { block('טעינת המערכת נכשלה. רעננו את הדף.'); return; }
@@ -25,11 +25,51 @@
         try {
             const snap = await fb.fs.getDoc(fb.fs.doc(fb.db, 'tenants', slug));
             if (!snap.exists()) { block(isOwnerView ? 'הספק עדיין לא סונכרן. היכנס ללוח הניהול כדי לסנכרן.' : 'החשבון לא נמצא.'); return; }
+            tenantData = snap.data() || {};
         } catch(e) { block('החשבון מושהה או שאין לך הרשאה אליו. לבירור פנו ל-Snap Box.'); return; }
         try { T = await Core.loadTenant(slug); } catch(e) { block('לא נמצאו הגדרות העסק. פנו ל-Snap Box.'); return; }
         P = T.pricing || {};
+        if (!isOwnerView && !(await hasConsent())) { askConsent(); return; }
         render();
     });
+
+    /* ================= אישור תנאי שימוש ================= */
+    const consentId = () => (user.email || '').toLowerCase() + '|' + Core.PF.termsVersion;
+    async function hasConsent(){
+        try { return (await fb.fs.getDoc(fb.fs.doc(fb.db, 'tenants', slug, 'consents', consentId()))).exists(); }
+        catch(e) { return false; }
+    }
+    function askConsent(){
+        $('loading').classList.add('hidden');
+        $('consent').classList.remove('hidden');
+        const chk = $('consent-check'), btn = $('consent-btn');
+        chk.addEventListener('change', () => { btn.disabled = !chk.checked; });
+        btn.addEventListener('click', async () => {
+            btn.disabled = true; btn.textContent = 'שומר…';
+            try {
+                await fb.fs.setDoc(fb.fs.doc(fb.db, 'tenants', slug, 'consents', consentId()), {
+                    email: (user.email || '').toLowerCase(), version: Core.PF.termsVersion, acceptedAt: fb.fs.serverTimestamp(), userAgent: navigator.userAgent.slice(0, 300) });
+                $('consent').classList.add('hidden');
+                render();
+            } catch(e) { $('consent-err').textContent = 'השמירה נכשלה, נסו שוב.'; btn.disabled = false; btn.textContent = 'אישור וכניסה לחשבון'; }
+        });
+    }
+
+    /* ================= כרטיס תמיכה טכנית ================= */
+    function renderSupport(){
+        const st = Core.supportStatus(tenantData), c = Core.PF.contact || {}, card = $('support-card');
+        const wa = 'https://wa.me/' + (c.whatsapp || '') + '?text=' + encodeURIComponent(`היי, זה ${T.business.name}. אשמח ${st.state === 'active' ? 'לעזרה' : 'לחדש את התמיכה הטכנית'} 🙂`);
+        $('wa-support').href = wa;
+        const total = tenantData.supportMonths ? tenantData.supportMonths * 30 : 60;
+        const frac = st.state === 'active' || st.state === 'expiring' ? Math.max(0.04, Math.min(1, st.days / total)) : 0;
+        const C = 2 * Math.PI * 18;
+        card.className = 'support-card ' + st.state;
+        card.innerHTML = `<svg class="ring" viewBox="0 0 44 44" aria-hidden="true"><circle class="bg" cx="22" cy="22" r="18"/><circle class="fg" cx="22" cy="22" r="18" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - frac)}" transform="rotate(-90 22 22)" stroke-linecap="round"/></svg>
+            <div><div class="t">תמיכה טכנית</div>
+            ${st.state === 'none' ? `<div class="v">לא כלולה כרגע</div><a href="${wa}" target="_blank" rel="noopener">להוספת תמיכה בוואטסאפ</a>`
+              : st.state === 'expired' ? `<div class="v">הסתיימה</div><div class="s">ב-${Core.fmtDate(st.until)}</div><a href="${wa}" target="_blank" rel="noopener">לחידוש בוואטסאפ</a>`
+              : `<div class="v">נותרו ${esc(st.left)}</div><div class="s">${esc(st.label)}</div>${st.state === 'expiring' ? `<a href="${wa}" target="_blank" rel="noopener">לחידוש בוואטסאפ</a>` : ''}`}</div>`;
+    }
 
     /* ================= תצוגה כללית ================= */
     function render(){
@@ -41,6 +81,7 @@
         $('t-name').textContent = B.name;
         $('t-tag').textContent = B.tagline || '';
         if (isOwnerView) { $('owner-banner').classList.remove('hidden'); $('ob-name').textContent = B.name; }
+        renderSupport();
         $('lbl-service').textContent = L.service + ' *';
         $('th-service').textContent = L.service;
         $('event-types').innerHTML = (L.eventTypes || []).map(x => `<option value="${esc(x)}">`).join('');
@@ -48,7 +89,7 @@
         if (P.DEFAULT_SERVICE) $('in_service').value = P.DEFAULT_SERVICE;
         $('in_deposit').value = P.DEPOSIT != null ? P.DEPOSIT : 0;
         $('loading').classList.add('hidden');
-        $('main').classList.remove('hidden');
+        $('main-app').classList.remove('hidden');
         document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
         if (location.hash === '#dash') showTab('dash');
     }
