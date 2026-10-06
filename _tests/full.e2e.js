@@ -247,9 +247,14 @@ async function draw(p){
   await L.p.waitForSelector('#err:not(.hidden)', { timeout: 15000 });
   check((await L.p.textContent('#err')).includes('לא רשום'), 'unregistered account gets a clear message');
   check(await L.p.isVisible('#other'), '"other Google account" button shown');
+  await L.p.waitForFunction(() => Core.fb().then(f => !f.auth.currentUser), null, { timeout: 10000 }).catch(() => {});
+  check(await L.p.evaluate(() => Core.fb().then(f => !f.auth.currentUser)), 'unregistered account is signed out immediately (not remembered)');
+  check(await L.p.evaluate(() => Core.rememberedEmail()) === '', 'unregistered email is not remembered on the device');
   await L.p.evaluate(() => { window.__lastAuthParams = null; });
   await L.p.click('#other');
   check((await authParams(L.p)).prompt === 'select_account', '"other account" opens the Google account chooser');
+  await L.p.reload(); await L.p.waitForSelector('#signin:not([disabled])');
+  check(await L.p.isHidden('#err') && (await L.p.textContent('#signin')).includes('התחברות עם Google'), 'next visit starts clean (no "not registered" loop)');
   await axe(L.p, 'login – not registered');
   // ספקית שהתחברה פעם אחת — המכשיר זוכר אותה
   const R = await newPage(b, MOB, 'remember');
