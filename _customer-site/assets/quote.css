@@ -1,0 +1,159 @@
+/* דף הצעת המחיר ללקוח — עיצוב נקי שמקבל את צבעי הספק דרך משתנים (נקבעים ב-quote.js מתוך config.js של הספק). */
+:root{
+    --bg:#F5F4F1; --card:#FFFFFF; --ink:#1B1B1F; --muted:#6B6B76; --faint:#A3A3AD; --line:#E6E4DF;
+    --brand:#2B59FF; --brand-ink:#FFFFFF; --brand-soft:rgba(43,89,255,.08); --brand-dk:#1E3FB8; --brand-mid:#9DB2FF;
+    --ok:#18794E; --warn:#A35C00; --bad:#C62828;
+    --r:18px; --font:'Heebo';
+}
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ margin:0; background:var(--bg); }
+body{ font-family:var(--font),'Heebo',system-ui,sans-serif; color:var(--ink); line-height:1.6; -webkit-font-smoothing:antialiased;
+    padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); min-height:100dvh; }
+a{ color:inherit; }
+.hidden{ display:none !important; }
+.ltr{ direction:ltr; unicode-bidi:isolate; }
+:focus-visible{ outline:3px solid var(--brand); outline-offset:2px; }
+
+.page{ max-width:740px; margin:0 auto; padding:20px 16px 0; display:flex; flex-direction:column; gap:20px; }
+@media(min-width:640px){ .page{ padding-top:36px; gap:24px; } }
+
+/* ---------- מיתוג הספק ---------- */
+.vhead{ display:flex; align-items:center; gap:14px; }
+.vlogo{ width:56px; height:56px; border-radius:16px; flex:none; overflow:hidden; display:grid; place-items:center;
+    background:var(--brand); color:var(--brand-ink); font-weight:800; font-size:22px; box-shadow:0 6px 18px -8px var(--brand); }
+.vlogo img{ width:100%; height:100%; object-fit:contain; background:#fff; }
+.vlogo.has-img{ background:#fff; box-shadow:0 0 0 1px var(--line); }
+.vname{ margin:0; font-size:21px; font-weight:800; line-height:1.2; }
+.vtag{ margin:2px 0 0; font-size:13.5px; color:var(--muted); }
+
+/* ---------- כרטיסים ---------- */
+.card{ background:var(--card); border-radius:var(--r); box-shadow:0 1px 2px rgba(0,0,0,.04), 0 10px 30px -18px rgba(0,0,0,.18); border:1px solid var(--line); overflow:hidden; }
+.card-h{ display:flex; align-items:center; gap:10px; padding:16px 20px; border-bottom:1px solid var(--line); }
+.card-h .n{ width:28px; height:28px; border-radius:9px; display:grid; place-items:center; background:var(--brand-soft); color:var(--brand); font-weight:800; font-size:13px; flex:none; }
+.card-h h2{ margin:0; font-size:17.5px; font-weight:800; }
+.card-b{ padding:20px; }
+@media(min-width:640px){ .card-h{ padding:18px 26px } .card-b{ padding:24px 26px } }
+
+/* ---------- כרטיס ראשי ---------- */
+.hero{ padding:22px 20px 20px; background:var(--brand); background:linear-gradient(135deg, var(--brand), var(--brand-dk)); color:var(--brand-ink); }
+@media(min-width:640px){ .hero{ padding:28px 26px 24px; } }
+.hero .row{ display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap; }
+.pill{ display:inline-block; font-size:12px; font-weight:700; padding:4px 12px; border-radius:999px; background:rgba(255,255,255,.18); }
+.hero .qid{ font-family:ui-monospace,Menlo,monospace; font-size:12px; opacity:.75; }
+.hero .for{ margin:16px 0 2px; font-size:13px; opacity:.8; }
+.hero h1{ margin:0; font-size:clamp(28px,7.5vw,40px); line-height:1.1; font-weight:900; overflow-wrap:anywhere; }
+.hero .what{ margin-top:8px; font-size:15px; font-weight:600; opacity:.92; }
+
+.facts{ display:grid; grid-template-columns:1fr 1fr; }
+@media(min-width:640px){ .facts{ grid-template-columns:repeat(3,1fr); } }
+.fact{ padding:14px 18px; border-bottom:1px solid var(--line); border-left:1px solid var(--line); min-width:0; }
+.fact .k{ display:flex; align-items:center; gap:6px; font-size:12px; color:var(--muted); font-weight:600; }
+.fact .k svg{ width:14px; height:14px; color:var(--brand); }
+.fact .v{ display:block; font-weight:700; font-size:15px; margin-top:2px; overflow-wrap:anywhere; }
+.fact .v small{ display:block; font-weight:400; color:var(--muted); font-size:12.5px; }
+
+.money{ display:grid; grid-template-columns:repeat(3,1fr); }
+.money > div{ padding:16px 12px; text-align:center; border-left:1px solid var(--line); }
+.money > div:last-child{ border-left:0; }
+.money .k{ font-size:12px; color:var(--muted); font-weight:600; }
+.money .v{ font-weight:800; font-size:clamp(17px,4.6vw,22px); margin-top:2px; white-space:nowrap; }
+.money .total{ background:var(--brand-soft); }
+.money .total .v{ color:var(--brand); }
+.notes{ border-top:1px solid var(--line); padding:16px 20px; background:#FAFAF8; }
+.notes .k{ display:flex; align-items:center; gap:6px; font-size:12.5px; font-weight:700; color:var(--muted); margin-bottom:4px; }
+.notes .k svg{ width:15px; height:15px; }
+.notes p{ margin:0; white-space:pre-wrap; font-size:14.5px; }
+
+.incl{ list-style:none; margin:0; padding:0; display:grid; grid-template-columns:1fr; gap:10px; }
+@media(min-width:640px){ .incl{ grid-template-columns:1fr 1fr; } }
+.incl li{ display:flex; gap:10px; align-items:flex-start; padding:12px 14px; border-radius:12px; background:#FAFAF8; border:1px solid var(--line); font-size:14.5px; font-weight:500; line-height:1.45; }
+.incl li svg{ width:18px; height:18px; flex:none; color:var(--brand); margin-top:1px; }
+
+.terms{ margin:0; padding-inline-start:20px; font-size:13.8px; line-height:1.85; color:#3C3C44; text-align:justify; }
+.terms li{ margin-bottom:6px; }
+
+/* ---------- חתימה ---------- */
+.lbl{ display:block; font-size:13px; font-weight:700; margin-bottom:6px; }
+.sig-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; }
+.link{ background:none; border:0; padding:0; cursor:pointer; font:inherit; font-weight:700; font-size:13.5px; color:var(--brand); text-decoration:underline; text-underline-offset:3px; }
+canvas#sig-canvas{ display:block; width:100%; height:180px; touch-action:none; cursor:crosshair; border-radius:14px;
+    border:1.5px dashed var(--brand-mid); background:#fff;
+    background-image:linear-gradient(to top, transparent 38px, var(--line) 38px, var(--line) 40px, transparent 40px); }
+.hint{ font-size:12px; color:var(--muted); margin:6px 0 0; }
+.callout{ border-radius:12px; background:var(--brand-soft); padding:13px 15px; font-size:13.5px; line-height:1.7; }
+.agree{ display:flex; gap:10px; align-items:flex-start; font-size:13.5px; line-height:1.6; cursor:pointer; }
+.agree input{ width:20px; height:20px; margin-top:1px; accent-color:var(--brand); flex:none; }
+.agree a{ color:var(--brand); font-weight:700; }
+
+.btn{ display:inline-flex; align-items:center; justify-content:center; gap:9px; cursor:pointer; border:0; border-radius:14px; padding:15px 22px;
+    font:inherit; font-weight:800; font-size:16.5px; text-decoration:none; background:var(--brand); color:var(--brand-ink);
+    box-shadow:0 10px 24px -12px var(--brand); transition:transform .15s, filter .15s; }
+.btn:hover{ filter:brightness(1.06); }
+.btn:active{ transform:scale(.98); }
+.btn:disabled{ opacity:.6; cursor:wait; }
+.btn svg{ width:20px; height:20px; }
+.btn-block{ width:100%; }
+.btn-light{ background:#fff; color:var(--ink); box-shadow:0 0 0 1px var(--line), 0 6px 16px -10px rgba(0,0,0,.3); }
+
+.done{ border-radius:14px; background:#EAF6EF; border:1px solid #A9D8BD;
+    padding:22px; text-align:center; display:flex; flex-direction:column; align-items:center; gap:6px; font-weight:800; font-size:18px; color:var(--ok); }
+.done svg{ width:36px; height:36px; }
+.done span{ font-weight:400; font-size:14px; color:var(--ink); }
+.warnbox{ border-radius:12px; background:#FFF6E5; border:1px solid #F0C982; padding:14px; font-size:14px; display:flex; flex-direction:column; gap:4px; }
+.warnbox p{ margin:0; }
+
+/* ---------- שכבת טעינה ---------- */
+#pdf-overlay{ position:fixed; inset:0; z-index:9999; background:rgba(245,244,241,.95); display:none; flex-direction:column; align-items:center; justify-content:center; gap:12px; text-align:center; padding:20px; }
+#pdf-overlay .spin{ width:46px; height:46px; border-radius:50%; border:4px solid var(--brand-soft); border-top-color:var(--brand); animation:spin .9s linear infinite; }
+#pdf-overlay b{ font-size:18px; }
+#pdf-overlay span{ color:var(--muted); font-size:14px; }
+@keyframes spin{ to{ transform:rotate(360deg) } }
+
+/* ---------- יומן ---------- */
+#cal-fab-wrap{ position:fixed; z-index:900; left:16px; bottom:calc(env(safe-area-inset-bottom) + 18px); }
+html.has-cookie-bar #cal-fab-wrap{ bottom:calc(env(safe-area-inset-bottom) + 96px); }
+#cal-fab{ border-radius:999px; padding:12px 18px; font-size:15px; }
+#cal-fab.is-busy{ opacity:.7; pointer-events:none; }
+
+.foot{ text-align:center; color:var(--muted); font-size:12.5px; padding:22px 0 30px; }
+.foot .pills{ display:flex; justify-content:center; flex-wrap:wrap; gap:8px; margin:10px 0; }
+.foot .pills a{ text-decoration:none; font-weight:600; border:1px solid var(--line); border-radius:999px; padding:6px 13px; background:var(--card); }
+.foot .pills a:hover{ border-color:var(--brand); color:var(--brand); }
+
+@keyframes rise{ from{ opacity:0; transform:translateY(12px) } to{ opacity:1; transform:none } }
+.rise{ animation:rise .45s cubic-bezier(.2,.8,.2,1) both; }
+@media (prefers-reduced-motion:reduce){ .rise{ animation:none } #pdf-overlay .spin{ animation-duration:3s } }
+
+/* ---------- מסמך ה-PDF (מוסתר; fixed כדי לא להרחיב את הדף ב-RTL) ---------- */
+#pdf-doc{ position:fixed; left:0; top:0; width:760px; visibility:hidden; pointer-events:none; background:#fff; color:#111; z-index:-1; font-family:var(--font),'Heebo',Arial,sans-serif; }
+#pdf-doc *{ box-sizing:border-box; margin:0; padding:0; }
+#pdf-doc .doc-inner{ padding:32px 36px; }
+#pdf-doc .doc-section{ margin-bottom:20px; }
+#pdf-doc .doc-head{ display:flex; align-items:center; justify-content:space-between; gap:16px; border-bottom:4px solid var(--brand); padding-bottom:14px; }
+#pdf-doc .doc-brand{ display:flex; align-items:center; gap:12px; }
+#pdf-doc .doc-brand img{ width:54px; height:54px; object-fit:contain; }
+#pdf-doc .doc-brand .nm{ font-size:24px; font-weight:900; color:#111; }
+#pdf-doc .doc-brand .tg{ font-size:11.5px; color:#666; margin-top:3px; }
+#pdf-doc .doc-title{ font-size:15px; font-weight:800; text-align:left; }
+#pdf-doc .doc-title small{ display:block; font-size:11px; color:#777; font-weight:500; margin-top:3px; }
+#pdf-doc table{ width:100%; border-collapse:collapse; }
+#pdf-doc td{ border:1px solid #D9D9DE; padding:9px 11px; font-size:13.5px; vertical-align:top; }
+#pdf-doc td.k{ background:#F4F4F6; font-weight:700; width:96px; white-space:nowrap; color:#333; }
+#pdf-doc td.hl{ background:var(--brand-soft); font-weight:800; }
+#pdf-doc .doc-h{ font-size:15px; font-weight:800; border-right:5px solid var(--brand); padding-right:9px; margin-bottom:11px; }
+#pdf-doc ul,#pdf-doc ol{ list-style:none; }
+#pdf-doc li{ font-size:12.5px; margin-bottom:5px; line-height:1.55; color:#333; }
+#pdf-doc li .mk{ display:inline-block; min-width:20px; font-weight:800; color:var(--brand); }
+#pdf-doc .terms-pdf li{ font-size:11.5px; line-height:1.75; text-align:justify; color:#444; }
+#pdf-doc .doc-notes{ font-size:12.5px; line-height:1.6; white-space:pre-wrap; background:#FAFAF8; border:1px solid #E6E4DF; padding:10px 12px; border-radius:6px; }
+#pdf-doc .doc-sign{ border:1.5px solid #333; border-radius:8px; padding:16px; }
+#pdf-doc .doc-sign p{ font-size:13px; line-height:1.6; margin-bottom:11px; }
+#pdf-doc img.sig{ display:block; width:300px; height:120px; object-fit:contain; border:1px solid #AAA; background:#fff; border-radius:4px; }
+#pdf-doc .doc-meta{ font-size:11px; color:#666; margin-top:9px; line-height:1.6; }
+#pdf-doc .doc-foot{ text-align:center; font-size:10px; color:#999; margin-top:26px; border-top:1px solid #E6E4DF; padding-top:12px; }
+@media print{
+    body.printing-doc{ background:#fff !important; }
+    body.printing-doc>*:not(#pdf-doc){ display:none !important; }
+    body.printing-doc #pdf-doc{ position:static !important; visibility:visible !important; width:100% !important; z-index:auto !important; }
+    #pdf-doc{ -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+}
