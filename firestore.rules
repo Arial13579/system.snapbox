@@ -60,6 +60,21 @@ service cloud.firestore {
       }
     }
 
+    // ---- אישור תנאי השימוש של ספק: רשומה לכל גרסת תנאים (מייל|גרסה), נרשמת פעם אחת ולא ניתנת לשינוי ----
+    match /tenants/{t}/consents/{consentId} {
+      allow read: if isOwner() || isVendorOf(t);
+      allow create: if isVendorOf(t)
+        && consentId == request.auth.token.email + '|' + request.resource.data.version
+        && request.resource.data.email == request.auth.token.email
+        && request.resource.data.keys().hasOnly(['email', 'version', 'acceptedAt', 'userAgent']);
+    }
+
+    // ---- הצעות מחיר של הבעלים לספקים (מכירת המערכת) ----
+    match /platformQuotes/{q} {
+      allow read, create, delete: if isOwner();
+      allow update: if isOwner() || isClientSigning() || isClientAttachingPdf();
+    }
+
     // ---- אינדקס כניסת ספקים: כל מחובר קורא רק את הרשומה של המייל שלו ----
     match /vendorIndex/{email} {
       allow get: if isOwner() || (signedIn() && request.auth.token.email == email);

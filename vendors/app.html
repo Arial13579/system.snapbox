@@ -12,18 +12,40 @@
 <title>החשבון שלי | מחולל הצעות מחיר</title>
 </head>
 <body>
+<a class="skip" href="#main">דילוג לתוכן</a>
 <header class="bar"><div class="in">
   <a class="brand" href="../"><span class="brand-mark">₪</span>מחולל הצעות מחיר</a>
   <div class="who"><span id="user-email"></span><button type="button" class="btn sm" id="signout">התנתקות</button></div>
 </div></header>
 
-<main class="wrap">
+<main class="wrap" id="main">
   <p class="loading" id="loading">טוען את החשבון…</p>
   <section class="gate card hidden" id="blocked"><div class="card-b"><h1>אין גישה</h1><p id="blocked-msg"></p><a class="btn" href="./">חזרה לכניסה</a></div></section>
 
-  <div id="main" class="hidden">
+  <!-- ===== אישור תנאי שימוש (פעם אחת לכל גרסת תנאים) ===== -->
+  <section class="consent card hidden" id="consent" aria-labelledby="consent-h">
+    <div class="card-b">
+      <span class="eyebrow-pill">ברוכים הבאים</span>
+      <h1 id="consent-h">לפני שמתחילים</h1>
+      <p>כדי להשתמש במערכת יש לקרוא ולאשר את <a href="../legal/terms.html" target="_blank" rel="noopener">תנאי השימוש והסכם השירות</a> ואת <a href="../legal/privacy.html" target="_blank" rel="noopener">מדיניות הפרטיות</a>. עיקרי הדברים:</p>
+      <ul class="consent-list">
+        <li>אתם אחראים למחירים ולתנאים שמוצגים ללקוחות שלכם. Snap Box מספקת את הכלי בלבד.</li>
+        <li>ל-Snap Box יש גישה טכנית לחשבון לצורך הקמה, תמיכה ובדיקות בלבד.</li>
+        <li>הנתונים של הלקוחות שלכם שייכים לכם ונשמרים בצורה מאובטחת.</li>
+        <li>תקופת התמיכה הטכנית מוצגת לכם בחשבון בכל עת.</li>
+      </ul>
+      <label class="agree"><input type="checkbox" id="consent-check"> <span>קראתי ואני מאשר/ת את תנאי השימוש, הסכם השירות ומדיניות הפרטיות.</span></label>
+      <button type="button" class="btn primary lg" id="consent-btn" disabled>אישור וכניסה לחשבון</button>
+      <p class="hint" id="consent-err"></p>
+    </div>
+  </section>
+
+  <div id="main-app" class="hidden">
     <div class="owner-banner hidden" id="owner-banner"><span>מצב בעלים · אתה צופה בחשבון של <b id="ob-name"></b></span><a class="btn sm" href="admin.html">חזרה ללוח הניהול</a></div>
-    <div class="tenant-head"><span class="tlogo" id="t-logo"></span><div><h1 id="t-name"></h1><p id="t-tag"></p></div></div>
+    <div class="top-row">
+      <div class="tenant-head"><span class="tlogo" id="t-logo" aria-hidden="true"></span><div><h1 id="t-name"></h1><p id="t-tag"></p></div></div>
+      <div class="support-card" id="support-card" role="status"></div>
+    </div>
     <div class="tabs" role="tablist">
       <button type="button" class="on" data-tab="new" role="tab">הצעה חדשה</button>
       <button type="button" data-tab="dash" role="tab">לוח בקרה</button>
@@ -76,10 +98,17 @@
     </section>
   </div>
 </main>
+<footer class="site-foot">
+  <nav aria-label="מסמכים"><a href="../legal/terms.html">תנאי שימוש והסכם שירות</a><a href="../legal/privacy.html">מדיניות פרטיות</a><a href="../legal/accessibility.html">הצהרת נגישות</a><a href="#" id="wa-support">תמיכה בוואטסאפ</a></nav>
+  <p>Snap Box · מחולל הצעות מחיר וחוזים</p>
+</footer>
 <input type="file" id="fileUploadInput" accept="application/pdf" style="display:none">
 
 <script src="platform.js"></script>
 <script src="core.js"></script>
 <script src="app.js"></script>
+<script>window.PRIVACY_URL = '../legal/privacy.html';</script>
+<script src="../common/cookie.js"></script>
+<script src="../common/a11y.js"></script>
 </body>
 </html>

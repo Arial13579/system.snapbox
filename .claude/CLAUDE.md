@@ -50,11 +50,31 @@
 
 **`_tests/`:** `rules.test.mjs` (36 בדיקות כללים), `e2e.js` (בדיקה מקצה לקצה, Playwright מול אמולטורים). שניהם עברו.
 
+## עדכון 2026-10-06 (ערב): לוח ניהול מלא, הצעות לספקים, משפטי ונגישות
+- **אתר המכירה** (`index.html`): כפתור "כניסת ספקים", קישורים בפוטר לתנאים, לפרטיות ולנגישות, קישור דילוג לתוכן, תפריט נגישות והודעת עוגיות (`common/a11y.js`, `common/cookie.js`). הצבעים תוקנו כך שעוברים WCAG AA (טורקיז `#0f766e` במקום `#0d9488`).
+- **`legal/`**: `terms.html` (תנאי שימוש והסכם שירות לספקים), `privacy.html`, `accessibility.html`. הם בעיצוב של מערכת הספקים, עם תוכן עניינים.
+- **ספק, בכניסה הראשונה**: מסך אישור תנאים. נשמר ב-`tenants/{slug}/consents/{email|version}`. הגרסה מוגדרת ב-`platform.js → termsVersion`. **כשמשנים את התנאים, מעלים את הגרסה, וכל ספק יאשר שוב.**
+- **כרטיס "תמיכה טכנית"** בחשבון הספק: נותרו X חודשים, עד תאריך, עם כפתור חידוש בוואטסאפ. מבוסס על `tenants/{slug}.supportUntil`. ספק **לא יכול** לשנות את זה (נבדק).
+- **לוח הניהול** (`admin.html`), בשלושה טאבים:
+  1. **ספקים**:
+     - מדדים: ספקים, תמיכה פעילה, תמיכה שמסתיימת בתוך 30 יום, תמיכה שהסתיימה, הצעות, סכום מכירות.
+     - טבלה: איש קשר, חבילה ורכישה, תמיכה, הצעות, פעילות אחרונה, אישור תנאים, סטטוס.
+     - חלון **"עריכה ותמיכה"** (contactName, phone, plan, pricePaid, purchaseDate, supportUntil, עם כפתורי ‎+חודש/+חודשיים/+3/+6/+12 וביטול, ו-notes פנימיות).
+  2. **הצעת מחיר לספק**: חבילה (השקה / רגיל / מותאם, מתוך `platform.js → sales`), חודשי תמיכה כלולים, תמיכה בתשלום (חודשים × ₪69), הנחה, תוקף, הערות. יש סיכום חי. יוצר `platformQuotes/{id}` וקישור `offer/?q=…`, ושולח בוואטסאפ ישר לטלפון של הספק.
+  3. **הצעות שנשלחו**: סטטוס, PDF חתום, העתקת קישור, "סיכום להקמה" (מעתיק סיכום לשליחה ל-Claude) ומחיקה.
+- **`offer/`**: דף ההצעה לספק במיתוג Snap Box. כולל מה מקבלים, מחיר, איך זה עובד, תנאי ההסכם (עם קישור לתנאים המלאים), חתימה, PDF, מייל לבעלים (FormSubmit אל `contact.email`), ועדכון `platformQuotes`. הצעה שפג תוקפה לא ניתנת לחתימה.
+  **פורמט הקישור:** `id|vendorName|contactName|businessType|plan|price|freeMonths|extraMonths|monthly|discount|total|notes|validDays|createdISO|phone|listPrice`. `admin.js offerUrl()` ו-`offer.js` חייבים להיות תואמים.
+- ⚠️ **הכללים עודכנו** (consents ו-platformQuotes). **המשתמש צריך להדביק את `firestore.rules` מחדש ב-Firebase ← Security ← Publish.** עד שזה נעשה: אישור התנאים ויצירת הצעות לספקים ייכשלו בהרשאות.
+- בדיקות: `_tests/rules.test.mjs` (60/60), `_tests/full.e2e.js` (52/52, כולל axe WCAG AA בכל דף).
+
 ## מבנה הנתונים ב-Firebase
 - פרויקט **check-b2a66**. ⚠️ **מסד הנתונים נקרא `default`, לא `(default)`.** בקוד: `getFirestore(app, 'default')`.
 - `tenants/{slug}`: `{ slug, name, admins:[emails], active, createdAt }`. כותב: רק הבעלים.
 - `tenants/{slug}/quotes/{id}`: `{ clientName, eventType, service, location, date, startTime, endTime, guests, price, deposit, notes, status:'pending'|'signed', createdAt, createdBy, signedAt, ip, userAgent, pdfData }`.
 - `vendorIndex/{email}`: `{ tenant: slug }`. מחובר יכול לקרוא רק את הרשומה של המייל שלו.
+- `tenants/{slug}` שדות מנוי (רק הבעלים כותב): `contactName, phone, plan, pricePaid, purchaseDate, supportUntil (YYYY-MM-DD), notes, updatedAt`.
+- `tenants/{slug}/consents/{email|version}`: `{ email, version, acceptedAt, userAgent }`. הספק יוצר פעם אחת, ואי אפשר לשנות או למחוק.
+- `platformQuotes/{id}`: הצעות של הבעלים לספקים. רק הבעלים קורא, יוצר ומוחק. חתימה אנונימית בדיוק כמו בהצעות של ספקים.
 - `check_quotes/{id}`: המערכת הישנה של CHECK. נשארה עובדת.
 - **כללים:**
   - הבעלים: הכל.
