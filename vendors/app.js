@@ -324,17 +324,13 @@
         const B = T.business || {};
         const msg = url;
         $('shareable-url').value = url;
-        // כמו במערכת המקורית: וואטסאפ שואל למי לשלוח, וההודעה נשלחת כתמונה בלבד
-        $('wa-share-btn').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
+        // בטלפון: תפריט השיתוף → וואטסאפ → בוחרים למי, וההודעה מגיעה ככרטיס תמונה בלי שורת קישור
+        Core.bindWhatsApp($('wa-share-btn'), msg);
         $('preview-btn').href = url; $('wa-preview').href = url;
         const img = $('wa-preview-img');
         img.onerror = () => { img.onerror = null; img.src = Core.PF.customerBase + '/assets/og-default.jpg'; };
         img.src = `${Core.PF.customerBase}/${slug}/og.jpg?v=${encodeURIComponent(T.ogVersion || '1')}`;
         $('wa-preview-title').textContent = `${B.name} · הצעת המחיר שלך מוכנה`;
-        if (navigator.share) {
-            $('share-btn').classList.remove('hidden');
-            $('share-btn').onclick = () => navigator.share({ url }).catch(() => {});
-        }
         $('link-result').classList.remove('hidden');
         $('link-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         $('link-result').focus({ preventScroll: true });
