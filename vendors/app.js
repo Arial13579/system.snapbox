@@ -315,13 +315,17 @@
             alert(err.code === 'permission-denied' ? 'אין הרשאה ליצור הצעה (ייתכן שהחשבון מוגבל). פנו ל-Snap Box.' : 'שמירת ההצעה נכשלה (' + (err.code || err.message) + '). בדקו את החיבור ונסו שוב.');
             btn.disabled = false; btn.textContent = 'יצירת הצעה ללקוח'; return;
         }
-        showResult(q);
+        btn.textContent = 'מכין קישור…';
+        const short = await Core.makeShortLink('quote', slug, Core.shareUrl(slug, q));
+        if (short.id) { q.shortId = short.id; fb.fs.updateDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id), { shortId: short.id }).catch(() => {}); }
+        showResult(q, short.url);
         btn.disabled = false; btn.textContent = 'יצירת הצעה ללקוח';
     });
     function waNumber(p){ const d = String(p || '').replace(/\D/g, ''); return d.startsWith('972') ? d : d.startsWith('0') ? '972' + d.slice(1) : d.length === 9 ? '972' + d : ''; }
-    function showResult(q){
-        const url = Core.shareUrl(slug, q), B = T.business || {};
-        const msg = `שלום ${q.clientName} 🙂\nהצעת המחיר שלך מ${B.name} מוכנה. לחצו לצפייה בכל הפרטים ולחתימה דיגיטלית:\n${url}`;
+    // ההודעה בוואטסאפ = הקישור הקצר בלבד. וואטסאפ מציג מעליו את התמונה של העסק, ולחיצה עליה פותחת את ההצעה.
+    function showResult(q, url){
+        const B = T.business || {};
+        const msg = url;
         $('shareable-url').value = url;
         const phone = waNumber(q.clientPhone);
         $('wa-share-btn').href = 'https://wa.me/' + (phone.length >= 11 ? phone : '') + '?text=' + encodeURIComponent(msg);
@@ -333,7 +337,7 @@
         $('wa-preview-title').textContent = `${B.name} · הצעת המחיר שלך מוכנה`;
         if (navigator.share) {
             $('share-btn').classList.remove('hidden');
-            $('share-btn').onclick = () => navigator.share({ title: `${B.name} · הצעת מחיר`, text: msg.replace(url, '').trim(), url }).catch(() => {});
+            $('share-btn').onclick = () => navigator.share({ url }).catch(() => {});
         }
         $('link-result').classList.remove('hidden');
         $('link-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -407,11 +411,11 @@
     $('tbody').addEventListener('click', async e => {
         const btn = e.target.closest('button'); if (!btn) return;
         const q = QUOTES.find(x => x.id === btn.dataset.id); if (!q) return;
-        if (btn.classList.contains('copy-link')) copyText(Core.shareUrl(slug, q), btn);
+        if (btn.classList.contains('copy-link')) copyText(Core.shortUrl(Core.shareUrl(slug, q), q.shortId), btn);
         else if (btn.classList.contains('delete-row')) {
             if (!confirm(`למחוק לצמיתות את ההצעה של ${q.clientName || 'הלקוח'}? לא ניתן לשחזר.`)) return;
             btn.disabled = true; btn.textContent = 'מוחק…';
-            try { await fb.fs.deleteDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id)); } catch(err) { alert('המחיקה נכשלה.'); btn.disabled = false; btn.textContent = 'מחיקה'; }
+            try { await fb.fs.deleteDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id)); Core.deleteShortLink(q.shortId); } catch(err) { alert('המחיקה נכשלה.'); btn.disabled = false; btn.textContent = 'מחיקה'; }
         } else if (btn.classList.contains('view-file')) {
             try { const bin = atob(q.pdfData), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
                 const url = URL.createObjectURL(new Blob([a], { type: 'application/pdf' })); window.open(url, '_blank'); setTimeout(() => URL.revokeObjectURL(url), 60000);

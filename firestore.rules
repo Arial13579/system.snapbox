@@ -11,6 +11,7 @@ rules_version = '2';
 //   tenants/{ספק}/files/{קובץ}    — ההסכם החתום של הספק מול Snap Box (רק הבעלים מעלה/מחליף)
 //   deletedTenants/{ספק}          — ספקים שנמחקו לצמיתות (כדי שהסנכרון לא ייצור אותם מחדש)
 //   platformQuotes/{הצעה}         — הצעות מחיר של Snap Box לספקים
+//   shortLinks/{מזהה}             — קישורים קצרים להצעות (פתוחים לקריאה לפי מזהה בלבד)
 //   vendorIndex/{מייל}            — לאיזה ספק שייך כל מייל (לכניסת ספקים)
 //   check_quotes/{הצעה}           — המערכת הקיימת של CHECK (נשארת עובדת כרגיל)
 //
@@ -85,6 +86,18 @@ service cloud.firestore {
         && consentId == request.auth.token.email + '|' + request.resource.data.version
         && request.resource.data.email == request.auth.token.email
         && request.resource.data.keys().hasOnly(['email', 'version', 'acceptedAt', 'userAgent']);
+    }
+
+    // ---- קישורים קצרים (…/?k=id): כל אחד יכול לפתוח קישור שקיבל, אבל אי אפשר לרשום את כל הקישורים ----
+    // מכילים רק את מה שהקישור הארוך הכיל ממילא. ספק יוצר רק לעצמו (ורק כשמותר לו ליצור הצעות), בעלים — הכל.
+    match /shortLinks/{id} {
+      allow get: if true;
+      allow list: if isOwner();
+      allow create: if request.resource.data.keys().hasOnly(['q', 'kind', 'tenant', 'createdAt'])
+        && request.resource.data.q is string && request.resource.data.q.size() < 8000
+        && request.resource.data.tenant is string
+        && (isOwner() || (request.resource.data.kind == 'quote' && request.resource.data.tenant.size() > 1 && canCreateFor(request.resource.data.tenant)));
+      allow delete: if isOwner() || (resource.data.kind == 'quote' && isVendorOf(resource.data.tenant));
     }
 
     // ---- הצעות מחיר של הבעלים לספקים (מכירת המערכת) ----

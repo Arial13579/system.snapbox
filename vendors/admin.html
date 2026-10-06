@@ -81,9 +81,15 @@
               <button type="submit" class="btn primary lg block span2" id="o_gen">יצירת קישור להצעה</button>
             </form>
             <div id="o_result" class="result hidden" role="status">
-              <b>✓ ההצעה נשמרה והקישור מוכן</b>
-              <div class="row"><input type="text" id="o_url" readonly dir="ltr" class="field" aria-label="קישור להצעה"><button type="button" id="o_copy" class="btn sm">העתק</button></div>
-              <div class="row"><a id="o_wa" href="#" target="_blank" rel="noopener" class="btn wa block">שליחה בוואטסאפ</a><a id="o_preview" href="#" target="_blank" rel="noopener" class="btn">תצוגה</a></div>
+              <b>✓ ההצעה מוכנה! כך הספק יראה אותה בוואטסאפ:</b>
+              <a class="wa-preview" id="o_wa_preview" href="#" target="_blank" rel="noopener" aria-label="תצוגה של ההצעה כפי שהספק יראה">
+                <img src="../offer/og.jpg" alt="" width="1200" height="630">
+                <span class="wp-t">Snap Box · הצעת המחיר שלך מוכנה</span>
+                <span class="wp-d">לחצו לצפייה בכל הפרטים ולחתימה דיגיטלית</span>
+              </a>
+              <div class="row"><a id="o_wa" href="#" target="_blank" rel="noopener" class="btn wa block">שליחה בוואטסאפ</a></div>
+              <div class="row"><input type="text" id="o_url" readonly dir="ltr" class="field" aria-label="קישור להצעה"><button type="button" id="o_copy" class="btn sm">העתק</button><a id="o_preview" href="#" target="_blank" rel="noopener" class="btn sm">תצוגה</a></div>
+              <p class="hint" style="margin:0">התמונה היא הקישור: לוחצים עליה ונפתחת ההצעה.</p>
             </div>
           </div>
         </div>
