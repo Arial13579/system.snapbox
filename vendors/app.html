@@ -44,8 +44,12 @@
     <div class="owner-banner hidden" id="owner-banner"><span>מצב בעלים · אתה צופה בחשבון של <b id="ob-name"></b></span><a class="btn sm" href="admin.html">חזרה ללוח הניהול</a></div>
     <div class="top-row">
       <div class="tenant-head"><span class="tlogo" id="t-logo" aria-hidden="true"></span><div><h1 id="t-name"></h1><p id="t-tag"></p></div></div>
-      <div class="support-card" id="support-card" role="status"></div>
+      <div class="side-cards">
+        <div class="support-card" id="support-card" role="status"></div>
+        <div class="agr-card hidden" id="agr-card"><div><div class="t">ההסכם שלי עם Snap Box</div><div class="s" id="agr-date"></div></div><button type="button" class="btn sm" id="agr-view">צפייה</button></div>
+      </div>
     </div>
+    <div class="limited-note hidden" id="limited-note" role="note"><b>החשבון במצב צפייה בלבד.</b> אפשר לראות את ההצעות וההסכמים בלוח הבקרה, אבל לא ליצור הצעות חדשות. לפרטים: <a href="#" class="wa-support-link">וואטסאפ לתמיכה</a>.</div>
     <div class="tabs" role="tablist">
       <button type="button" class="on" data-tab="new" role="tab">הצעה חדשה</button>
       <button type="button" data-tab="dash" role="tab">לוח בקרה</button>
@@ -54,26 +58,52 @@
     <!-- ===== הצעה חדשה ===== -->
     <section id="tab-new" class="card">
       <div class="card-b">
-        <form id="creator-form" class="grid2" autocomplete="off">
+        <form id="creator-form" autocomplete="off">
+         <fieldset id="creator-fs" class="grid2 plain">
+          <legend class="sr">פרטי הצעת המחיר</legend>
           <div><label class="lbl" for="in_clientName">לכבוד (שם הלקוח) *</label><input type="text" id="in_clientName" required class="field" placeholder="שם מלא / חברה"></div>
+          <div><label class="lbl" for="in_clientPhone">טלפון הלקוח <small>· לשליחה ישירה בוואטסאפ</small></label><input type="tel" id="in_clientPhone" class="field ltr" style="text-align:left" inputmode="tel" placeholder="050-0000000"></div>
           <div><label class="lbl" for="in_eventType">סוג האירוע *</label><input type="text" id="in_eventType" required class="field" list="event-types" placeholder="למשל חתונה"><datalist id="event-types"></datalist></div>
-          <div class="span2"><label class="lbl" for="in_service" id="lbl-service">חבילה *</label><select id="in_service" class="field" required></select></div>
-          <div><label class="lbl" for="in_location">מיקום האירוע *</label><input type="text" id="in_location" required class="field" placeholder="שם המקום, עיר"></div>
           <div><label class="lbl" for="in_date">תאריך האירוע *</label><input type="text" id="in_date" required class="field ltr" style="text-align:left" inputmode="numeric" maxlength="10" placeholder="DD/MM/YYYY"></div>
-          <div><label class="lbl" for="in_startTime">שעת התחלה *</label><input type="text" id="in_startTime" required class="field ltr" style="text-align:left" inputmode="numeric" maxlength="5" placeholder="HH:MM"></div>
-          <div><label class="lbl" for="in_endTime">שעת סיום *</label><input type="text" id="in_endTime" required class="field ltr" style="text-align:left" inputmode="numeric" maxlength="5" placeholder="HH:MM"></div>
-          <div><label class="lbl" for="in_guests">כמות מוזמנים (משוער) *</label><input type="number" id="in_guests" required min="1" class="field" placeholder="למשל 250"></div>
-          <div><label class="lbl" for="in_distance">מרחק נסיעה (ק"מ) <small>· מחושב אוטומטית</small></label><input type="number" id="in_distance" min="0" class="field" placeholder="0"><p id="distance-status" class="hint"></p></div>
-          <div id="price-breakdown" class="breakdown span2 hidden"></div>
-          <div><label class="lbl" for="in_price">מחיר כולל (₪) * <small>· מחושב, ניתן לעריכה</small></label><input type="number" id="in_price" required class="field"></div>
-          <div><label class="lbl" for="in_deposit">מקדמה (₪)</label><input type="number" id="in_deposit" class="field"></div>
-          <div class="span2"><label class="lbl" for="in_notes">הערות / סיכומים <small>· אופציונלי</small></label><textarea id="in_notes" rows="2" class="field"></textarea></div>
-          <button type="submit" class="btn primary lg block span2" id="gen-btn">צור קישור ללקוח</button>
+          <div class="span2"><label class="lbl" for="in_location">מיקום האירוע *</label><input type="text" id="in_location" required class="field" placeholder="שם המקום, עיר"></div>
+
+          <!-- מצב מחירון אוטומטי (DJ, להקות וכו') -->
+          <div class="span2 m-classic"><label class="lbl" for="in_service" id="lbl-service">חבילה *</label><select id="in_service" class="field" required></select></div>
+          <div class="m-classic"><label class="lbl" for="in_startTime">שעת התחלה *</label><input type="text" id="in_startTime" required class="field ltr" style="text-align:left" inputmode="numeric" maxlength="5" placeholder="HH:MM"></div>
+          <div class="m-classic"><label class="lbl" for="in_endTime">שעת סיום *</label><input type="text" id="in_endTime" required class="field ltr" style="text-align:left" inputmode="numeric" maxlength="5" placeholder="HH:MM"></div>
+          <div class="m-classic"><label class="lbl" for="in_guests">כמות מוזמנים (משוער) *</label><input type="number" id="in_guests" required min="1" class="field" placeholder="למשל 250"></div>
+          <div class="m-classic"><label class="lbl" for="in_distance">מרחק נסיעה (ק"מ) <small>· מחושב אוטומטית</small></label><input type="number" id="in_distance" min="0" class="field" placeholder="0"><p id="distance-status" class="hint"></p></div>
+          <div id="price-breakdown" class="breakdown span2 hidden m-classic"></div>
+
+          <!-- מצב פריטים (מעצבים, צלמים וכו'): בוחרים פריטים, מזינים מחיר ומקדמה -->
+          <div class="m-items"><label class="lbl" for="in_itStart">שעת התחלת האירוע <small>· אופציונלי</small></label><input type="text" id="in_itStart" class="field ltr" style="text-align:left" inputmode="numeric" maxlength="5" placeholder="HH:MM"></div>
+          <div class="m-items"><label class="lbl" for="in_itGuests">כמות מוזמנים <small>· אופציונלי</small></label><input type="number" id="in_itGuests" min="0" class="field" placeholder="למשל 200"></div>
+          <div class="span2 m-items items-box">
+            <div class="items-h"><span class="lbl" id="items-title">מה כלול בהצעה *</span><span class="hint">לחצו על פריט מהמחירון כדי להוסיף, ואפשר לשנות שם, כמות ומחיר</span></div>
+            <div class="catalog" id="catalog" role="group" aria-label="מחירון — לחיצה מוסיפה פריט"></div>
+            <div class="items" id="items" aria-live="polite"></div>
+            <button type="button" class="btn sm" id="add-item">+ פריט חופשי</button>
+          </div>
+          <div class="m-items"><label class="lbl" for="in_discount">הנחה (₪) <small>· אופציונלי</small></label><input type="number" id="in_discount" min="0" class="field" placeholder="0"></div>
+
+          <div><label class="lbl" for="in_price">מחיר כולל (₪) * <small id="price-hint">· מחושב, ניתן לעריכה</small></label><input type="number" id="in_price" required min="0" class="field"></div>
+          <div><label class="lbl" for="in_deposit">מקדמה (₪) *</label><input type="number" id="in_deposit" required min="0" class="field">
+            <div class="quick" id="dep-quick"><button type="button" class="btn sm" data-p="20">20%</button><button type="button" class="btn sm" data-p="30">30%</button><button type="button" class="btn sm" data-p="50">50%</button></div></div>
+          <div class="span2 sum-strip" id="sum-strip" aria-live="polite"></div>
+          <div class="span2"><label class="lbl" for="in_notes">הערות / סיכומים <small>· יופיעו בהצעה</small></label><textarea id="in_notes" rows="2" class="field"></textarea></div>
+          <button type="submit" class="btn primary lg block span2" id="gen-btn">יצירת הצעה ללקוח</button>
+         </fieldset>
         </form>
-        <div id="link-result" class="result hidden">
-          <b>✓ הקישור מוכן — נפתח ישירות בהצעת המחיר</b>
-          <div class="row"><input type="text" id="shareable-url" readonly dir="ltr" class="field"><button type="button" id="copy-btn" class="btn sm">העתק</button></div>
-          <div class="row"><a id="wa-share-btn" href="#" target="_blank" rel="noopener" class="btn wa block">שליחה ללקוח בוואטסאפ</a><a id="preview-btn" href="#" target="_blank" rel="noopener" class="btn">תצוגה</a></div>
+        <div id="link-result" class="result hidden" tabindex="-1">
+          <b>✓ ההצעה מוכנה! כך הלקוח יראה אותה בוואטסאפ:</b>
+          <a class="wa-preview" id="wa-preview" href="#" target="_blank" rel="noopener" aria-label="תצוגה של ההצעה כפי שהלקוח יראה">
+            <img id="wa-preview-img" alt="" width="1200" height="630">
+            <span class="wp-t" id="wa-preview-title"></span>
+            <span class="wp-d">לחצו לצפייה בכל הפרטים ולחתימה דיגיטלית</span>
+          </a>
+          <div class="row"><a id="wa-share-btn" href="#" target="_blank" rel="noopener" class="btn wa block">שליחה ללקוח בוואטסאפ</a><button type="button" id="share-btn" class="btn hidden">שיתוף</button></div>
+          <div class="row"><input type="text" id="shareable-url" readonly dir="ltr" class="field" aria-label="הקישור להצעה"><button type="button" id="copy-btn" class="btn sm">העתק</button><a id="preview-btn" href="#" target="_blank" rel="noopener" class="btn sm">תצוגה</a></div>
+          <p class="hint" style="margin:0">התמונה היא הקישור: הלקוח לוחץ עליה ונפתחת ההצעה. בפעם הראשונה וואטסאפ עשוי לטעון את התמונה כמה שניות.</p>
         </div>
       </div>
     </section>
@@ -91,7 +121,7 @@
       </div>
       <div class="card tbl-wrap">
         <table>
-          <thead><tr><th>נשלח</th><th>לקוח</th><th>אירוע</th><th id="th-service">חבילה</th><th>תאריך אירוע</th><th>מחיר</th><th>סטטוס</th><th>קובץ</th><th>פעולות</th></tr></thead>
+          <thead><tr><th>נשלח</th><th>לקוח</th><th>אירוע</th><th id="th-service">חבילה</th><th>תאריך אירוע</th><th>מחיר</th><th>סטטוס</th><th>הסכם חתום</th><th>פעולות</th></tr></thead>
           <tbody id="tbody"><tr><td colspan="9" class="loading">טוען נתונים…</td></tr></tbody>
         </table>
       </div>

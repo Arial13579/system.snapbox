@@ -92,17 +92,36 @@
    - שם לחוזה, שורת תיאור, לוגו (SVG או PNG שקוף), צבעים או "תחליט אתה", עוסק או ח.פ, טלפון, עיר יציאה.
    - **כתובת Gmail להתחברות (בלי סיסמה, אף פעם)**, מייל לקבלת חוזים, slug רצוי.
    - חבילות (מחיר, שעות כלולות, מחיר לשעה נוספת), מה כלול, תוספות לפי מוזמנים ולפי מרחק, מקדמה, תנאי ביטול ותשלום.
-2. ב-repository ‏`hatzaa`: יוצרים את `<slug>/config.js` (ואם יש, `logo.png` ו-`og.jpg` בגודל 1200×630). מריצים `python3 tools/make_pages.py`. PR ל-main.
+2. ב-repository ‏`hatzaa`: יוצרים את `<slug>/config.js` (ואם יש, `logo.png`).
+   - **תמיד** מייצרים תמונת וואטסאפ: `node tools/make_og.mjs <hatzaa> <slug> --force` (מתוך תיקייה עם `playwright-core` ו-`@fontsource/assistant` מ-npm). נוצר `<slug>/og.jpg` 1200×630 מהשם, השורה והצבעים. כשמשנים אותה, מעלים `ogVersion` ב-config.
+   - מריצים `python3 tools/make_pages.py`. PR ל-main.
+   - **תמיד** טלפון + מייל ב-`business` (מופיעים בתיבת "יש שאלה?", בפוטר ובמסמכים המשפטיים).
+   - **מצב מחירון:** DJ/להקות = מחירון אוטומטי (`SERVICES`, `GUEST_TIERS`...). מעצבים/צלמים וכו' = `pricing.MODE: 'items'` עם `CATALOG` (label, price, desc), `DEPOSIT_PERCENT`, `COMMON_ITEMS`. הספק בוחר פריטים, מזין מחיר ומקדמה.
+   - `policy` (ימי צינון, מדרגות ביטול, דחייה) מוצג בדף `legal/refunds.html`. **לא מפרטים שמות של שירותי צד שלישי במסמכים המשפטיים** (בקשת הבעלים).
 3. מוסיפים שורה ל-`vendors/registry.js`.
 4. מעדכנים את שני ה-repositories (push).
 5. הבעלים נכנס ל-`system.snapbox.co.il/vendors/`. הסנכרון רץ אוטומטית, ואז "כניסה לחשבון" לבדיקה (יצירת הצעה, חתימה, מחיקה).
 6. שולחים לספק את `system.snapbox.co.il/vendors/`. הוא מתחבר עם ה-Gmail שלו, ולוחץ "Activate" במייל מ-FormSubmit בפעם הראשונה שלקוח חותם.
+
+## עדכון 2026-10-06 (לילה): ספקית בדיקה "אילנה", שליטת בעלים מלאה, כניסה משופרת
+- **ספקית לבדיקה:** `ilana` · אילנה עיצוב אירועים · Gmail `snapboxevent.official@gmail.com` · טלפון לדוגמה 050-1234567 · בלי לוגו (אות "א") · צבע `#9C4668` · מצב פריטים, מקדמה 30%.
+- **כניסה:** `Core.signIn` תמיד שולח `prompt: 'select_account'` (בלי זה Google בחר לבד את החשבון האחרון, ו"חשבון אחר" לא עבד). המייל האחרון נשמר במכשיר (`localStorage sb.lastEmail`) ומוצג "המשך בתור…" עם `login_hint`. מושהה ≠ לא רשום (הודעות נפרדות). אזהרה לדפדפן הפנימי של וואטסאפ/אינסטגרם.
+- **מצבי חשבון** (חלון "ניהול" בלוח הניהול): פעיל / **מוגבל** (`limited: true` — צפייה בלבד, נאכף בכללים) / מושהה (`active: false`).
+- **ביטול תמיכה:** `supportCancelled: true`, `supportCancelledAt`. מצב `cancelled` ב-`Core.supportStatus`.
+- **מחיקה לצמיתות:** מקלידים את ה-slug לאישור. נכתב `deletedTenants/{slug}` (כדי שהסנכרון לא ייצור מחדש), ואז נמחקים quotes, consents, files, vendorIndex והכרטיס. "שחזור כחשבון ריק" מוחק את הרשומה.
+- **ההסכם החתום של הספק:** `tenants/{slug}/files/agreement` (`pdfData`), וסיכום ב-`tenants/{slug}.agreement {at, source, label}`. הבעלים מעלה/מחליף PDF או משייך מהצעה חתומה (`platformQuotes`). הספק רואה כרטיס "ההסכם שלי עם Snap Box".
+- **הקישור ללקוח הורחב:** שדות 13–14 (רק במצב פריטים): `label^qty^price` מופרדים ב-`~`, ואז `discount`. `Core.shareUrl` ↔ `quote.js` תואמים.
+- **אחרי יצירת הצעה:** מוצגת תצוגת וואטסאפ (og.jpg) — "התמונה היא הקישור". שליחה ישירה לטלפון הלקוח אם הוזן.
+- `termsVersion` עלה ל-`2026-10-06.2` (נוסף סעיף הגבלה/השהיה/מחיקה) — כל ספק יאשר שוב.
+- ⚠️ **הכללים עודכנו** (limited, files, deletedTenants, מחיקת consents). המשתמש צריך להדביק את `firestore.rules` מחדש ב-Firebase ← Security ← Publish.
+- בדיקות: `rules.test.mjs` 88/88, `full.e2e.js` 117/117 (כולל axe בכל דף).
 
 ## החלטות חשובות
 - **אף פעם לא מבקשים סיסמאות של לקוחות או ספקים.**
 - הבעלים יכול להיכנס לכל חשבון של ספק לצורך בדיקות. **לכתוב את זה בחוזה עם הספק.**
 - כל הספקים משתמשים באותו פרויקט Firebase, כך שהמכסה החינמית משותפת. כדאי סעיף פרטיות בחוזה עם הספקים.
 - **השהיה** חוסמת את הספק מיד, אבל הלקוחות שלו עדיין יכולים לחתום על הצעות שכבר נשלחו.
+- **רק לבעלים יש שליטה** על מצב החשבון, התמיכה, ההסכם והמחיקה (נאכף בכללי Firestore ונבדק).
 
 ## הערות עבודה ל-Claude
 - ⚠️ GitHub Pages מפרסם מ-**`main`**. ה-branch `claude/friendly-bardeen-ki4o7d` מוגדר כ-default ב-GitHub, אבל **הוא לא מה שבאוויר**. עובדים על ה-branch, פותחים PR ל-`main` ועושים squash merge, ואז האתר מתעדכן. אחרי מיזוג: `git fetch origin main && git checkout -B claude/friendly-bardeen-ki4o7d FETCH_HEAD`, ואחרי ה-commit: `merge -s ours` של ה-branch הישן, ואז push (force חסום).

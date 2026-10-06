@@ -19,10 +19,11 @@
     <div class="card-b">
       <h1>כניסת ספקים</h1>
       <p id="msg">מתחברים עם חשבון הגוגל שנרשם אצלנו, ומגיעים ישר לחשבון העסק שלכם.</p>
+      <p class="callout hidden" id="inapp" role="note">נראה שהדף נפתח בתוך וואטסאפ או אינסטגרם, ושם Google לא מאפשר להתחבר. לחצו על ⋮ או על ⋯ ובחרו <b>"פתיחה בדפדפן"</b> (כרום או ספארי).</p>
       <button type="button" class="btn primary lg" id="signin" disabled>טוען…</button>
       <p class="err hidden" id="err" role="alert"></p>
-      <p class="hint" style="margin-top:4px">הכניסה מהווה הסכמה ל<a href="../legal/terms.html">תנאי השימוש</a> ול<a href="../legal/privacy.html">מדיניות הפרטיות</a>.</p>
-      <button type="button" class="link hidden" id="other">התחברות עם חשבון אחר</button>
+      <button type="button" class="link hidden" id="other">התחברות עם חשבון Google אחר</button>
+      <p class="hint" style="margin-top:4px">הכניסה מהווה הסכמה ל<a href="../legal/terms.html">תנאי השימוש</a> ול<a href="../legal/privacy.html">מדיניות הפרטיות</a>. אחרי הכניסה הראשונה המכשיר הזה יזכור אתכם.</p>
     </div>
   </section>
 </main>
@@ -35,27 +36,51 @@
 <script>
 (async () => {
     const $ = id => document.getElementById(id);
-    const btn = $('signin');
+    const btn = $('signin'), other = $('other');
     const showErr = t => { $('err').textContent = t; $('err').classList.remove('hidden'); };
+    const hideErr = () => $('err').classList.add('hidden');
+    if (Core.inAppBrowser()) $('inapp').classList.remove('hidden');
     try { await Core.fb(); } catch(e) { showErr('טעינת המערכת נכשלה. רעננו את הדף.'); return; }
-    btn.innerHTML = Core.GOOGLE_SVG + ' התחברות עם Google';
-    btn.disabled = false;
-    btn.addEventListener('click', async () => {
-        try { await Core.signIn(); }
-        catch(e) { if (e.code !== 'auth/popup-closed-by-user') showErr('ההתחברות נכשלה: ' + (e.code || e.message)); }
-    });
-    $('other').addEventListener('click', () => Core.signOut());
 
+    // מצב התחלתי: אם המכשיר זוכר מייל — "המשך בתור…" + אפשרות לחשבון אחר
+    const last = Core.rememberedEmail();
+    function idle(){
+        btn.classList.remove('hidden'); btn.disabled = false;
+        btn.innerHTML = Core.GOOGLE_SVG + (last ? ' המשך בתור <span class="ltr">' + Core.esc(last) + '</span>' : ' התחברות עם Google');
+        other.classList.toggle('hidden', !last);
+    }
+    async function go(hint){
+        hideErr();
+        try { await Core.signIn(hint); }
+        catch(e) {
+            if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return;
+            showErr('ההתחברות נכשלה: ' + (e.code || e.message));
+        }
+    }
+    btn.addEventListener('click', () => go(last));
+    other.addEventListener('click', () => go(''));   // בורר החשבונות של Google, בלי הצעה מוקדמת
+
+    let routing = false;
     Core.onAuth(async user => {
-        if (!user) return;
-        btn.disabled = true; btn.textContent = 'מתחבר…';
-        if (Core.isOwner(user)) { location.replace('admin.html'); return; }
-        const slug = await Core.tenantOf(user);
-        if (slug) { location.replace('app.html?t=' + encodeURIComponent(slug)); return; }
+        if (!user) { idle(); return; }
+        if (routing) return;
+        routing = true;
+        btn.disabled = true; btn.textContent = 'מתחבר…'; other.classList.add('hidden'); hideErr();
+        if (Core.isOwner(user)) { Core.rememberEmail(user.email); location.replace('admin.html'); return; }
+        const acc = await Core.vendorAccess(user);
+        if (acc.state === 'ok') { Core.rememberEmail(user.email); location.replace('app.html?t=' + encodeURIComponent(acc.slug)); return; }
+        routing = false;
         btn.classList.add('hidden');
-        showErr('החשבון ' + user.email + ' לא רשום כספק במערכת, או שהחשבון מושהה.');
-        $('msg').textContent = 'אם נרשמתם עם כתובת Gmail אחרת, התחברו איתה.';
-        $('other').classList.remove('hidden');
+        if (acc.state === 'suspended') {
+            showErr('החשבון של ' + user.email + ' מושהה כרגע.');
+            $('msg').textContent = 'לבירור ולחידוש הגישה פנו אלינו בוואטסאפ 051-2440252.';
+        } else {
+            showErr('החשבון ' + user.email + ' לא רשום כספק במערכת.');
+            $('msg').textContent = 'אם נרשמתם עם כתובת Gmail אחרת, בחרו בה עכשיו.';
+        }
+        other.textContent = 'התחברות עם חשבון Google אחר';
+        other.classList.remove('hidden');
+        other.classList.add('btn', 'lg'); other.classList.remove('link');
     });
 })();
 </script>

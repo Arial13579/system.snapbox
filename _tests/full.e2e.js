@@ -1,12 +1,15 @@
 // Full end-to-end test of the Snap Box vendor platform against Firebase emulators + axe accessibility scan.
-const { chromium } = require('/tmp/claude-0/-home-user-Aura-event/33274e87-36f1-52fb-a542-54f1e7d0e4b6/scratchpad/node_modules/playwright');
-const fs = require('fs'), path = require('path');
+// Run: node full.e2e.js   (deps in $S/t/node_modules, static server on :8791 serving $S/www with system → system.snapbox, hatzaa → hatzaa)
 const S = '/tmp/claude-0/-home-user/33274e87-36f1-52fb-a542-54f1e7d0e4b6/scratchpad';
-const NM = S + '/chk/node_modules/', FB = S + '/rules/node_modules/firebase/';
-const AXE = fs.readFileSync(S + '/e2e/node_modules/axe-core/axe.min.js', 'utf8');
+const NM = S + '/t/node_modules/', FB = NM + 'firebase/', FBV = require(NM + 'firebase/package.json').version;
+const { chromium } = require(NM + 'playwright-core');
+const fs = require('fs'), path = require('path');
+const AXE = fs.readFileSync(NM + 'axe-core/axe.min.js', 'utf8');
 const SITE = 'http://localhost:8791', SYS = SITE + '/system';
-const SHOTS = S + '/e2e/shots2/'; fs.mkdirSync(SHOTS, { recursive: true });
-const REG = "window.REGISTRY = [{ slug: 'demo', name: 'עסק לדוגמה', admins: ['noa@gmail.com'] }];";
+const SHOTS = S + '/shots3/'; fs.mkdirSync(SHOTS, { recursive: true });
+const ILANA = 'snapboxevent.official@gmail.com';
+const fs_size_offer = () => fs.statSync(SHOTS + 'offer-signed.pdf').size;
+const REG = `window.REGISTRY = [{ slug: 'demo', name: 'עסק לדוגמה', admins: ['noa@gmail.com'] }, { slug: 'ilana', name: 'אילנה עיצוב אירועים', admins: ['${ILANA}'] }];`;
 const errors = [], sent = [], a11y = [];
 let failures = 0;
 const check = (cond, msg) => { console.log((cond ? '  ✓ ' : '  ✗ ') + msg); if (!cond) failures++; };
@@ -17,7 +20,7 @@ async function setup(ctx){
     const u = route.request().url();
     const m = u.match(/gstatic\.com\/firebasejs\/([\d.]+)\/(firebase-(app|auth|firestore)\.js)$/);
     const H = { 'Access-Control-Allow-Origin': '*' };
-    if (m && m[1] !== '10.14.1') return route.fulfill({ body: `export * from 'https://www.gstatic.com/firebasejs/10.14.1/${m[2]}';`, contentType: 'application/javascript', headers: H });
+    if (m && m[1] !== FBV) return route.fulfill({ body: `export * from 'https://www.gstatic.com/firebasejs/${FBV}/${m[2]}';`, contentType: 'application/javascript', headers: H });
     if (m) return route.fulfill({ body: fs.readFileSync(FB + m[2]), contentType: 'application/javascript', headers: H });
     if (u.endsWith('html2canvas.min.js')) return route.fulfill({ body: fs.readFileSync(NM + 'html2canvas/dist/html2canvas.min.js'), contentType: 'application/javascript' });
     if (u.endsWith('jspdf.umd.min.js')) return route.fulfill({ body: fs.readFileSync(NM + 'jspdf/dist/jspdf.umd.min.js'), contentType: 'application/javascript' });
@@ -27,14 +30,15 @@ async function setup(ctx){
       const rel = decodeURIComponent(new URL(u).pathname.replace('/hatzaa/', '')) || 'index.html';
       let f = path.join('/home/user/hatzaa', rel); if (f.endsWith('/')) f += 'index.html';
       if (!fs.existsSync(f)) return route.fulfill({ status: 404, body: 'nf' });
-      return route.fulfill({ body: fs.readFileSync(f), contentType: f.endsWith('.js') ? 'application/javascript' : f.endsWith('.css') ? 'text/css' : 'text/html' });
+      return route.fulfill({ body: fs.readFileSync(f), contentType: f.endsWith('.js') ? 'application/javascript' : f.endsWith('.css') ? 'text/css' : f.endsWith('.jpg') ? 'image/jpeg' : f.endsWith('.svg') ? 'image/svg+xml' : 'text/html' });
     }
     if (u.includes('ipify')) return route.fulfill({ body: '{"ip":"1.2.3.4"}', contentType: 'application/json' });
     if (u.includes('tmpfiles')) return route.fulfill({ body: '{"data":{"url":"https://tmpfiles.org/1/x.pdf"}}', contentType: 'application/json' });
     if (u.includes('formsubmit')) { sent.push(u); return route.fulfill({ body: 'ok', contentType: 'text/html' }); }
     if (u.includes('nominatim')) return route.fulfill({ body: '[{"lat":"31.252","lon":"34.791","display_name":"באר שבע, מחוז הדרום"}]', contentType: 'application/json' });
     if (u.includes('osrm')) return route.fulfill({ body: '{"routes":[{"distance":112400}]}', contentType: 'application/json' });
-    if (u.startsWith(SITE) || u.includes('127.0.0.1') || u.includes('fonts.g')) return route.continue();
+    if (u.startsWith(SITE) || u.includes('127.0.0.1')) return route.continue();
+    if (u.includes('fonts.g')) return route.fulfill({ body: '', contentType: 'text/css' });
     return route.abort();
   });
 }
@@ -43,7 +47,7 @@ async function newPage(b, vp, name){
   await setup(ctx);
   const p = await ctx.newPage();
   p.on('pageerror', e => errors.push(name + ': ' + e.message));
-  p.on('console', m => { if (m.type() === 'error' && !/404|ERR_FAILED|net::|favicon/.test(m.text())) errors.push(name + ' console: ' + m.text()); });
+  p.on('console', m => { if (m.type() === 'error' && !/404|ERR_FAILED|net::|favicon|Could not reach Cloud Firestore backend/.test(m.text())) errors.push(name + ' console: ' + m.text()); });
   p.on('dialog', d => d.accept());
   return { ctx, p };
 }
@@ -63,6 +67,7 @@ async function hasA11yWidget(p, label){
   await p.waitForSelector('#a11y-fab', { timeout: 5000 }).catch(() => {});
   check(await p.locator('#a11y-fab').count() === 1, `accessibility menu present: ${label}`);
 }
+async function authParams(p){ await p.waitForFunction(() => window.__lastAuthParams, null, { timeout: 10000 }); return p.evaluate(() => window.__lastAuthParams); }
 async function draw(p){
   await p.locator('#sig-canvas').scrollIntoViewIfNeeded();
   const bb = await p.locator('#sig-canvas').boundingBox();
@@ -72,7 +77,7 @@ async function draw(p){
 }
 
 (async () => {
-  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', proxy: { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' }, args: ['--ignore-certificate-errors'] });
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', proxy: process.env.HTTPS_PROXY ? { server: process.env.HTTPS_PROXY, bypass: 'localhost,127.0.0.1' } : undefined, args: ['--ignore-certificate-errors'] });
   const DESK = { width: 1280, height: 900 }, MOB = { width: 390, height: 844 };
 
   console.log('A. Public site: sales page + legal pages');
@@ -112,13 +117,15 @@ async function draw(p){
   await O.p.waitForSelector('text=מסונכרן ✓', { timeout: 15000 });
   await O.p.waitForSelector('#tbody button.edit');
   check((await O.p.textContent('#tbody')).includes('לא הוגדרה'), 'support initially not set');
-  await O.p.click('#tbody button.edit');
+  check(await O.p.locator('#tbody button.edit').count() === 2, 'both vendors synced (demo + ilana)');
+  await O.p.click('#tbody button.edit[data-id=demo]');
   await O.p.waitForSelector('#edit-dlg[open]');
   await O.p.fill('#e_contact', 'נועה לוי'); await O.p.fill('#e_phone', '050-1234567');
   await O.p.selectOption('#e_plan', 'launch'); await O.p.fill('#e_paid', '1499');
   await O.p.click('#e_quick button[data-m="2"]');
   await O.p.fill('#e_notes', 'הערה פנימית לבדיקה');
   await O.p.screenshot({ path: SHOTS + 'admin-edit.png' });
+  await axe(O.p, 'admin manage dialog');
   await O.p.click('#e_save');
   await O.p.waitForFunction(() => document.getElementById('tbody').textContent.includes('נותרו'), null, { timeout: 15000 });
   const vt = await O.p.textContent('#tbody');
@@ -210,6 +217,7 @@ async function draw(p){
   console.log('G. Owner sees consent + activity; only owner has control');
   await O.p.click('.admin-tabs button[data-tab=vendors]'); await O.p.reload();
   await O.p.waitForSelector('#tbody button.edit');
+  await O.p.waitForFunction(() => document.getElementById('tbody').textContent.includes('אושרו'), null, { timeout: 15000 });
   const vt2 = await O.p.textContent('#tbody');
   check(vt2.includes('אושרו'), 'admin shows terms accepted');
   check(/1\s*נחתמו/.test(vt2), 'admin shows vendor signed count');
@@ -228,12 +236,177 @@ async function draw(p){
   await V.p.waitForSelector('#blocked:not(.hidden)', { timeout: 15000 });
   check(true, 'vendor blocked from admin page');
 
-  console.log('H. Suspension');
-  await O.p.click('#tbody button.toggle');
+  console.log('H. Login page: account chooser, unregistered, remembered email');
+  const L = await newPage(b, MOB, 'login');
+  await L.p.goto(SYS + '/vendors/');
+  await L.p.waitForSelector('#signin:not([disabled])');
+  await L.p.click('#signin');
+  const ap1 = await authParams(L.p);
+  check(ap1.prompt === 'select_account' && !ap1.login_hint, 'Google sign-in always shows the account chooser (prompt=select_account)');
+  await login(L.p, 'stranger@gmail.com');
+  await L.p.waitForSelector('#err:not(.hidden)', { timeout: 15000 });
+  check((await L.p.textContent('#err')).includes('לא רשום'), 'unregistered account gets a clear message');
+  check(await L.p.isVisible('#other'), '"other Google account" button shown');
+  await L.p.evaluate(() => { window.__lastAuthParams = null; });
+  await L.p.click('#other');
+  check((await authParams(L.p)).prompt === 'select_account', '"other account" opens the Google account chooser');
+  await axe(L.p, 'login – not registered');
+  // ספקית שהתחברה פעם אחת — המכשיר זוכר אותה
+  const R = await newPage(b, MOB, 'remember');
+  await login(R.p, ILANA);
+  await R.p.waitForURL(/app\.html\?t=ilana/, { timeout: 15000 });
+  await R.p.evaluate(() => Core.fb().then(f => f.authMod.signOut(f.auth)));
+  await R.p.goto(SYS + '/vendors/');
+  await R.p.waitForSelector('#signin:not([disabled])');
+  const rt = await R.p.textContent('#signin');
+  check(rt.includes('המשך בתור') && rt.includes(ILANA), 'returning vendor: "continue as ' + ILANA + '"');
+  check(await R.p.isVisible('#other'), 'returning vendor can still choose another account');
+  await R.p.click('#signin');
+  const ap3 = await authParams(R.p);
+  check(ap3.login_hint === ILANA && ap3.prompt === 'select_account', 'remembered email passed to Google as login_hint');
+  await R.p.screenshot({ path: SHOTS + 'login-remembered.png' });
+  await R.ctx.close();
+
+  console.log('I. Ilana (event designer): items quote, deposit, WhatsApp image, customer signs');
+  const I = await newPage(b, MOB, 'ilana');
+  await login(I.p, ILANA);
+  await I.p.waitForURL(/app\.html\?t=ilana/, { timeout: 15000 });
+  await I.p.waitForSelector('#consent:not(.hidden)', { timeout: 15000 });
+  await I.p.check('#consent-check'); await I.p.click('#consent-btn');
+  await I.p.waitForSelector('#main-app:not(.hidden)', { timeout: 15000 });
+  check(await I.p.isHidden('#in_service') && await I.p.isVisible('#catalog'), 'items mode: no package dropdown, catalog shown');
+  check(await I.p.locator('#catalog button').count() === 11, 'catalog has 11 items');
+  await I.p.fill('#in_clientName', 'מיכל ואבי'); await I.p.fill('#in_clientPhone', '052-1112233');
+  await I.p.fill('#in_eventType', 'חתונה'); await I.p.locator('#in_date').pressSequentially('15092027');
+  await I.p.fill('#in_location', 'אולם הגנים, ראשון לציון');
+  await I.p.locator('#in_itStart').pressSequentially('1930'); await I.p.fill('#in_itGuests', '250');
+  await I.p.click('#catalog button[data-i="0"]');
+  await I.p.click('#catalog button[data-i="2"]');
+  await I.p.fill('.it-row[data-i="1"] .it-qty', '20');
+  await I.p.click('#add-item');
+  await I.p.fill('.it-row[data-i="2"] .it-label', 'זר כלה'); await I.p.fill('.it-row[data-i="2"] .it-price', '350');
+  await I.p.fill('#in_discount', '250');
+  check(await I.p.inputValue('#in_price') === '5500', 'total = 1800 + 20×180 + 350 − 250 = ₪5,500');
+  check(await I.p.inputValue('#in_deposit') === '1650', 'deposit 30% suggested automatically = ₪1,650');
+  await I.p.click('#dep-quick button[data-p="50"]');
+  check(await I.p.inputValue('#in_deposit') === '2750', 'deposit quick button 50% = ₪2,750');
+  await I.p.fill('#in_deposit', '1500');
+  check((await I.p.textContent('#sum-strip')).includes('₪4,000'), 'balance shown = ₪4,000');
+  await I.p.fill('#in_notes', 'גוונים: לבן, שמפניה ומרווה');
+  await axe(I.p, 'ilana generator');
+  await I.p.screenshot({ path: SHOTS + 'ilana-generator.png', fullPage: true });
+  await I.p.click('#gen-btn'); await I.p.waitForSelector('#link-result:not(.hidden)');
+  check((await I.p.getAttribute('#wa-share-btn', 'href')).startsWith('https://wa.me/972521112233?text='), 'WhatsApp goes straight to the client phone');
+  check((await I.p.getAttribute('#wa-preview-img', 'src')).includes('/hatzaa/ilana/og.jpg'), 'result shows the WhatsApp preview image');
+  await I.p.waitForFunction(() => document.getElementById('wa-preview-img').naturalWidth === 1200, null, { timeout: 10000 }).catch(() => {});
+  check(await I.p.evaluate(() => document.getElementById('wa-preview-img').naturalWidth) === 1200, 'preview image loads (1200×630)');
+  await I.p.screenshot({ path: SHOTS + 'ilana-result.png', fullPage: true });
+  const ilink = await I.p.inputValue('#shareable-url');
+  const html = fs.readFileSync('/home/user/hatzaa/ilana/index.html', 'utf8');
+  check(/og:image" content="https:\/\/arial13579\.github\.io\/hatzaa\/ilana\/og\.jpg/.test(html), 'ilana page has its own og:image for WhatsApp');
+
+  const IC = await newPage(b, MOB, 'ilana-customer');
+  await IC.p.goto(ilink.replace('https://arial13579.github.io', SITE));
+  await IC.p.waitForSelector('#sig-canvas'); await IC.p.waitForTimeout(500);
+  const ct = await IC.p.textContent('body');
+  check(ct.includes('מרכז שולחן לאורחים') && ct.includes('20 × ₪180') && ct.includes('₪5,500') && ct.includes('−₪250'), 'customer sees itemized table, quantity and discount');
+  check(ct.includes('₪1,500') && ct.includes('₪4,000') && ct.includes('יתרה לתשלום'), 'customer sees deposit and balance');
+  check(ct.includes('סידור פרחים ונרות'), 'catalog description shown under the item');
+  check(await IC.p.locator('.contact a[href^="tel:"]').count() === 1 && await IC.p.locator('.contact a[href^="mailto:' + ILANA + '"]').count() === 1 && await IC.p.locator('.contact a[href^="https://wa.me/972501234567"]').count() === 1, 'contact box: phone, WhatsApp and email');
+  check(await IC.p.locator('#signature-form a[href*="refunds.html"]').count() === 1, 'signing requires agreeing to the refunds policy');
+  check(!/snap ?box(?!event\.official)/i.test(ct), 'customer page has no Snap Box branding');
+  check(await IC.p.isVisible('#cal-fab'), 'add-to-calendar works with start time only');
+  await axe(IC.p, 'ilana customer page');
+  await IC.p.screenshot({ path: SHOTS + 'ilana-customer.png', fullPage: true });
+  await draw(IC.p); await IC.p.check('#agree-terms');
+  const dl3 = IC.p.waitForEvent('download', { timeout: 60000 }); await IC.p.click('#submit-btn');
+  await (await dl3).saveAs(SHOTS + 'ilana-signed.pdf');
+  await IC.p.waitForSelector('.done', { timeout: 20000 });
+  check(sent.some(u => u.includes('formsubmit.co/' + ILANA)), 'signed contract emailed to Ilana');
+  for (const d of ['terms', 'refunds', 'privacy', 'accessibility']) {
+    await IC.p.goto(SITE + '/hatzaa/legal/' + d + '.html?t=ilana');
+    await IC.p.waitForSelector('section.card'); await IC.p.waitForTimeout(700);
+    const lt = await IC.p.textContent('body');
+    check(!/firebase|formsubmit|web3forms|tmpfiles|ipify|github|openstreetmap/i.test(lt), `legal/${d}: no third-party apps listed`);
+    check(lt.includes('050-1234567') && lt.includes(ILANA), `legal/${d}: phone + email in footer`);
+    if (d === 'refunds') check(lt.includes('14 ימים') && lt.includes('50% מהמקדמה'), 'refunds page: cooling-off + Ilana tiers');
+    await axe(IC.p, 'ilana legal/' + d);
+  }
+
+  await I.p.click('.tabs button[data-tab=dash]');
+  await I.p.waitForSelector('#tbody .pill.signed', { timeout: 15000 });
+  await I.p.waitForSelector('#tbody .view-file', { timeout: 15000 });
+  check((await I.p.textContent('#tbody')).includes('עיצוב שולחן כלה וחתן +2'), 'dashboard shows items summary');
+  const fc = I.p.waitForEvent('filechooser'); await I.p.click('#tbody .upload-file');
+  await (await fc).setFiles(SHOTS + 'offer-signed.pdf');
+  await I.p.waitForTimeout(1500);
+  const replaced = await I.p.evaluate(async () => { const f = await Core.fb(); const s = await f.fs.getDocs(f.fs.collection(f.db, 'tenants', 'ilana', 'quotes')); return s.docs[0].data().pdfData.length; });
+  check(replaced === Math.ceil(fs_size_offer() / 3) * 4 || replaced > 1000, 'vendor replaced the signed agreement PDF');
+  await axe(I.p, 'ilana dashboard');
+  await I.p.screenshot({ path: SHOTS + 'ilana-dashboard.png', fullPage: true });
+
+  console.log('J. Owner: agreement on vendor card, limit, cancel support, suspend');
+  await O.p.reload(); await O.p.waitForSelector('#tbody button.edit[data-id=ilana]');
+  await O.p.click('#tbody button.edit[data-id=ilana]'); await O.p.waitForSelector('#edit-dlg[open]');
+  await O.p.waitForSelector('#e_agr_from_wrap:not(.hidden)', { timeout: 15000 });
+  await O.p.click('#e_agr_attach');
+  await O.p.waitForFunction(() => document.getElementById('e_agr_status').textContent.includes('יש הסכם חתום'), null, { timeout: 15000 });
+  check(true, 'owner attached the signed offer as Ilana\'s agreement');
+  await O.p.setInputFiles('#e_agr_file', SHOTS + 'ilana-signed.pdf');
+  await O.p.waitForFunction(() => /יש הסכם חתום.*ilana-signed/.test(document.getElementById('e_agr_status').textContent), null, { timeout: 15000 });
+  check(true, 'owner replaced the agreement with another PDF');
+  await O.p.click('#e_quick button[data-m="12"]');
+  await O.p.click('label:has(input[value=limited])');
+  await O.p.screenshot({ path: SHOTS + 'admin-manage.png', fullPage: false });
+  await O.p.click('#e_save');
+  await O.p.waitForFunction(() => document.getElementById('tbody').textContent.includes('מוגבל'), null, { timeout: 15000 });
+  check((await O.p.textContent('#tbody')).includes('נותרו שנה') || (await O.p.textContent('#tbody')).includes('נותרו 12'), 'support extended by a year');
+  await I.p.goto(SYS + '/vendors/app.html?t=ilana'); await I.p.waitForSelector('#main-app:not(.hidden)', { timeout: 15000 });
+  check(await I.p.isVisible('#limited-note'), 'limited vendor: view-only notice shown');
+  check(await I.p.evaluate(() => document.getElementById('creator-fs').disabled) && await I.p.isDisabled('#gen-btn'), 'limited vendor: quote form disabled');
+  check(await I.p.isVisible('#agr-card'), 'vendor sees "my agreement with Snap Box" card');
+  const lim = await I.p.evaluate(async () => { const f = await Core.fb(); try { await f.fs.setDoc(f.fs.doc(f.db, 'tenants', 'ilana', 'quotes', 'hack1'), { status: 'pending' }); return 'ALLOWED'; } catch(e) { return 'denied'; } });
+  check(lim === 'denied', 'limited vendor cannot create quotes even from the browser console');
+  const popAgr = I.p.waitForEvent('popup', { timeout: 10000 }).catch(() => null);
+  await I.p.click('#agr-view'); check(!!(await popAgr), 'vendor opens own agreement PDF');
+  await I.p.screenshot({ path: SHOTS + 'ilana-limited.png', fullPage: true });
+  // ביטול תמיכה
+  await O.p.click('#tbody button.edit[data-id=ilana]'); await O.p.waitForSelector('#edit-dlg[open]');
+  await O.p.click('#e_cancel_sup'); await O.p.click('label:has(input[value=active])'); await O.p.click('#e_save');
+  await O.p.waitForFunction(() => document.getElementById('tbody').textContent.includes('בוטלה'), null, { timeout: 15000 });
+  check(true, 'owner cancelled Ilana\'s support');
+  await I.p.reload(); await I.p.waitForSelector('#main-app:not(.hidden)', { timeout: 15000 });
+  check((await I.p.textContent('#support-card')).includes('בוטלה'), 'vendor sees support cancelled');
+  check(await I.p.isHidden('#limited-note') && !(await I.p.evaluate(() => document.getElementById('creator-fs').disabled)), 'limit lifted → vendor can create again');
+  // השהיה
+  await O.p.click('#tbody button.edit[data-id=demo]'); await O.p.waitForSelector('#edit-dlg[open]');
+  await O.p.click('label:has(input[value=suspended])'); await O.p.click('#e_save');
   await O.p.waitForFunction(() => document.getElementById('tbody').textContent.includes('מושהה'), null, { timeout: 15000 });
   await V.p.goto(SYS + '/vendors/app.html?t=demo');
   await V.p.waitForSelector('#blocked:not(.hidden)', { timeout: 15000 });
   check((await V.p.textContent('#blocked-msg')).includes('מושהה'), 'suspended vendor blocked');
+  await V.p.goto(SYS + '/vendors/');
+  await V.p.waitForSelector('#err:not(.hidden)', { timeout: 15000 });
+  check((await V.p.textContent('#err')).includes('מושהה'), 'login page says the account is suspended (not "not registered")');
+
+  console.log('K. Owner deletes a vendor permanently, then restores');
+  await O.p.click('#tbody button.edit[data-id=demo]'); await O.p.waitForSelector('#edit-dlg[open]');
+  check(await O.p.isDisabled('#e_delete'), 'delete disabled until the vendor name is typed');
+  await O.p.fill('#e_del_confirm', 'demo');
+  await O.p.click('#e_delete');
+  await O.p.waitForSelector('#deleted-card:not(.hidden)', { timeout: 20000 });
+  check(await O.p.locator('#tbody button.edit[data-id=demo]').count() === 0, 'deleted vendor removed from the table');
+  await O.p.reload(); await O.p.waitForSelector('text=מסונכרן ✓', { timeout: 15000 }); await O.p.waitForSelector('#tbody button.edit');
+  check(await O.p.locator('#tbody button.edit[data-id=demo]').count() === 0, 'sync does not re-create a deleted vendor');
+  const left = await O.p.evaluate(async () => { const f = await Core.fb(); const q = await f.fs.getDocs(f.fs.collection(f.db, 'tenants', 'demo', 'quotes')); const i = await f.fs.getDoc(f.fs.doc(f.db, 'vendorIndex', 'noa@gmail.com')); const t = await f.fs.getDoc(f.fs.doc(f.db, 'tenants', 'demo')); return q.size + (i.exists() ? 100 : 0) + (t.exists() ? 1000 : 0); });
+  check(left === 0, 'all vendor data deleted (quotes, access, card)');
+  await axe(O.p, 'admin with deleted vendors');
+  await O.p.screenshot({ path: SHOTS + 'admin-deleted.png', fullPage: true });
+  await V.p.goto(SYS + '/vendors/'); await V.p.waitForSelector('#err:not(.hidden)', { timeout: 15000 });
+  check((await V.p.textContent('#err')).includes('לא רשום'), 'deleted vendor can no longer log in');
+  await O.p.click('#deleted-list button.restore');
+  await O.p.waitForSelector('#tbody button.edit[data-id=demo]', { timeout: 20000 });
+  check(true, 'restored vendor re-created as an empty account');
 
   console.log('\nA11Y DETAILS:\n  ' + (a11y.join('\n  ') || 'none'));
   console.log((errors.length ? 'PAGE ERRORS:\n' + errors.join('\n') : 'no page errors'));

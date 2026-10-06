@@ -35,12 +35,22 @@
         <div class="card-h"><h2>הספקים במערכת</h2><span class="hint" id="sync-status" role="status"></span></div>
         <div class="tbl-wrap">
           <table>
-            <thead><tr><th>ספק</th><th>חבילה ורכישה</th><th>תמיכה טכנית</th><th>הצעות</th><th>פעילות אחרונה</th><th>תנאי שימוש</th><th>סטטוס</th><th>פעולות</th></tr></thead>
-            <tbody id="tbody"><tr><td colspan="8" class="loading">טוען…</td></tr></tbody>
+            <thead><tr><th>ספק</th><th>חבילה ורכישה</th><th>תמיכה טכנית</th><th>הסכם חתום</th><th>הצעות</th><th>פעילות אחרונה</th><th>תנאי שימוש</th><th>סטטוס</th><th>פעולות</th></tr></thead>
+            <tbody id="tbody"><tr><td colspan="9" class="loading">טוען…</td></tr></tbody>
           </table>
         </div>
       </div>
-      <p class="hint" style="margin-top:12px">ספק חדש מתווסף דרך Claude ומסונכרן אוטומטית בכל כניסה לדף הזה. השהיה חוסמת מיד את הכניסה של הספק (הלקוחות שלו עדיין יכולים לחתום על הצעות שכבר נשלחו).</p>
+      <div class="card hidden" id="deleted-card" style="margin-top:16px">
+        <div class="card-h"><h2>ספקים שנמחקו</h2><span class="hint">לא ייווצרו מחדש בסנכרון. שחזור יוצר חשבון ריק.</span></div>
+        <div class="card-b" id="deleted-list"></div>
+      </div>
+      <ul class="legend">
+        <li><b>פעיל</b> · הספק נכנס ועובד כרגיל.</li>
+        <li><b>מוגבל</b> · הספק נכנס ורואה את ההצעות וההסכמים שלו, אבל לא יכול ליצור הצעות חדשות.</li>
+        <li><b>מושהה</b> · הכניסה של הספק חסומה מיד. הלקוחות שלו עדיין יכולים לחתום על הצעות שכבר נשלחו.</li>
+        <li><b>מחיקה לצמיתות</b> · מוחקת את הספק, את כל ההצעות שלו ואת ההסכם, ומבטלת את הגישה. אי אפשר לשחזר את הנתונים.</li>
+      </ul>
+      <p class="hint" style="margin-top:8px">ספק חדש מתווסף דרך Claude ומסונכרן אוטומטית בכל כניסה לדף הזה.</p>
     </section>
 
     <!-- ===== הצעת מחיר לספק ===== -->
@@ -97,23 +107,70 @@
   </div>
 </main>
 
-<!-- חלון עריכת פרטי ספק -->
-<dialog class="modal" id="edit-dlg" aria-labelledby="edit-title">
+<!-- חלון ניהול ספק -->
+<dialog class="modal wide" id="edit-dlg" aria-labelledby="edit-title">
   <form method="dialog" id="edit-form">
-    <div class="card-h"><h2 id="edit-title">פרטי ספק</h2><button type="button" class="btn sm" id="edit-close" aria-label="סגירה">✕</button></div>
-    <div class="card-b grid2">
-      <div><label class="lbl" for="e_contact">איש/אשת קשר</label><input class="field" id="e_contact"></div>
-      <div><label class="lbl" for="e_phone">טלפון</label><input class="field ltr" style="text-align:left" id="e_phone" inputmode="tel"></div>
-      <div><label class="lbl" for="e_plan">חבילה</label><select class="field" id="e_plan"></select></div>
-      <div><label class="lbl" for="e_paid">סכום ששולם (₪)</label><input class="field" type="number" min="0" id="e_paid"></div>
-      <div><label class="lbl" for="e_purchase">תאריך רכישה</label><input class="field" type="date" id="e_purchase"></div>
-      <div><label class="lbl" for="e_until">תמיכה בתוקף עד</label><input class="field" type="date" id="e_until"></div>
-      <div class="span2"><span class="lbl">הארכת תמיכה מהיום או מסוף התקופה הנוכחית</span>
-        <div class="quick" id="e_quick"><button type="button" class="btn sm" data-m="1">+ חודש</button><button type="button" class="btn sm" data-m="2">+ חודשיים</button><button type="button" class="btn sm" data-m="3">+ 3 חודשים</button><button type="button" class="btn sm" data-m="6">+ חצי שנה</button><button type="button" class="btn sm" data-m="12">+ שנה</button><button type="button" class="btn sm danger" data-m="0">ביטול תמיכה</button></div>
-      </div>
-      <div class="span2"><label class="lbl" for="e_notes">הערות פנימיות <small>· רק אתה רואה</small></label><textarea class="field" id="e_notes" rows="3"></textarea></div>
-      <p class="hint span2" id="e_status" role="status"></p>
-      <button type="submit" class="btn primary block span2" id="e_save" value="save">שמירה</button>
+    <div class="card-h"><h2 id="edit-title">ניהול ספק</h2><button type="button" class="btn sm" id="edit-close" aria-label="סגירה">✕</button></div>
+    <div class="card-b">
+      <fieldset class="mg">
+        <legend>מצב החשבון</legend>
+        <div class="seg3" id="e_state" role="radiogroup" aria-label="מצב החשבון">
+          <label><input type="radio" name="e_state" value="active"><span><b>פעיל</b><small>עובד כרגיל</small></span></label>
+          <label><input type="radio" name="e_state" value="limited"><span><b>מוגבל</b><small>צפייה בלבד, בלי הצעות חדשות</small></span></label>
+          <label><input type="radio" name="e_state" value="suspended"><span><b>מושהה</b><small>הכניסה חסומה</small></span></label>
+        </div>
+      </fieldset>
+
+      <fieldset class="mg">
+        <legend>פרטים ומנוי</legend>
+        <div class="grid2">
+          <div><label class="lbl" for="e_contact">איש/אשת קשר</label><input class="field" id="e_contact"></div>
+          <div><label class="lbl" for="e_phone">טלפון</label><input class="field ltr" style="text-align:left" id="e_phone" inputmode="tel"></div>
+          <div><label class="lbl" for="e_plan">חבילה</label><select class="field" id="e_plan"></select></div>
+          <div><label class="lbl" for="e_paid">סכום ששולם (₪)</label><input class="field" type="number" min="0" id="e_paid"></div>
+          <div><label class="lbl" for="e_purchase">תאריך רכישה</label><input class="field" type="date" id="e_purchase"></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="mg">
+        <legend>תמיכה טכנית</legend>
+        <p class="sup-now" id="e_sup_now"></p>
+        <div class="grid2">
+          <div><label class="lbl" for="e_until">בתוקף עד</label><input class="field" type="date" id="e_until"></div>
+        </div>
+        <span class="lbl" style="margin-top:10px">הארכה מהיום או מסוף התקופה הנוכחית</span>
+        <div class="quick" id="e_quick"><button type="button" class="btn sm" data-m="1">+ חודש</button><button type="button" class="btn sm" data-m="2">+ חודשיים</button><button type="button" class="btn sm" data-m="3">+ 3 חודשים</button><button type="button" class="btn sm" data-m="6">+ חצי שנה</button><button type="button" class="btn sm" data-m="12">+ שנה</button></div>
+        <button type="button" class="btn sm danger" id="e_cancel_sup" style="margin-top:10px">ביטול התמיכה הטכנית</button>
+      </fieldset>
+
+      <fieldset class="mg">
+        <legend>ההסכם החתום של הספק</legend>
+        <p class="hint" id="e_agr_status">טוען…</p>
+        <div class="quick">
+          <button type="button" class="btn sm primary hidden" id="e_agr_view">צפייה בהסכם</button>
+          <button type="button" class="btn sm" id="e_agr_upload">העלאת PDF / החלפה</button>
+        </div>
+        <div id="e_agr_from_wrap" class="hidden" style="margin-top:10px">
+          <label class="lbl" for="e_agr_from">או שיוך מהצעה חתומה</label>
+          <div class="row-inline"><select class="field" id="e_agr_from"></select><button type="button" class="btn sm" id="e_agr_attach">שיוך</button></div>
+        </div>
+        <input type="file" id="e_agr_file" accept="application/pdf" hidden>
+      </fieldset>
+
+      <fieldset class="mg">
+        <legend>הערות פנימיות <small>· רק אתה רואה</small></legend>
+        <textarea class="field" id="e_notes" rows="3" aria-label="הערות פנימיות"></textarea>
+      </fieldset>
+
+      <p class="hint" id="e_status" role="status"></p>
+      <button type="submit" class="btn primary block" id="e_save" value="save">שמירת השינויים</button>
+
+      <fieldset class="mg danger-zone">
+        <legend>מחיקה לצמיתות</legend>
+        <p>מוחקת את הספק, את כל ההצעות של הלקוחות שלו, את ההסכם ואת אישורי התנאים, ומבטלת את הגישה שלו. <b>אי אפשר לשחזר את הנתונים.</b></p>
+        <label class="lbl" for="e_del_confirm">כדי לאשר, הקלידו את שם המשתמש של הספק: <b class="ltr" id="e_del_slug"></b></label>
+        <div class="row-inline"><input class="field ltr" id="e_del_confirm" autocomplete="off" style="text-align:left"><button type="button" class="btn danger" id="e_delete" disabled>מחיקה לצמיתות</button></div>
+      </fieldset>
     </div>
   </form>
 </dialog>

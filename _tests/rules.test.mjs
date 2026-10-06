@@ -87,6 +87,40 @@ await no('stranger cannot list platform quotes', getDocs(collection(stranger, 'p
 await ok('owner lists platform quotes', getDocs(collection(owner, 'platformQuotes')));
 await ok('owner deletes platform quote', deleteDoc(doc(owner, 'platformQuotes/p1')));
 
+console.log('Limited vendor (read-only)');
+await ok('owner limits noa', updateDoc(doc(owner, 'tenants/noa'), { limited: true }));
+await ok('limited noa still reads own tenant', getDoc(doc(noa, 'tenants/noa')));
+await ok('limited noa still lists quotes', getDocs(collection(noa, 'tenants/noa/quotes')));
+await no('limited noa cannot create quote', setDoc(doc(noa, 'tenants/noa/quotes/lim1'), { status: 'pending' }));
+await no('limited noa cannot lift the limit', updateDoc(doc(noa, 'tenants/noa'), { limited: false }));
+await ok('owner can still create quote for limited noa', setDoc(doc(owner, 'tenants/noa/quotes/lim2'), { status: 'pending' }));
+await ok('owner lifts limit', updateDoc(doc(owner, 'tenants/noa'), { limited: false }));
+await ok('noa creates quote again', setDoc(doc(noa, 'tenants/noa/quotes/lim3'), { status: 'pending' }));
+
+console.log('Vendor agreement file');
+await ok('owner uploads agreement', setDoc(doc(owner, 'tenants/noa/files/agreement'), { pdfData: 'JVBER', source: 'upload' }));
+await ok('noa reads own agreement', getDoc(doc(noa, 'tenants/noa/files/agreement')));
+await no('noa cannot replace agreement', setDoc(doc(noa, 'tenants/noa/files/agreement'), { pdfData: 'x' }));
+await no('noa cannot delete agreement', deleteDoc(doc(noa, 'tenants/noa/files/agreement')));
+await no('yossi cannot read noa agreement', getDoc(doc(yossi, 'tenants/noa/files/agreement')));
+await no('anon cannot read agreement', getDoc(doc(anon, 'tenants/noa/files/agreement')));
+await ok('owner replaces agreement', setDoc(doc(owner, 'tenants/noa/files/agreement'), { pdfData: 'JVBER2', source: 'upload' }));
+
+console.log('Permanent vendor deletion (owner only)');
+await no('noa cannot write tombstone', setDoc(doc(noa, 'deletedTenants/yossi'), { name: 'x' }));
+await no('noa cannot read tombstones', getDocs(collection(noa, 'deletedTenants')));
+await no('noa cannot delete own tenant', deleteDoc(doc(noa, 'tenants/noa')));
+await ok('owner deletes noa consents', deleteDoc(doc(owner, 'tenants/noa/consents/noa@gmail.com|v1')));
+await ok('owner deletes noa agreement', deleteDoc(doc(owner, 'tenants/noa/files/agreement')));
+await ok('owner deletes noa quote', deleteDoc(doc(owner, 'tenants/noa/quotes/lim3')));
+await ok('owner deletes noa index', deleteDoc(doc(owner, 'vendorIndex/noa@gmail.com')));
+await ok('owner deletes noa tenant', deleteDoc(doc(owner, 'tenants/noa')));
+await ok('owner writes tombstone', setDoc(doc(owner, 'deletedTenants/noa'), { name: 'Noa DJ', deletedAt: serverTimestamp() }));
+await ok('owner lists tombstones', getDocs(collection(owner, 'deletedTenants')));
+await no('deleted noa cannot read tenant', getDoc(doc(noa, 'tenants/noa')));
+await no('deleted noa cannot create quote', setDoc(doc(noa, 'tenants/noa/quotes/z'), { status: 'pending' }));
+await ok('owner restores (removes tombstone)', deleteDoc(doc(owner, 'deletedTenants/noa')));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);

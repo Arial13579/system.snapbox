@@ -28,11 +28,29 @@
 
     const isOwner = user => !!user && (user.email || '').toLowerCase() === PF.ownerEmail.toLowerCase();
 
-    async function signIn(){
+    // התחברות עם Google. תמיד מציג את בורר החשבונות של Google (אחרת Google בוחר לבד את החשבון האחרון
+    // ואי אפשר לעבור לחשבון אחר). hint = המייל שנזכר במכשיר, כדי שיופיע ראשון.
+    const LAST_KEY = 'sb.lastEmail';
+    function rememberEmail(email){ try { localStorage.setItem(LAST_KEY, String(email || '').toLowerCase()); } catch(e){} }
+    function rememberedEmail(){ try { return localStorage.getItem(LAST_KEY) || ''; } catch(e){ return ''; } }
+    function forgetEmail(){ try { localStorage.removeItem(LAST_KEY); } catch(e){} }
+    async function signIn(hint){
         const f = await fb();
-        return f.authMod.signInWithPopup(f.auth, new f.authMod.GoogleAuthProvider());
+        const provider = new f.authMod.GoogleAuthProvider();
+        const params = { prompt: 'select_account' };
+        if (hint) params.login_hint = hint;
+        provider.setCustomParameters(params);
+        if (window.__EMU__) window.__lastAuthParams = provider.getCustomParameters();   // בדיקות מקומיות בלבד
+        try { return await f.authMod.signInWithPopup(f.auth, provider); }
+        catch(e) {
+            // חלון קופץ חסום (נפוץ בטלפונים) — מעבר לכניסה באותו חלון
+            if (e && (e.code === 'auth/popup-blocked' || e.code === 'auth/operation-not-supported-in-this-environment')) return f.authMod.signInWithRedirect(f.auth, provider);
+            throw e;
+        }
     }
     async function signOut(){ const f = await fb(); await f.authMod.signOut(f.auth); location.href = './'; }
+    // דפדפן פנימי של וואטסאפ / אינסטגרם / פייסבוק — Google חוסם בו התחברות
+    const inAppBrowser = () => /FBAN|FBAV|Instagram|WhatsApp|Line\/|MicroMessenger|; wv\)/i.test(navigator.userAgent || '');
 
     // קורא ל-cb(user) בכל שינוי התחברות (user=null כשלא מחובר)
     async function onAuth(cb){
@@ -47,6 +65,15 @@
             const snap = await f.fs.getDoc(f.fs.doc(f.db, 'vendorIndex', (user.email || '').toLowerCase()));
             return snap.exists() ? snap.data().tenant : null;
         } catch(e){ return null; }
+    }
+
+    // מצב הגישה של משתמש: { slug, state: 'ok' | 'suspended' | 'none' }. ספק מושהה לא יכול לקרוא את כרטיס הספק (נאכף בשרת).
+    async function vendorAccess(user){
+        const slug = await tenantOf(user);
+        if (!slug) return { slug: null, state: 'none' };
+        const f = await fb();
+        try { const snap = await f.fs.getDoc(f.fs.doc(f.db, 'tenants', slug)); return { slug, state: snap.exists() ? 'ok' : 'none', data: snap.exists() ? snap.data() : null }; }
+        catch(e) { return { slug, state: 'suspended' }; }
     }
 
     function loadScript(src){
@@ -74,14 +101,21 @@
     const money = n => '₪' + (Number(n) || 0).toLocaleString();
     const clean = s => String(s == null ? '' : s).replace(/\|/g, '/');
 
-    // הקישור ללקוח — סדר השדות קבוע וזהה ל-quote.js באתר הלקוחות
+    // הקישור ללקוח — סדר השדות קבוע וזהה ל-quote.js באתר הלקוחות.
+    // שדות 13–14 (פריטים והנחה) קיימים רק בהצעות במצב "פריטים": שם^כמות^מחיר ליחידה, מופרדים ב-~
+    const cleanItem = s => clean(s).replace(/[~^]/g, '-');
+    const encodeItems = items => (items || []).map(i => [cleanItem(i.label), Number(i.qty) || 1, Number(i.price) || 0].join('^')).join('~');
     function shareUrl(slug, q){
-        const raw = [clean(q.clientName), clean(q.eventType), clean(q.location), clean(q.date), clean(q.startTime), clean(q.endTime),
-            q.guests || '', q.price || 0, q.deposit || 0, clean(q.notes), q.id, q.service || ''].join('|');
-        return `${PF.customerBase}/${slug}/?q=${b64UrlEncode(raw)}`;
+        const f = [clean(q.clientName), clean(q.eventType), clean(q.location), clean(q.date), clean(q.startTime), clean(q.endTime),
+            q.guests || '', q.price || 0, q.deposit || 0, clean(q.notes), q.id, q.service || ''];
+        if (q.items && q.items.length) f.push(encodeItems(q.items), Number(q.discount) || 0);
+        return `${PF.customerBase}/${slug}/?q=${b64UrlEncode(f.join('|'))}`;
     }
 
     const GOOGLE_SVG = '<svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6.1 29.6 4 24 4c-7.7 0-14.4 4.4-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.6C29.6 35 26.9 36 24 36c-5.3 0-9.7-3.1-11.3-7.5l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.6 5.6C39.9 37.1 44 31.4 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>';
+
+    // מצב החשבון של ספק: active | limited | suspended
+    const accountState = t => !t || t.active === false ? 'suspended' : t.limited ? 'limited' : 'active';
 
     /* ---- תאריכים ותמיכה ---- */
     const pad = n => String(n).padStart(2, '0');
@@ -91,6 +125,7 @@
     function addMonths(d, n){ const r = new Date(d.getFullYear(), d.getMonth() + n, d.getDate()); if (r.getDate() !== d.getDate()) r.setDate(0); return r; }
     // מצב התמיכה הטכנית של ספק לפי tenants/{slug}.supportUntil (YYYY-MM-DD, כולל היום הזה)
     function supportStatus(t){
+        if (t && t.supportCancelled) return { state: 'cancelled', label: 'התמיכה הטכנית בוטלה' + (t.supportCancelledAt ? ' ב-' + fmtDate(t.supportCancelledAt) : '') };
         const until = parseISO(t && t.supportUntil);
         if (!until) return { state: 'none', label: 'לא הוגדרה תמיכה טכנית' };
         const today = new Date(); today.setHours(0, 0, 0, 0);
@@ -102,5 +137,5 @@
         return { state: days <= 30 ? 'expiring' : 'active', until, days, months: Math.max(0, months), left, label: 'פעילה עד ' + fmtDate(until) };
     }
 
-    window.Core = { fb, isOwner, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, onAuth, tenantOf, loadTenant, esc, b64UrlEncode, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { fb, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();

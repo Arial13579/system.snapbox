@@ -7,12 +7,16 @@ rules_version = '2';
 // מבנה הנתונים:
 //   tenants/{ספק}                 — פרטי ספק: admins (רשימת מיילים), active (פעיל/מושהה)
 //   tenants/{ספק}/quotes/{הצעה}   — ההצעות של הספק
+//   tenants/{ספק}/consents/{…}    — אישורי תנאי השימוש של הספק
+//   tenants/{ספק}/files/{קובץ}    — ההסכם החתום של הספק מול Snap Box (רק הבעלים מעלה/מחליף)
+//   deletedTenants/{ספק}          — ספקים שנמחקו לצמיתות (כדי שהסנכרון לא ייצור אותם מחדש)
+//   platformQuotes/{הצעה}         — הצעות מחיר של Snap Box לספקים
 //   vendorIndex/{מייל}            — לאיזה ספק שייך כל מייל (לכניסת ספקים)
 //   check_quotes/{הצעה}           — המערכת הקיימת של CHECK (נשארת עובדת כרגיל)
 //
 // מי רשאי מה:
 //   • הבעלים (arielkahalani1@gmail.com) — הכל, בכל הספקים.
-//   • ספק — רק ההצעות שלו, ורק כל עוד הוא מסומן active.
+//   • ספק — רק ההצעות שלו, ורק כל עוד הוא מסומן active. ספק "מוגבל" (limited) רואה הכל אבל לא יוצר הצעות חדשות.
 //   • לקוח של ספק (בלי התחברות) — רק לסמן הצעה קיימת כ"נחתמה" ולצרף PDF, פעם אחת.
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -31,6 +35,10 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/tenants/$(t))
         && tenantDoc(t).data.active == true
         && request.auth.token.email in tenantDoc(t).data.admins;
+    }
+    // ספק שמותר לו ליצור הצעות חדשות (פעיל ולא מוגבל)
+    function canCreateFor(t) {
+      return isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true;
     }
     // לקוח חותם: רק pending → signed, ורק שדות התיעוד
     function isClientSigning() {
@@ -55,13 +63,23 @@ service cloud.firestore {
 
       match /quotes/{q} {
         allow read, delete: if isOwner() || isVendorOf(t);
-        allow create: if (isOwner() || isVendorOf(t)) && request.resource.data.status == 'pending';
+        allow create: if (isOwner() || canCreateFor(t)) && request.resource.data.status == 'pending';
         allow update: if isOwner() || isVendorOf(t) || isClientSigning() || isClientAttachingPdf();
       }
     }
 
-    // ---- אישור תנאי השימוש של ספק: רשומה לכל גרסת תנאים (מייל|גרסה), נרשמת פעם אחת ולא ניתנת לשינוי ----
+    // ---- ההסכם החתום של הספק מול Snap Box: הספק רואה, רק הבעלים מעלה/מחליף ----
+    match /tenants/{t}/files/{f} {
+      allow read: if isOwner() || isVendorOf(t);
+      allow write: if isOwner();
+    }
+    // ---- ספקים שנמחקו לצמיתות ----
+    match /deletedTenants/{t} {
+      allow read, write: if isOwner();
+    }
+    // ---- אישור תנאי השימוש של ספק: רשומה לכל גרסת תנאים (מייל|גרסה), נרשמת פעם אחת ולא ניתנת לשינוי (רק הבעלים מוחק, במחיקת ספק) ----
     match /tenants/{t}/consents/{consentId} {
+      allow delete: if isOwner();
       allow read: if isOwner() || isVendorOf(t);
       allow create: if isVendorOf(t)
         && consentId == request.auth.token.email + '|' + request.resource.data.version
