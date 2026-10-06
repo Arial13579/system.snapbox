@@ -121,6 +121,27 @@ await no('deleted noa cannot read tenant', getDoc(doc(noa, 'tenants/noa')));
 await no('deleted noa cannot create quote', setDoc(doc(noa, 'tenants/noa/quotes/z'), { status: 'pending' }));
 await ok('owner restores (removes tombstone)', deleteDoc(doc(owner, 'deletedTenants/noa')));
 
+console.log('Short links');
+await ok('owner re-creates noa (restore)', setDoc(doc(owner, 'tenants/noa'), { admins: ['noa@gmail.com'], active: true }));
+const sl = (who, id, d) => setDoc(doc(who, 'shortLinks/' + id), { q: 'abc', kind: 'quote', tenant: 'noa', createdAt: serverTimestamp(), ...d });
+await ok('vendor creates own short link', sl(noa, 'k1'));
+await no('vendor cannot create link for other vendor', sl(noa, 'k2', { tenant: 'yossi' }));
+await no('vendor cannot create offer link', sl(noa, 'k3', { kind: 'offer', tenant: '' }));
+await no('stranger cannot create link', sl(stranger, 'k4'));
+await no('anon cannot create link', sl(anon, 'k5'));
+await no('extra fields denied', sl(noa, 'k6', { pdfData: 'x' }));
+await no('cannot overwrite existing link', sl(noa, 'k1', { q: 'evil' }));
+await ok('anon opens link by id', getDoc(doc(anon, 'shortLinks/k1')));
+await no('anon cannot list links', getDocs(collection(anon, 'shortLinks')));
+await no('vendor cannot list links', getDocs(collection(noa, 'shortLinks')));
+await ok('owner creates offer link', sl(owner, 'o1', { kind: 'offer', tenant: '' }));
+await ok('owner lists links', getDocs(collection(owner, 'shortLinks')));
+await no('yossi cannot delete noa link', deleteDoc(doc(yossi, 'shortLinks/k1')));
+await ok('noa deletes own link', deleteDoc(doc(noa, 'shortLinks/k1')));
+await ok('owner limits noa', updateDoc(doc(owner, 'tenants/noa'), { limited: true }));
+await no('limited vendor cannot create link', sl(noa, 'k7'));
+await ok('owner deletes offer link', deleteDoc(doc(owner, 'shortLinks/o1')));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);

@@ -150,7 +150,8 @@ async function draw(p){
   await O.p.click('#o_gen');
   await O.p.waitForSelector('#o_result:not(.hidden)');
   const offerUrl = await O.p.inputValue('#o_url');
-  check(/\/offer\/\?q=/.test(offerUrl), 'offer link created');
+  check(/\/offer\/\?k=[a-z0-9]{10}$/.test(offerUrl), 'offer link is short (…/offer/?k=xxxxxxxxxx): ' + offerUrl);
+  check(decodeURIComponent((await O.p.getAttribute('#o_wa', 'href')).split('text=')[1]) === offerUrl, 'WhatsApp message to vendor = only the short link (image preview)');
   check((await O.p.getAttribute('#o_wa', 'href')).startsWith('https://wa.me/972527654321'), 'WhatsApp link goes to vendor phone');
 
   console.log('D. Prospective vendor signs the offer');
@@ -175,6 +176,7 @@ async function draw(p){
   await O.p.waitForSelector('#otbody .badge.ok', { timeout: 15000 });
   check(await O.p.locator('#otbody .view').count() === 1, 'signed offer PDF stored');
   check((await O.p.textContent('#okpis')).includes('₪1,813'), 'signed offers total KPI');
+  check(/^[a-z0-9]{10}$/.test(await O.p.evaluate(async () => { const f = await Core.fb(); const d = await f.fs.getDocs(f.fs.collection(f.db, 'platformQuotes')); return d.docs[0].data().shortId; })), 'offer stores its short id (used by "copy link")');
   await O.p.screenshot({ path: SHOTS + 'admin-offers.png', fullPage: true });
 
   console.log('F. Vendor first login: terms consent, support card, quote flow');
@@ -200,6 +202,7 @@ async function draw(p){
   await V.p.screenshot({ path: SHOTS + 'vendor-app-mobile.png', fullPage: true });
   await V.p.click('#gen-btn'); await V.p.waitForSelector('#link-result:not(.hidden)');
   const link = await V.p.inputValue('#shareable-url');
+  check(/\/hatzaa\/demo\/\?k=[a-z0-9]{10}$/.test(link), 'customer link is short: ' + link);
   const C = await newPage(b, MOB, 'customer');
   await C.p.goto(link.replace('https://arial13579.github.io', SITE));
   await C.p.waitForSelector('#sig-canvas'); await C.p.waitForTimeout(500);
@@ -307,6 +310,8 @@ async function draw(p){
   check(await I.p.evaluate(() => document.getElementById('wa-preview-img').naturalWidth) === 1200, 'preview image loads (1200×630)');
   await I.p.screenshot({ path: SHOTS + 'ilana-result.png', fullPage: true });
   const ilink = await I.p.inputValue('#shareable-url');
+  check(/\/hatzaa\/ilana\/\?k=[a-z0-9]{10}$/.test(ilink) && ilink.length < 70, 'Ilana link is short: ' + ilink);
+  check(decodeURIComponent((await I.p.getAttribute('#wa-share-btn', 'href')).split('text=')[1]) === ilink, 'WhatsApp message to client = only the short link (image preview)');
   const html = fs.readFileSync('/home/user/hatzaa/ilana/index.html', 'utf8');
   check(/og:image" content="https:\/\/arial13579\.github\.io\/hatzaa\/ilana\/og\.jpg/.test(html), 'ilana page has its own og:image for WhatsApp');
 

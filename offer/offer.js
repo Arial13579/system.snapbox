@@ -1,7 +1,9 @@
 /* הצעת מחיר של Snap Box לספק: הצגה, חתימה, PDF, שליחה לבעלים ועדכון platformQuotes/{id}. */
-(function(){
+(async function(){
     const $ = id => document.getElementById(id), esc = Core.esc, PF = Core.PF, CT = PF.contact || {};
-    const main = $('main'), qp = new URLSearchParams(location.search).get('q');
+    const params = new URLSearchParams(location.search), main = $('main');
+    let qp = params.get('q');
+    if (!qp && params.get('k')) qp = await Core.resolveShortLink(params.get('k'));   // קישור קצר
     const money = Core.money;
 
     function b64UrlDecode(str){

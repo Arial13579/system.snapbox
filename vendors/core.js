@@ -114,6 +114,33 @@
         return `${PF.customerBase}/${slug}/?q=${b64UrlEncode(f.join('|'))}`;
     }
 
+    /* ---- קישורים קצרים: shortLinks/{id} = { q, kind, tenant } ----
+       במקום קישור ארוך עם כל הפרטים — קישור קצר ונקי (…/?k=xxxxxxxxxx), כך שבוואטסאפ בולטת התמונה ולא שורת תווים.
+       אם השמירה נכשלת (למשל לפני עדכון הכללים) — חוזרים לקישור הארוך, שממשיך לעבוד. */
+    function randomId(n){
+        const a = 'abcdefghijkmnpqrstuvwxyz23456789', b = crypto.getRandomValues(new Uint8Array(n || 10));
+        return Array.from(b, x => a[x % a.length]).join('');
+    }
+    async function makeShortLink(kind, tenant, longUrl){
+        const f = await fb(), u = new URL(longUrl), q = u.searchParams.get('q');
+        for (let i = 0; i < 3; i++) {
+            const id = randomId(10);
+            try {
+                await f.fs.setDoc(f.fs.doc(f.db, 'shortLinks', id), { q, kind, tenant: tenant || '', createdAt: f.fs.serverTimestamp() });
+                u.search = '?k=' + id;
+                return { url: u.href, id };
+            } catch(e) { console.warn('short link failed', e && e.code); }
+        }
+        return { url: longUrl, id: null };
+    }
+    const shortUrl = (longUrl, id) => { if (!id) return longUrl; const u = new URL(longUrl); u.search = '?k=' + id; return u.href; };
+    async function resolveShortLink(id){
+        if (!/^[a-z0-9]{6,20}$/.test(String(id || ''))) return null;
+        const f = await fb();
+        try { const s = await f.fs.getDoc(f.fs.doc(f.db, 'shortLinks', id)); return s.exists() ? s.data().q : null; } catch(e) { return null; }
+    }
+    async function deleteShortLink(id){ if (!id) return; try { const f = await fb(); await f.fs.deleteDoc(f.fs.doc(f.db, 'shortLinks', id)); } catch(e){} }
+
     const GOOGLE_SVG = '<svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6.1 29.6 4 24 4c-7.7 0-14.4 4.4-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.6C29.6 35 26.9 36 24 36c-5.3 0-9.7-3.1-11.3-7.5l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.6 5.6C39.9 37.1 44 31.4 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>';
 
     // מצב החשבון של ספק: active | limited | suspended
@@ -139,5 +166,5 @@
         return { state: days <= 30 ? 'expiring' : 'active', until, days, months: Math.max(0, months), left, label: 'פעילה עד ' + fmtDate(until) };
     }
 
-    window.Core = { fb, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { fb, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();
