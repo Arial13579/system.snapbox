@@ -151,7 +151,7 @@ async function draw(p){
   await O.p.waitForSelector('#o_result:not(.hidden)');
   const offerUrl = await O.p.inputValue('#o_url');
   check(/\/offer\/\?k=[a-z0-9]{10}$/.test(offerUrl), 'offer link is short (…/offer/?k=xxxxxxxxxx): ' + offerUrl);
-  check(decodeURIComponent((await O.p.getAttribute('#o_wa', 'href')).split('text=')[1]) === offerUrl, 'WhatsApp message to vendor = only the short link (image preview)');
+  check(/\/offer\/\?q=[A-Za-z0-9_-]{60,}$/.test(decodeURIComponent((await O.p.getAttribute('#o_wa', 'href')).split('text=')[1])), 'WhatsApp message to vendor = only the full link, like the original system');
   check((await O.p.getAttribute('#o_wa', 'href')).startsWith('https://wa.me/?text='), 'WhatsApp asks whom to send to (like the original system)');
 
   console.log('D. Prospective vendor signs the offer');
@@ -311,7 +311,8 @@ async function draw(p){
   await I.p.screenshot({ path: SHOTS + 'ilana-result.png', fullPage: true });
   const ilink = await I.p.inputValue('#shareable-url');
   check(/\/hatzaa\/ilana\/\?k=[a-z0-9]{10}$/.test(ilink) && ilink.length < 70, 'Ilana link is short: ' + ilink);
-  check(decodeURIComponent((await I.p.getAttribute('#wa-share-btn', 'href')).split('text=')[1]) === ilink, 'WhatsApp message to client = only the short link (image preview)');
+  const waText = decodeURIComponent((await I.p.getAttribute('#wa-share-btn', 'href')).split('text=')[1]);
+  check(/\/hatzaa\/ilana\/\?q=[A-Za-z0-9_-]{60,}$/.test(waText), 'WhatsApp message to client = only the full link, like the original system');
   const html = fs.readFileSync('/home/user/hatzaa/ilana/index.html', 'utf8');
   check(/og:image" content="https:\/\/arial13579\.github\.io\/hatzaa\/ilana\/og\.jpg/.test(html), 'ilana page has its own og:image for WhatsApp');
 
