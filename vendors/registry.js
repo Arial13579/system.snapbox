@@ -4,5 +4,6 @@
    name   — שם העסק
    admins — כתובות Gmail שמורשות להיכנס לחשבון של הספק                                    */
 window.REGISTRY = [
-    { slug: 'demo', name: 'עסק לדוגמה', admins: [] }
+    { slug: 'demo',  name: 'עסק לדוגמה',          admins: [] },
+    { slug: 'ilana', name: 'אילנה עיצוב אירועים', admins: ['snapboxevent.official@gmail.com'] }   // ספקית לבדיקה
 ];

@@ -2,7 +2,7 @@
 (async () => {
     const $ = id => document.getElementById(id), esc = Core.esc;
     const slug = (new URLSearchParams(location.search).get('t') || '').toLowerCase();
-    let fb, T, P, user, tenantData = {}, isOwnerView = false;
+    let fb, T, P, user, tenantData = {}, isOwnerView = false, MODE = 'classic';
 
     function block(msg){ $('loading').classList.add('hidden'); $('main-app').classList.add('hidden'); $('consent').classList.add('hidden'); $('blocked').classList.remove('hidden'); $('blocked-msg').textContent = msg; }
     $('signout').addEventListener('click', () => Core.signOut());
@@ -29,6 +29,7 @@
         } catch(e) { block('החשבון מושהה או שאין לך הרשאה אליו. לבירור פנו ל-Snap Box.'); return; }
         try { T = await Core.loadTenant(slug); } catch(e) { block('לא נמצאו הגדרות העסק. פנו ל-Snap Box.'); return; }
         P = T.pricing || {};
+        MODE = P.MODE === 'items' ? 'items' : 'classic';
         if (!isOwnerView && !(await hasConsent())) { askConsent(); return; }
         render();
     });
@@ -60,6 +61,7 @@
         const st = Core.supportStatus(tenantData), c = Core.PF.contact || {}, card = $('support-card');
         const wa = 'https://wa.me/' + (c.whatsapp || '') + '?text=' + encodeURIComponent(`היי, זה ${T.business.name}. אשמח ${st.state === 'active' ? 'לעזרה' : 'לחדש את התמיכה הטכנית'} 🙂`);
         $('wa-support').href = wa;
+        document.querySelectorAll('.wa-support-link').forEach(a => { a.href = wa; a.target = '_blank'; a.rel = 'noopener'; });
         const total = tenantData.supportMonths ? tenantData.supportMonths * 30 : 60;
         const frac = st.state === 'active' || st.state === 'expiring' ? Math.max(0.04, Math.min(1, st.days / total)) : 0;
         const C = 2 * Math.PI * 18;
@@ -67,6 +69,7 @@
         card.innerHTML = `<svg class="ring" viewBox="0 0 44 44" aria-hidden="true"><circle class="bg" cx="22" cy="22" r="18"/><circle class="fg" cx="22" cy="22" r="18" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - frac)}" transform="rotate(-90 22 22)" stroke-linecap="round"/></svg>
             <div><div class="t">תמיכה טכנית</div>
             ${st.state === 'none' ? `<div class="v">לא כלולה כרגע</div><a href="${wa}" target="_blank" rel="noopener">להוספת תמיכה בוואטסאפ</a>`
+              : st.state === 'cancelled' ? `<div class="v">בוטלה</div><div class="s">${esc(st.label)}</div><a href="${wa}" target="_blank" rel="noopener">לחידוש בוואטסאפ</a>`
               : st.state === 'expired' ? `<div class="v">הסתיימה</div><div class="s">ב-${Core.fmtDate(st.until)}</div><a href="${wa}" target="_blank" rel="noopener">לחידוש בוואטסאפ</a>`
               : `<div class="v">נותרו ${esc(st.left)}</div><div class="s">${esc(st.label)}</div>${st.state === 'expiring' ? `<a href="${wa}" target="_blank" rel="noopener">לחידוש בוואטסאפ</a>` : ''}`}</div>`;
     }
@@ -82,16 +85,48 @@
         $('t-tag').textContent = B.tagline || '';
         if (isOwnerView) { $('owner-banner').classList.remove('hidden'); $('ob-name').textContent = B.name; }
         renderSupport();
+        renderAgreement();
+        // מצב מוגבל: צפייה בלבד (נאכף גם בשרת)
+        const limited = Core.accountState(tenantData) === 'limited';
+        if (limited) { $('limited-note').classList.remove('hidden'); if (!isOwnerView) $('creator-fs').disabled = true; }
+        // מצב המחולל: מחירון אוטומטי או פריטים
+        document.querySelectorAll('.m-classic, .m-items').forEach(el => {
+            const on = el.classList.contains(MODE === 'items' ? 'm-items' : 'm-classic');
+            el.hidden = !on;
+            el.querySelectorAll('input, select, textarea').forEach(i => { i.disabled = !on; });
+        });
+        if (MODE === 'items') initItems(L);
         $('lbl-service').textContent = L.service + ' *';
         $('th-service').textContent = L.service;
         $('event-types').innerHTML = (L.eventTypes || []).map(x => `<option value="${esc(x)}">`).join('');
         $('in_service').innerHTML = Object.entries(P.SERVICES || {}).map(([k, s]) => `<option value="${esc(k)}">${esc(s.label)} · מ-₪${Number(s.base).toLocaleString()}</option>`).join('');
         if (P.DEFAULT_SERVICE) $('in_service').value = P.DEFAULT_SERVICE;
         $('in_deposit').value = P.DEPOSIT != null ? P.DEPOSIT : 0;
+        depositTouched = false;
+        renderSums();
         $('loading').classList.add('hidden');
         $('main-app').classList.remove('hidden');
         document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
-        if (location.hash === '#dash') showTab('dash');
+        if (location.hash === '#dash' || (limited && !isOwnerView)) showTab('dash');
+    }
+
+    /* ================= ההסכם של הספק מול Snap Box ================= */
+    function renderAgreement(){
+        const a = tenantData.agreement;
+        $('agr-card').classList.toggle('hidden', !a);
+        if (!a) return;
+        $('agr-date').textContent = 'עודכן ' + Core.fmtDate(a.at);
+    }
+    $('agr-view').addEventListener('click', async () => {
+        const b = $('agr-view'); b.disabled = true; b.textContent = 'פותח…';
+        try { const s = await fb.fs.getDoc(fb.fs.doc(fb.db, 'tenants', slug, 'files', 'agreement')); if (s.exists() && s.data().pdfData) openPdf(s.data().pdfData); else alert('ההסכם לא נמצא.'); }
+        catch(e) { alert('פתיחת ההסכם נכשלה.'); }
+        b.disabled = false; b.textContent = 'צפייה';
+    });
+    function openPdf(b64){
+        try { const bin = atob(b64), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+            const url = URL.createObjectURL(new Blob([a], { type: 'application/pdf' })); const w = window.open(url, '_blank'); if (!w) location.href = url; setTimeout(() => URL.revokeObjectURL(url), 120000);
+        } catch(err) { alert('פתיחת הקובץ נכשלה.'); }
     }
     let dashStarted = false;
     function showTab(t){
@@ -148,6 +183,7 @@
         box.innerHTML = h; box.classList.remove('hidden');
         $('recalc').addEventListener('click', () => { priceTouched = false; onCalc(); });
         if (!priceTouched) $('in_price').value = q.total;
+        renderSums();
     }
 
     // מרחק נסיעה: Nominatim (מיקום) + OSRM (נסיעה בכביש)
@@ -186,31 +222,123 @@
     $('in_service').addEventListener('change', onCalc);
     $('in_location').addEventListener('blur', autoDistance);
     $('in_distance').addEventListener('input', () => { distanceTouched = true; onCalc(); });
-    $('in_price').addEventListener('input', () => { priceTouched = true; });
+    $('in_price').addEventListener('input', () => { priceTouched = true; renderSums(); });
+    $('in_deposit').addEventListener('input', () => { depositTouched = true; renderSums(); });
+    $('dep-quick').addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b) return;
+        const price = Number($('in_price').value) || 0;
+        if (!price) { $('in_price').focus(); return; }
+        $('in_deposit').value = Math.round(price * (+b.dataset.p) / 100 / 10) * 10;
+        depositTouched = true; renderSums();
+    });
+
+    /* ---- סיכום: מחיר, מקדמה, יתרה ---- */
+    let depositTouched = false;
+    function renderSums(){
+        const price = Number($('in_price').value) || 0, dep = Number($('in_deposit').value) || 0;
+        if (!price) { $('sum-strip').innerHTML = ''; return; }
+        $('sum-strip').innerHTML = `<div class="tot"><span>מחיר כולל</span><b>${Core.money(price)}</b></div><div><span>מקדמה</span><b>${Core.money(dep)}</b></div><div><span>יתרה</span><b>${Core.money(price - dep)}</b></div>`;
+        $('in_deposit').setCustomValidity(dep > price ? 'המקדמה גדולה מהמחיר הכולל' : '');
+    }
+
+    /* ================= מצב פריטים ================= */
+    let ITEMS = [];
+    function initItems(L){
+        $('items-title').textContent = (L.included || 'מה כלול בהצעה') + ' *';
+        $('price-hint').textContent = '· סכום הפריטים, ניתן לעריכה';
+        $('catalog').innerHTML = (P.CATALOG || []).map((c, i) => `<button type="button" data-i="${i}">+ ${esc(c.label)}${c.price ? `<small>${Core.money(c.price)}</small>` : ''}</button>`).join('');
+        $('catalog').addEventListener('click', e => {
+            const b = e.target.closest('button'); if (!b) return;
+            const c = (P.CATALOG || [])[+b.dataset.i]; if (!c) return;
+            const ex = ITEMS.find(x => x.label === c.label);
+            if (ex) ex.qty = (Number(ex.qty) || 1) + 1; else ITEMS.push({ label: c.label, qty: 1, price: Number(c.price) || 0 });
+            renderItems(); itemsChanged();
+        });
+        $('add-item').addEventListener('click', () => { ITEMS.push({ label: '', qty: 1, price: 0 }); renderItems(); const r = $('items').lastElementChild; if (r) r.querySelector('.it-label').focus(); });
+        $('items').addEventListener('input', e => {
+            const row = e.target.closest('.it-row'); if (!row) return;
+            const it = ITEMS[+row.dataset.i]; if (!it) return;
+            if (e.target.classList.contains('it-label')) it.label = e.target.value;
+            if (e.target.classList.contains('it-qty')) it.qty = Math.max(1, Number(e.target.value) || 1);
+            if (e.target.classList.contains('it-price')) it.price = Math.max(0, Number(e.target.value) || 0);
+            row.querySelector('.tot').textContent = Core.money((Number(it.qty) || 1) * (Number(it.price) || 0));
+            itemsChanged();
+        });
+        $('items').addEventListener('click', e => {
+            const b = e.target.closest('.rm'); if (!b) return;
+            ITEMS.splice(+b.closest('.it-row').dataset.i, 1); renderItems(); itemsChanged();
+        });
+        $('in_discount').addEventListener('input', itemsChanged);
+        $('in_itStart').addEventListener('input', e => formatTime(e.target, e));
+        (P.DEFAULT_ITEMS || []).forEach(l => { const c = (P.CATALOG || []).find(x => x.label === l); if (c) ITEMS.push({ label: c.label, qty: 1, price: Number(c.price) || 0 }); });
+        renderItems(); if (ITEMS.length) itemsChanged();
+    }
+    function renderItems(){
+        $('items').innerHTML = ITEMS.map((it, i) => `<div class="it-row" data-i="${i}">
+            <input class="field it-label" value="${esc(it.label)}" placeholder="שם הפריט" aria-label="שם הפריט" required>
+            <input class="field it-qty" type="number" min="1" value="${Number(it.qty) || 1}" aria-label="כמות">
+            <input class="field it-price" type="number" min="0" value="${Number(it.price) || 0}" aria-label="מחיר ליחידה בש&quot;ח">
+            <span class="tot">${Core.money((Number(it.qty) || 1) * (Number(it.price) || 0))}</span>
+            <button type="button" class="rm" aria-label="הסרת ${esc(it.label || 'הפריט')}">✕</button></div>`).join('');
+    }
+    function itemsTotal(){ return Math.max(0, ITEMS.reduce((s, i) => s + (Number(i.qty) || 1) * (Number(i.price) || 0), 0) - (Number($('in_discount').value) || 0)); }
+    function itemsChanged(){
+        if (!priceTouched) $('in_price').value = itemsTotal() || '';
+        if (!depositTouched) {
+            const price = Number($('in_price').value) || 0;
+            if (P.DEPOSIT_PERCENT) $('in_deposit').value = Math.round(price * P.DEPOSIT_PERCENT / 100 / 10) * 10;
+        }
+        renderSums();
+    }
 
     const genId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
     $('creator-form').addEventListener('submit', async e => {
         e.preventDefault();
         const g = id => Core.clean($(id).value.trim());
-        const q = { id: genId(), clientName: g('in_clientName'), eventType: g('in_eventType'), service: $('in_service').value, location: g('in_location'),
-            date: g('in_date'), startTime: g('in_startTime'), endTime: g('in_endTime'), guests: Number($('in_guests').value) || 0,
-            price: Number($('in_price').value) || 0, deposit: Number($('in_deposit').value) || 0, notes: Core.clean($('in_notes').value || '') };
+        const base = { id: genId(), clientName: g('in_clientName'), clientPhone: g('in_clientPhone'), eventType: g('in_eventType'), location: g('in_location'),
+            date: g('in_date'), price: Number($('in_price').value) || 0, deposit: Number($('in_deposit').value) || 0, notes: Core.clean($('in_notes').value || '') };
+        let q;
+        if (MODE === 'items') {
+            const items = ITEMS.filter(i => String(i.label).trim()).map(i => ({ label: Core.clean(String(i.label).trim()).slice(0, 120), qty: Number(i.qty) || 1, price: Number(i.price) || 0 }));
+            if (!items.length) { alert('הוסיפו לפחות פריט אחד להצעה.'); return; }
+            q = { ...base, mode: 'items', items, discount: Number($('in_discount').value) || 0, service: '', startTime: g('in_itStart'), endTime: '', guests: Number($('in_itGuests').value) || 0 };
+        } else {
+            q = { ...base, service: $('in_service').value, startTime: g('in_startTime'), endTime: g('in_endTime'), guests: Number($('in_guests').value) || 0 };
+        }
+        if (q.deposit > q.price) { alert('המקדמה גדולה מהמחיר הכולל.'); return; }
         const btn = $('gen-btn'); btn.disabled = true; btn.textContent = 'שומר…';
         try {
             const { id, ...data } = q;
             await fb.fs.setDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', id), { ...data, status: 'pending', createdAt: fb.fs.serverTimestamp(), createdBy: user.email });
         } catch(err) {
-            console.error(err); alert('שמירת ההצעה נכשלה (' + (err.code || err.message) + '). בדקו את החיבור ונסו שוב.');
-            btn.disabled = false; btn.textContent = 'צור קישור ללקוח'; return;
+            console.error(err);
+            alert(err.code === 'permission-denied' ? 'אין הרשאה ליצור הצעה (ייתכן שהחשבון מוגבל). פנו ל-Snap Box.' : 'שמירת ההצעה נכשלה (' + (err.code || err.message) + '). בדקו את החיבור ונסו שוב.');
+            btn.disabled = false; btn.textContent = 'יצירת הצעה ללקוח'; return;
         }
-        const url = Core.shareUrl(slug, q);
+        showResult(q);
+        btn.disabled = false; btn.textContent = 'יצירת הצעה ללקוח';
+    });
+    function waNumber(p){ const d = String(p || '').replace(/\D/g, ''); return d.startsWith('972') ? d : d.startsWith('0') ? '972' + d.slice(1) : d.length === 9 ? '972' + d : ''; }
+    function showResult(q){
+        const url = Core.shareUrl(slug, q), B = T.business || {};
+        const msg = `שלום ${q.clientName} 🙂\nהצעת המחיר שלך מ${B.name} מוכנה. לחצו לצפייה בכל הפרטים ולחתימה דיגיטלית:\n${url}`;
         $('shareable-url').value = url;
-        $('wa-share-btn').href = 'https://wa.me/?text=' + encodeURIComponent(url);
-        $('preview-btn').href = url;
+        const phone = waNumber(q.clientPhone);
+        $('wa-share-btn').href = 'https://wa.me/' + (phone.length >= 11 ? phone : '') + '?text=' + encodeURIComponent(msg);
+        $('wa-share-btn').textContent = phone.length >= 11 ? `שליחה בוואטסאפ ל-${q.clientName}` : 'שליחה ללקוח בוואטסאפ';
+        $('preview-btn').href = url; $('wa-preview').href = url;
+        const img = $('wa-preview-img');
+        img.onerror = () => { img.onerror = null; img.src = Core.PF.customerBase + '/assets/og-default.jpg'; };
+        img.src = `${Core.PF.customerBase}/${slug}/og.jpg?v=${encodeURIComponent(T.ogVersion || '1')}`;
+        $('wa-preview-title').textContent = `${B.name} · הצעת המחיר שלך מוכנה`;
+        if (navigator.share) {
+            $('share-btn').classList.remove('hidden');
+            $('share-btn').onclick = () => navigator.share({ title: `${B.name} · הצעת מחיר`, text: msg.replace(url, '').trim(), url }).catch(() => {});
+        }
         $('link-result').classList.remove('hidden');
         $('link-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        btn.disabled = false; btn.textContent = 'צור קישור ללקוח';
-    });
+        $('link-result').focus({ preventScroll: true });
+    }
     $('copy-btn').addEventListener('click', () => copyText($('shareable-url').value, $('copy-btn')));
     function copyText(t, btn){
         const old = btn.textContent, done = () => { btn.textContent = 'הועתק ✓'; setTimeout(() => btn.textContent = old, 1600); };
@@ -220,7 +348,7 @@
 
     /* ================= לוח בקרה ================= */
     let QUOTES = [], statusChart, revenueChart, statusFilter = 'all', searchTerm = '', pendingUploadId = null;
-    const serviceLabel = k => ((P.SERVICES || {})[k] || {}).label || '';
+    const serviceLabel = q => q && q.items && q.items.length ? q.items[0].label + (q.items.length > 1 ? ` +${q.items.length - 1}` : '') : (((P.SERVICES || {})[q && q.service] || {}).label || '');
     const fmtTs = ts => ts && ts.toDate ? ts.toDate().toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }) : null;
     const qCol = () => fb.fs.collection(fb.db, 'tenants', slug, 'quotes');
 
@@ -261,14 +389,14 @@
     function renderTable(){
         let rows = QUOTES.slice();
         if (statusFilter !== 'all') rows = rows.filter(q => (q.status || 'pending') === statusFilter);
-        if (searchTerm) rows = rows.filter(q => `${q.clientName || ''} ${q.eventType || ''} ${serviceLabel(q.service)}`.toLowerCase().includes(searchTerm));
+        if (searchTerm) rows = rows.filter(q => `${q.clientName || ''} ${q.eventType || ''} ${serviceLabel(q)}`.toLowerCase().includes(searchTerm));
         if (!rows.length) { $('tbody').innerHTML = '<tr><td colspan="9" class="loading">אין הצעות להצגה</td></tr>'; return; }
         $('tbody').innerHTML = rows.map(q => {
             const signed = q.status === 'signed', sa = fmtTs(q.signedAt);
             const pill = signed ? `<span class="pill signed">נחתם</span>${sa ? `<div class="sub">${sa}</div>` : ''}` : '<span class="pill pending">ממתין</span>';
             const file = q.pdfData ? `<div class="acts"><button type="button" class="btn sm view-file" data-id="${q.id}">צפייה</button><button type="button" class="btn sm upload-file" data-id="${q.id}">החלפה</button></div>`
                                    : `<button type="button" class="btn sm upload-file" data-id="${q.id}">העלאה</button>`;
-            return `<tr><td>${fmtTs(q.createdAt) || '—'}</td><td class="name">${esc(q.clientName)}</td><td>${esc(q.eventType)}</td><td>${esc(serviceLabel(q.service))}</td>
+            return `<tr><td>${fmtTs(q.createdAt) || '—'}</td><td class="name">${esc(q.clientName)}</td><td>${esc(q.eventType)}</td><td>${esc(serviceLabel(q))}</td>
                 <td dir="ltr" style="text-align:right">${esc(q.date)}</td><td><b>${Core.money(q.price)}</b></td><td>${pill}</td><td>${file}</td>
                 <td><div class="acts"><button type="button" class="btn sm copy-link" data-id="${q.id}">העתק קישור</button><button type="button" class="btn sm danger delete-row" data-id="${q.id}">מחיקה</button></div></td></tr>`;
         }).join('');
