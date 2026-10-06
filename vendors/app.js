@@ -315,18 +315,14 @@
             alert(err.code === 'permission-denied' ? 'אין הרשאה ליצור הצעה (ייתכן שהחשבון מוגבל). פנו ל-Snap Box.' : 'שמירת ההצעה נכשלה (' + (err.code || err.message) + '). בדקו את החיבור ונסו שוב.');
             btn.disabled = false; btn.textContent = 'יצירת הצעה ללקוח'; return;
         }
-        btn.textContent = 'מכין קישור…';
-        const short = await Core.makeShortLink('quote', slug, Core.shareUrl(slug, q));
-        if (short.id) { q.shortId = short.id; fb.fs.updateDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id), { shortId: short.id }).catch(() => {}); }
-        showResult(q, short.url);
+        showResult(q, Core.shareUrl(slug, q));
         btn.disabled = false; btn.textContent = 'יצירת הצעה ללקוח';
     });
-    // ההודעה בוואטסאפ = הקישור הקצר בלבד. וואטסאפ מציג מעליו את התמונה של העסק, ולחיצה עליה פותחת את ההצעה.
+    // בכל מקום (וואטסאפ, העתקה, שיתוף) — הקישור המלא בלבד, כמו במערכת המקורית:
+    // הודעה שכולה קישור מוצגת בוואטסאפ ככרטיס תמונה, בלי שורת קישור. לחיצה על התמונה פותחת את ההצעה.
     function showResult(q, url){
         const B = T.business || {};
-        // לוואטסאפ נשלח הקישור המלא (כמו במערכת המקורית): כך וואטסאפ מציג רק את התמונה, בלי שורת קישור.
-        // הקישור הקצר משמש להעתקה ולשיתוף בשאר הערוצים.
-        const msg = Core.shareUrl(slug, q);
+        const msg = url;
         $('shareable-url').value = url;
         // כמו במערכת המקורית: וואטסאפ שואל למי לשלוח, וההודעה נשלחת כתמונה בלבד
         $('wa-share-btn').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
@@ -411,7 +407,7 @@
     $('tbody').addEventListener('click', async e => {
         const btn = e.target.closest('button'); if (!btn) return;
         const q = QUOTES.find(x => x.id === btn.dataset.id); if (!q) return;
-        if (btn.classList.contains('copy-link')) copyText(Core.shortUrl(Core.shareUrl(slug, q), q.shortId), btn);
+        if (btn.classList.contains('copy-link')) copyText(Core.shareUrl(slug, q), btn);
         else if (btn.classList.contains('delete-row')) {
             if (!confirm(`למחוק לצמיתות את ההצעה של ${q.clientName || 'הלקוח'}? לא ניתן לשחזר.`)) return;
             btn.disabled = true; btn.textContent = 'מוחק…';
