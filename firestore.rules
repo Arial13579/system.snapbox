@@ -1,0 +1,75 @@
+rules_version = '2';
+// ============================================================
+// Snap Box System · כללי אבטחה למערכת רב-לקוחות (ספקים)
+// להדביק ב: Firebase Console ← Firestore Database ← Security ← Publish
+// ============================================================
+//
+// מבנה הנתונים:
+//   tenants/{ספק}                 — פרטי ספק: admins (רשימת מיילים), active (פעיל/מושהה)
+//   tenants/{ספק}/quotes/{הצעה}   — ההצעות של הספק
+//   vendorIndex/{מייל}            — לאיזה ספק שייך כל מייל (לכניסת ספקים)
+//   check_quotes/{הצעה}           — המערכת הקיימת של CHECK (נשארת עובדת כרגיל)
+//
+// מי רשאי מה:
+//   • הבעלים (arielkahalani1@gmail.com) — הכל, בכל הספקים.
+//   • ספק — רק ההצעות שלו, ורק כל עוד הוא מסומן active.
+//   • לקוח של ספק (בלי התחברות) — רק לסמן הצעה קיימת כ"נחתמה" ולצרף PDF, פעם אחת.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function signedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function isOwner() {
+      return signedIn() && request.auth.token.email == 'arielkahalani1@gmail.com';
+    }
+    function tenantDoc(t) {
+      return get(/databases/$(database)/documents/tenants/$(t));
+    }
+    function isVendorOf(t) {
+      return signedIn()
+        && exists(/databases/$(database)/documents/tenants/$(t))
+        && tenantDoc(t).data.active == true
+        && request.auth.token.email in tenantDoc(t).data.admins;
+    }
+    // לקוח חותם: רק pending → signed, ורק שדות התיעוד
+    function isClientSigning() {
+      return resource.data.status == 'pending'
+        && request.resource.data.status == 'signed'
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'signedAt', 'ip', 'userAgent']);
+    }
+    // לקוח מצרף PDF: פעם אחת בלבד, אחרי החתימה
+    function isClientAttachingPdf() {
+      return resource.data.status == 'signed'
+        && !('pdfData' in resource.data)
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pdfData'])
+        && request.resource.data.pdfData is string
+        && request.resource.data.pdfData.size() < 1000000;
+    }
+
+    // ---- ספקים ----
+    match /tenants/{t} {
+      allow read: if isOwner() || isVendorOf(t);
+      allow write: if isOwner();
+
+      match /quotes/{q} {
+        allow read, delete: if isOwner() || isVendorOf(t);
+        allow create: if (isOwner() || isVendorOf(t)) && request.resource.data.status == 'pending';
+        allow update: if isOwner() || isVendorOf(t) || isClientSigning() || isClientAttachingPdf();
+      }
+    }
+
+    // ---- אינדקס כניסת ספקים: כל מחובר קורא רק את הרשומה של המייל שלו ----
+    match /vendorIndex/{email} {
+      allow get: if isOwner() || (signedIn() && request.auth.token.email == email);
+      allow list, write: if isOwner();
+    }
+
+    // ---- המערכת הקיימת של CHECK (ללא שינוי) ----
+    match /check_quotes/{quoteId} {
+      allow read, create, delete: if isOwner();
+      allow update: if isOwner() || isClientSigning() || isClientAttachingPdf();
+    }
+  }
+}
