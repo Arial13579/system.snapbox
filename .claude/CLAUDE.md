@@ -19,9 +19,9 @@
 | **צד הספק**: כניסה, מחולל הצעות, לוח בקרה, לוח ניהול לבעלים | ספקים והבעלים | **system.snapbox.co.il/vendors/** (ה-repository הזה) |
 | **צד הלקוח**: דף ההצעה, חתימה, PDF, מסמכים משפטיים | הלקוחות של הספקים | **אתר ניטרלי, בלי שום Snap Box ובלי check**. כרגע `https://arial13579.github.io/hatzaa` (repository בשם `hatzaa`). |
 
-- ⚠️ **ה-repository ‏`hatzaa` עדיין לא קיים.** המשתמש צריך ליצור אותו, כי `create_repository` מחזיר 403. עד אז קוד צד הלקוח שמור ב-`_customer-site/`.
-  כשהוא נוצר: מעתיקים את התוכן של `_customer-site/` ל-repository החדש ומעדכנים את `customerBase` אם השם שונה.
-- **תוכנית:** לקנות דומיין ניטרלי (רעיונות: hatzaa.co.il, hatzaot.co.il) ולחבר אותו ל-`hatzaa`. אחר כך לעדכן `customerBase` ב-`vendors/platform.js` ואת `BASE` ב-`_customer-site/tools/make_pages.py`.
+- ✅ **ה-repository ‏`Arial13579/hatzaa` קיים** (נוצר ב-2026-10-06) ומכיל את כל צד הלקוח. **שם עורכים את הקוד של צד הלקוח, לא כאן.** (התיקייה `_customer-site/` הוסרה מכאן.)
+  ⚠️ צריך שהמשתמש יפעיל GitHub Pages ב-hatzaa: Settings ← Pages ← main / root.
+- **תוכנית:** לקנות דומיין ניטרלי (רעיונות: hatzaa.co.il, hatzaot.co.il) ולחבר אותו ל-`hatzaa`. אחר כך לעדכן `customerBase` ב-`vendors/platform.js` ואת `BASE` ב-`hatzaa/tools/make_pages.py`.
 - הספק עצמו יודע שזו מערכת של Snap Box, וזה בסדר. **הלקוח של הספק לא אמור לראות Snap Box בשום מקום**: לא בקישור, לא בדף, לא ב-PDF ולא בתצוגה המקדימה בוואטסאפ.
 
 ## קבצים
@@ -39,7 +39,7 @@
 - `vendor.css`: שפת העיצוב של system.snapbox (טורקיז, Assistant + Secular One).
 - `firestore.rules` (בשורש): עותק של הכללים שפורסמו ב-Firebase. **פורסמו בהצלחה ב-2026-10-06.**
 
-**`_customer-site/` (צד הלקוח, יועבר ל-`hatzaa`):**
+**צד הלקוח: ב-repository ‏`hatzaa` (לא כאן):**
 - `assets/quote.js`: דף ההצעה ללקוח. בונה את כל ה-DOM, חתימה, PDF (html2canvas + jsPDF), FormSubmit, עדכון `tenants/{slug}/quotes/{id}`, יומן.
 - `assets/brand.js`: צבעי הספק (`theme.brand`), לוגו או אות ראשונה, פוטר.
 - `assets/quote.css`, `icons.js`, `cookie.js`, `a11y.js`, `platform.js`, `favicon.svg`.
@@ -92,7 +92,7 @@
    - שם לחוזה, שורת תיאור, לוגו (SVG או PNG שקוף), צבעים או "תחליט אתה", עוסק או ח.פ, טלפון, עיר יציאה.
    - **כתובת Gmail להתחברות (בלי סיסמה, אף פעם)**, מייל לקבלת חוזים, slug רצוי.
    - חבילות (מחיר, שעות כלולות, מחיר לשעה נוספת), מה כלול, תוספות לפי מוזמנים ולפי מרחק, מקדמה, תנאי ביטול ותשלום.
-2. יוצרים את `<slug>/config.js` (ואם יש, `logo.png` ו-`og.jpg` בגודל 1200×630) באתר הלקוחות. מריצים `python3 tools/make_pages.py`.
+2. ב-repository ‏`hatzaa`: יוצרים את `<slug>/config.js` (ואם יש, `logo.png` ו-`og.jpg` בגודל 1200×630). מריצים `python3 tools/make_pages.py`. PR ל-main.
 3. מוסיפים שורה ל-`vendors/registry.js`.
 4. מעדכנים את שני ה-repositories (push).
 5. הבעלים נכנס ל-`system.snapbox.co.il/vendors/`. הסנכרון רץ אוטומטית, ואז "כניסה לחשבון" לבדיקה (יצירת הצעה, חתימה, מחיקה).
