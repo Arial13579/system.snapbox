@@ -44,7 +44,9 @@
 
     // מצב התחלתי: אם המכשיר זוכר מייל — "המשך בתור…" + אפשרות לחשבון אחר
     const last = Core.rememberedEmail();
+    let notice = false;   // מוצגת הודעה על חשבון שאינו רשום — לא לדרוס אותה
     function idle(){
+        if (notice) return;
         btn.classList.remove('hidden'); btn.disabled = false;
         btn.innerHTML = Core.GOOGLE_SVG + (last ? ' המשך בתור <span class="ltr">' + Core.esc(last) + '</span>' : ' התחברות עם Google');
         other.classList.toggle('hidden', !last);
@@ -70,7 +72,13 @@
         const acc = await Core.vendorAccess(user);
         if (acc.state === 'ok') { Core.rememberEmail(user.email); location.replace('app.html?t=' + encodeURIComponent(acc.slug)); return; }
         routing = false;
+        notice = true;
         btn.classList.add('hidden');
+        // המכשיר זוכר רק כניסה מוצלחת: חשבון לא רשום מנותק מיד ולא נשמר
+        if (acc.state !== 'suspended') {
+            if (Core.rememberedEmail() === String(user.email || '').toLowerCase()) Core.forgetEmail();
+            Core.signOutQuiet();
+        }
         if (acc.state === 'suspended') {
             showErr('החשבון של ' + user.email + ' מושהה כרגע.');
             $('msg').textContent = 'לבירור ולחידוש הגישה פנו אלינו בוואטסאפ 051-2440252.';

@@ -9,16 +9,16 @@
 
     try { fb = await Core.fb(); } catch(e) { block('טעינת המערכת נכשלה. רעננו את הדף.'); return; }
 
-    let started = false;
+    let started = false, leaving = false;
     Core.onAuth(async u => {
-        if (!u) { location.replace('./'); return; }
+        if (!u) { if (!leaving) location.replace('./'); return; }
         if (started) return; started = true;
         user = u;
         $('user-email').textContent = u.email;
         isOwnerView = Core.isOwner(u);
         if (!isOwnerView) {
             const mine = await Core.tenantOf(u);
-            if (!mine) { block('החשבון ' + u.email + ' לא רשום כספק במערכת.'); return; }
+            if (!mine) { leaving = true; Core.signOutQuiet(); block('החשבון ' + u.email + ' לא רשום כספק במערכת.'); return; }
             if (mine !== slug) { location.replace('app.html?t=' + encodeURIComponent(mine)); return; }
         }
         // בדיקת הרשאה מול השרת (ספק מושהה / לא משויך — ייחסם כאן)

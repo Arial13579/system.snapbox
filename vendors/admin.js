@@ -36,8 +36,13 @@
     // registry.js ← Firebase: כרטיס לכל ספק + אינדקס מיילים (ומחיקת מיילים שהוסרו). לא נוגע בפרטי מנוי/תמיכה.
     // ספק שנמחק לצמיתות (deletedTenants) לא נוצר מחדש.
     let DELETED = [];
+    // רשימת הספקים נטענת מחדש בכל סנכרון (בלי זיכרון מטמון של הדפדפן), כדי שספק חדש יופיע מיד
+    function freshRegistry(){
+        return new Promise(res => { const s = document.createElement('script'); s.src = 'registry.js?v=' + Date.now(); s.onload = s.onerror = () => { s.remove(); res(); }; document.head.appendChild(s); });
+    }
     async function sync(){
         const st = $('sync-status'); st.textContent = 'מסנכרן…';
+        await freshRegistry();
         try {
             const tomb = await fs.getDocs(fs.collection(db, 'deletedTenants'));
             DELETED = tomb.docs.map(d => ({ id: d.id, ...d.data() }));

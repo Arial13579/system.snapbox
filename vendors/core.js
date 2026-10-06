@@ -49,6 +49,8 @@
         }
     }
     async function signOut(){ const f = await fb(); await f.authMod.signOut(f.auth); location.href = './'; }
+    // ניתוק בלי מעבר דף — לחשבון שאינו רשום, כדי שהמכשיר לא "יזכור" אותו
+    async function signOutQuiet(){ const f = await fb(); await f.authMod.signOut(f.auth); }
     // דפדפן פנימי של וואטסאפ / אינסטגרם / פייסבוק — Google חוסם בו התחברות
     const inAppBrowser = () => /FBAN|FBAV|Instagram|WhatsApp|Line\/|MicroMessenger|; wv\)/i.test(navigator.userAgent || '');
 
@@ -137,5 +139,5 @@
         return { state: days <= 30 ? 'expiring' : 'active', until, days, months: Math.max(0, months), left, label: 'פעילה עד ' + fmtDate(until) };
     }
 
-    window.Core = { fb, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { fb, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();
