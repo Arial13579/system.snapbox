@@ -365,7 +365,7 @@
         // בכל מקום — הקישור המלא בלבד, ווואטסאפ שואל למי לשלוח (כמו במערכת המקורית): ההודעה מוצגת ככרטיס תמונה
         const url = offerUrl(q);
         $('o_url').value = url; $('o_preview').href = url; $('o_wa_preview').href = url;
-        $('o_wa').href = 'https://wa.me/?text=' + encodeURIComponent(url);
+        Core.bindWhatsApp($('o_wa'), url);   // בטלפון: תפריט השיתוף → וואטסאפ, ככרטיס תמונה בלבד
         $('o_result').classList.remove('hidden'); $('o_result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         btn.disabled = false; btn.textContent = 'יצירת קישור להצעה';
     }
