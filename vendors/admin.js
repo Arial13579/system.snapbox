@@ -362,13 +362,10 @@
             const { id, ...data } = q;
             await fs.setDoc(fs.doc(db, 'platformQuotes', id), { ...data, status: 'pending', createdAt: fs.serverTimestamp() });
         } catch(err) { alert('השמירה נכשלה: ' + (err.code || err.message)); btn.disabled = false; btn.textContent = 'יצירת קישור להצעה'; return; }
-        btn.textContent = 'מכין קישור…';
-        const short = await Core.makeShortLink('offer', '', offerUrl(q));
-        if (short.id) fs.updateDoc(fs.doc(db, 'platformQuotes', q.id), { shortId: short.id }).catch(() => {});
-        const url = short.url;
+        // בכל מקום — הקישור המלא בלבד, ווואטסאפ שואל למי לשלוח (כמו במערכת המקורית): ההודעה מוצגת ככרטיס תמונה
+        const url = offerUrl(q);
         $('o_url').value = url; $('o_preview').href = url; $('o_wa_preview').href = url;
-        // לוואטסאפ: הקישור המלא בלבד, ווואטסאפ שואל למי לשלוח (כמו במערכת המקורית) — ההודעה מוצגת כתמונה בלבד
-        $('o_wa').href = 'https://wa.me/?text=' + encodeURIComponent(offerUrl(q));
+        $('o_wa').href = 'https://wa.me/?text=' + encodeURIComponent(url);
         $('o_result').classList.remove('hidden'); $('o_result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         btn.disabled = false; btn.textContent = 'יצירת קישור להצעה';
     }
@@ -402,7 +399,7 @@
     $('otbody').addEventListener('click', async e => {
         const b = e.target.closest('button'); if (!b) return;
         const o = OFFERS.find(x => x.id === b.dataset.id); if (!o) return;
-        if (b.classList.contains('copy')) copyText(Core.shortUrl(offerUrl(o), o.shortId), b);
+        if (b.classList.contains('copy')) copyText(offerUrl(o), b);
         else if (b.classList.contains('setup')) {
             const s = (o.freeMonths || 0) + (o.extraMonths || 0);
             copyText(`ספק חדש להקמה:\nעסק: ${o.vendorName}\nאיש קשר: ${o.contactName}${o.phone ? ' · ' + o.phone : ''}\nתחום: ${o.businessType || '—'}\nחבילה: ${o.planLabel || o.plan} · שולם: ${o.total} ₪\nתמיכה: ${s} חודשים\nנחתם: ${fmtTs(o.signedAt)}`, b);
