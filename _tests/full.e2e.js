@@ -312,15 +312,7 @@ async function draw(p){
   check(/\/hatzaa\/ilana\/\?q=[A-Za-z0-9_-]{60,}$/.test(ilink), 'Ilana link = full link (copy = WhatsApp = same)');
   const waText = decodeURIComponent((await I.p.getAttribute('#wa-share-btn', 'href')).split('text=')[1]);
   check(/\/hatzaa\/ilana\/\?q=[A-Za-z0-9_-]{60,}$/.test(waText), 'WhatsApp message to client = only the full link, like the original system');
-  const shared = await I.p.evaluate(async () => {
-    let got = null;
-    Object.defineProperty(navigator, 'userAgent', { get: () => 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', configurable: true });
-    navigator.share = d => { got = d; return Promise.resolve(); };
-    const ev = new MouseEvent('click', { bubbles: true, cancelable: true });
-    document.getElementById('wa-share-btn').dispatchEvent(ev);
-    return { got, prevented: ev.defaultPrevented };
-  });
-  check(shared.prevented && shared.got && shared.got.url && !shared.got.text && !shared.got.title, 'phone: opens the share menu with only the link (WhatsApp shows image card, no link line)');
+  check(await I.p.evaluate(() => document.getElementById('wa-share-btn').onclick === null), 'WhatsApp button opens WhatsApp directly (no share menu step)');
   const html = fs.readFileSync('/home/user/hatzaa/ilana/index.html', 'utf8');
   check(/og:image" content="https:\/\/arial13579\.github\.io\/hatzaa\/ilana\/og\.jpg/.test(html), 'ilana page has its own og:image for WhatsApp');
 
