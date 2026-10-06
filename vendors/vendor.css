@@ -1,0 +1,119 @@
+/* מערכת הספקים — עיצוב משותף (כניסה, חשבון ספק, ניהול). שפת העיצוב של system.snapbox.co.il. */
+:root{
+    --bg:#F3F8F7; --surface:#FFFFFF; --surface-2:#E3F2EF; --line:#CFE2DE;
+    --fg:#0F2321; --muted:#4F6B67; --faint:#8AA4A0;
+    --accent:#0D9488; --accent-strong:#0B7A70; --accent-ink:#FFFFFF; --accent-soft:rgba(13,148,136,.1);
+    --gold:#B7791F; --bad:#C62828; --ok:#18794E;
+    --f-display:'Secular One','Assistant',system-ui,sans-serif;
+    --f-body:'Assistant','Segoe UI',system-ui,sans-serif;
+    --f-num:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+}
+*{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+html,body{ margin:0; background:var(--bg); }
+body{ font-family:var(--f-body); color:var(--fg); font-size:16px; line-height:1.6; min-height:100dvh; -webkit-font-smoothing:antialiased;
+      padding-top:env(safe-area-inset-top); padding-bottom:env(safe-area-inset-bottom); }
+h1,h2,h3{ font-family:var(--f-display); font-weight:400; line-height:1.2; margin:0; }
+a{ color:var(--accent); }
+.hidden{ display:none !important; }
+.ltr{ direction:ltr; unicode-bidi:isolate; }
+.num{ font-family:var(--f-num); font-variant-numeric:tabular-nums; direction:ltr; unicode-bidi:isolate; }
+:focus-visible{ outline:2px solid var(--accent); outline-offset:3px; border-radius:6px; }
+
+/* ---------- סרגל עליון ---------- */
+.bar{ position:sticky; top:0; z-index:20; background:rgba(243,248,247,.9); backdrop-filter:blur(10px); border-bottom:1px solid var(--line); }
+.bar .in{ max-width:1120px; margin:0 auto; padding:10px 16px; display:flex; align-items:center; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+.brand{ display:flex; align-items:center; gap:10px; font-family:var(--f-display); font-size:1.1rem; color:var(--fg); text-decoration:none; }
+.brand-mark{ width:32px; height:32px; border-radius:10px; background:var(--accent); color:var(--accent-ink); display:grid; place-items:center; font-size:.95rem; }
+.who{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; font-size:13px; color:var(--muted); }
+
+.wrap{ max-width:1120px; margin:0 auto; padding:20px 16px 60px; }
+.narrow{ max-width:760px; }
+
+/* ---------- כפתורים ---------- */
+.btn{ display:inline-flex; align-items:center; justify-content:center; gap:8px; padding:11px 20px; border-radius:999px; font-weight:700; font-size:15px;
+      text-decoration:none; border:1px solid var(--line); color:var(--fg); background:var(--surface); font-family:var(--f-body); cursor:pointer; transition:transform .12s, background .15s; }
+.btn:hover{ transform:translateY(-1px); }
+.btn:disabled{ opacity:.6; cursor:wait; transform:none; }
+.btn.primary{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+.btn.wa{ background:#25D366; color:#fff; border-color:#25D366; }
+.btn.sm{ padding:7px 13px; font-size:13px; }
+.btn.lg{ padding:14px 24px; font-size:16.5px; }
+.btn.block{ width:100%; }
+.btn.danger{ color:var(--bad); border-color:rgba(198,40,40,.35); }
+.btn svg{ width:18px; height:18px; flex:none; }
+.link{ background:none; border:0; padding:0; font:inherit; font-weight:700; color:var(--accent); cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+
+/* ---------- כרטיסים ---------- */
+.card{ background:var(--surface); border:1px solid var(--line); border-radius:18px; box-shadow:0 18px 40px -30px rgba(15,35,33,.45); }
+.card-h{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:14px 20px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+.card-h h2{ font-size:1.15rem; }
+.card-b{ padding:20px; }
+
+/* ---------- טאבים ---------- */
+.tabs{ display:flex; gap:6px; background:var(--surface-2); padding:5px; border-radius:999px; width:max-content; max-width:100%; margin-bottom:18px; }
+.tabs button{ border:0; background:transparent; font:inherit; font-weight:700; font-size:14.5px; padding:9px 18px; border-radius:999px; color:var(--muted); cursor:pointer; }
+.tabs button.on{ background:var(--surface); color:var(--fg); box-shadow:0 2px 8px -4px rgba(0,0,0,.25); }
+
+/* ---------- שדות ---------- */
+.grid2{ display:grid; grid-template-columns:1fr; gap:14px; }
+@media(min-width:640px){ .grid2{ grid-template-columns:1fr 1fr; gap:16px 18px; } .span2{ grid-column:span 2; } }
+.lbl{ display:block; font-size:13px; font-weight:700; margin-bottom:5px; }
+.lbl small{ font-weight:400; color:var(--muted); }
+.field{ width:100%; font:inherit; font-size:15.5px; color:var(--fg); padding:11px 13px; background:#fff; border:1px solid var(--line); border-radius:12px; outline:none; transition:border-color .15s, box-shadow .15s; }
+.field:focus{ border-color:var(--accent); box-shadow:0 0 0 4px var(--accent-soft); }
+select.field{ cursor:pointer; }
+textarea.field{ resize:vertical; min-height:68px; }
+.hint{ font-size:12px; color:var(--muted); margin:5px 0 0; min-height:15px; }
+.hint.ok{ color:var(--ok); } .hint.warn{ color:var(--gold); }
+
+.breakdown{ border-radius:14px; background:var(--surface-2); padding:14px 16px; font-size:14px; display:flex; flex-direction:column; gap:6px; }
+.breakdown .row{ display:flex; justify-content:space-between; gap:12px; }
+.breakdown .row span:last-child{ font-weight:700; white-space:nowrap; }
+.breakdown .sum{ border-top:1px dashed var(--accent); padding-top:8px; margin-top:2px; font-weight:800; font-size:16px; color:var(--accent-strong); }
+.result{ border-radius:14px; background:var(--accent-soft); border:1px solid rgba(13,148,136,.3); padding:16px; display:flex; flex-direction:column; gap:12px; margin-top:18px; }
+.result .row{ display:flex; gap:8px; }
+.result .field{ font-family:var(--f-num); font-size:12px; }
+
+/* ---------- לוח בקרה ---------- */
+.kpis{ display:grid; grid-template-columns:repeat(2,1fr); gap:12px; margin-bottom:18px; }
+@media(min-width:760px){ .kpis{ grid-template-columns:repeat(5,1fr); } }
+.kpi{ padding:14px; }
+.kpi .l{ font-size:12.5px; color:var(--muted); font-weight:700; }
+.kpi .n{ font-family:var(--f-num); font-size:clamp(20px,3vw,26px); font-weight:600; margin-top:2px; white-space:nowrap; }
+.kpi.hl{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+.kpi.hl .l{ color:rgba(255,255,255,.85); }
+.charts{ display:grid; grid-template-columns:1fr; gap:14px; margin-bottom:18px; }
+@media(min-width:860px){ .charts{ grid-template-columns:1fr 1.4fr; } }
+.chart-box{ position:relative; height:240px; }
+.toolbar{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; }
+.toolbar .field{ flex:1 1 220px; }
+.seg{ display:flex; gap:4px; background:var(--surface-2); padding:4px; border-radius:999px; }
+.seg button{ border:0; background:transparent; font:inherit; font-weight:700; font-size:13px; padding:7px 14px; border-radius:999px; color:var(--muted); cursor:pointer; }
+.seg button.on{ background:var(--surface); color:var(--fg); }
+.tbl-wrap{ overflow-x:auto; }
+table{ width:100%; border-collapse:collapse; min-width:860px; }
+th,td{ padding:11px 14px; text-align:right; font-size:13.5px; white-space:nowrap; border-bottom:1px solid var(--line); }
+thead th{ font-size:12px; color:var(--muted); font-weight:700; background:var(--bg); }
+tbody tr:hover{ background:#F7FBFA; }
+td.name{ font-weight:700; white-space:normal; }
+.pill{ display:inline-block; padding:3px 11px; border-radius:999px; font-size:12px; font-weight:800; }
+.pill.signed{ background:rgba(24,121,78,.12); color:var(--ok); }
+.pill.pending{ background:rgba(183,121,31,.14); color:var(--gold); }
+.pill.off{ background:rgba(198,40,40,.1); color:var(--bad); }
+.sub{ font-size:11.5px; color:var(--muted); margin-top:2px; }
+.acts{ display:flex; gap:6px; flex-wrap:wrap; }
+.loading{ text-align:center; padding:34px; color:var(--muted); }
+
+/* ---------- כניסה ---------- */
+.gate{ max-width:420px; margin:10vh auto 0; text-align:center; }
+.gate .card-b{ display:flex; flex-direction:column; align-items:center; gap:14px; padding:34px 26px; }
+.gate h1{ font-size:1.7rem; }
+.gate p{ margin:0; color:var(--muted); line-height:1.7; }
+.err{ color:var(--bad); font-weight:700; font-size:14px; }
+
+.owner-banner{ background:#FFF6E5; border:1px solid #F0C982; color:#7A4A00; border-radius:12px; padding:10px 14px; font-size:13.5px; display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:16px; }
+.tenant-head{ display:flex; align-items:center; gap:12px; margin-bottom:16px; }
+.tlogo{ width:46px; height:46px; border-radius:13px; display:grid; place-items:center; font-weight:800; font-size:19px; color:#fff; overflow:hidden; flex:none; }
+.tlogo img{ width:100%; height:100%; object-fit:contain; background:#fff; }
+.tenant-head h1{ font-size:1.5rem; }
+.tenant-head p{ margin:0; color:var(--muted); font-size:13.5px; }
