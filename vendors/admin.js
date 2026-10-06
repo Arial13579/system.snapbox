@@ -367,8 +367,8 @@
         if (short.id) fs.updateDoc(fs.doc(db, 'platformQuotes', q.id), { shortId: short.id }).catch(() => {});
         const url = short.url;
         $('o_url').value = url; $('o_preview').href = url; $('o_wa_preview').href = url;
-        // רק הקישור, ווואטסאפ שואל למי לשלוח (כמו במערכת המקורית) — ההודעה נשלחת כתמונה בלבד
-        $('o_wa').href = 'https://wa.me/?text=' + encodeURIComponent(url);
+        // לוואטסאפ: הקישור המלא בלבד, ווואטסאפ שואל למי לשלוח (כמו במערכת המקורית) — ההודעה מוצגת כתמונה בלבד
+        $('o_wa').href = 'https://wa.me/?text=' + encodeURIComponent(offerUrl(q));
         $('o_result').classList.remove('hidden'); $('o_result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         btn.disabled = false; btn.textContent = 'יצירת קישור להצעה';
     }
