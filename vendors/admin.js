@@ -338,8 +338,9 @@
         const price = num('o_price'), free = num('o_free');
         const extra = $('o_support_on').checked ? num('o_months') : 0, monthly = $('o_support_on').checked ? num('o_monthly') : 0;
         const supportCost = extra * monthly, discount = Math.min(num('o_discount'), price + supportCost);
+        const total = Math.max(0, price + supportCost - discount), deposit = Math.min(num('o_deposit'), total);
         return { plan, planKey: $('o_plan').value, price, listPrice: plan.listPrice || price, free, extra, monthly, supportCost, discount,
-                 total: Math.max(0, price + supportCost - discount), months: free + extra };
+                 total, deposit, months: free + extra };
     }
     function renderSummary(){
         const o = offerCalc(), r = (k, v, cls) => `<div class="row ${cls || ''}"><span>${k}</span><span>${v}</span></div>`;
@@ -349,6 +350,7 @@
         if (o.extra) h += r(`תמיכה טכנית · ${o.extra} חודשים × ${Core.money(o.monthly)}`, Core.money(o.supportCost));
         if (o.discount) h += r('הנחה', '−' + Core.money(o.discount), 'minus');
         h += `<div class="total"><span>סה"כ לתשלום</span><b>${Core.money(o.total)}</b></div>`;
+        if (o.deposit) h += r('מקדמה בחתימה', Core.money(o.deposit)) + r('יתרה', Core.money(o.total - o.deposit));
         h += `<p class="note">${o.months ? `סה"כ ${o.months} חודשי תמיכה טכנית ממועד מסירת המערכת.` : 'ללא תמיכה טכנית חודשית.'}</p>`;
         $('o_summary').innerHTML = h;
     }
@@ -364,7 +366,7 @@
         $('o_plan').addEventListener('change', applyPlan);
         $('o_support_on').addEventListener('change', () => { $('o_support_box').hidden = !$('o_support_on').checked; renderSummary(); });
         $('o_quick').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; $('o_months').value = b.dataset.m; renderSummary(); });
-        ['o_price', 'o_free', 'o_months', 'o_monthly', 'o_discount'].forEach(id => $(id).addEventListener('input', renderSummary));
+        ['o_price', 'o_free', 'o_months', 'o_monthly', 'o_discount', 'o_deposit'].forEach(id => $(id).addEventListener('input', renderSummary));
         applyPlan();
         $('offer-form').addEventListener('submit', createOffer);
         $('o_copy').addEventListener('click', () => copyText($('o_url').value, $('o_copy')));
@@ -373,7 +375,8 @@
     const clean = Core.clean;
     function offerUrl(q){
         const raw = [q.id, clean(q.vendorName), clean(q.contactName), clean(q.businessType), q.plan, q.price, q.freeMonths, q.extraMonths, q.monthly,
-            q.discount, q.total, clean(q.notes), q.validDays, q.createdISO, clean(q.phone), q.listPrice].join('|');
+            q.discount, q.total, clean(q.notes), q.validDays, q.createdISO, clean(q.phone), q.listPrice,
+            clean(q.email), q.deposit, clean(q.pricingInfo)].join('|');   // 17–19: Gmail, מקדמה, מה משפיע על המחיר
         return new URL('../offer/', location.href).href + '?q=' + Core.b64UrlEncode(raw);
     }
     async function createOffer(e){
@@ -382,7 +385,8 @@
         const q = { id: genId(), vendorName: $('o_vendor').value.trim(), contactName: $('o_contact').value.trim(), phone: $('o_phone').value.trim(),
             businessType: $('o_type').value.trim(), plan: o.planKey, planLabel: o.plan.label, price: o.price, listPrice: o.listPrice, freeMonths: o.free,
             extraMonths: o.extra, monthly: o.monthly, discount: o.discount, total: o.total, notes: $('o_notes').value.trim(),
-            validDays: num('o_valid') || 14, createdISO: Core.toISO(new Date()) };
+            validDays: num('o_valid') || 14, createdISO: Core.toISO(new Date()),
+            email: $('o_email').value.trim().toLowerCase(), deposit: o.deposit, pricingInfo: $('o_pricing').value.trim() };
         btn.disabled = true; btn.textContent = 'שומר…';
         try {
             const { id, ...data } = q;
@@ -432,7 +436,7 @@
         if (b.classList.contains('copy')) copyText(Core.shortUrl(offerUrl(o), o.shortId), b);
         else if (b.classList.contains('setup')) {
             const s = (o.freeMonths || 0) + (o.extraMonths || 0);
-            copyText(`ספק חדש להקמה:\nעסק: ${o.vendorName}\nאיש קשר: ${o.contactName}${o.phone ? ' · ' + o.phone : ''}\nתחום: ${o.businessType || '—'}\nחבילה: ${o.planLabel || o.plan} · שולם: ${o.total} ₪\nתמיכה: ${s} חודשים\nנחתם: ${fmtTs(o.signedAt)}`, b);
+            copyText(`ספק חדש להקמה:\nעסק: ${o.vendorName}\nאיש קשר: ${o.contactName}${o.phone ? ' · ' + o.phone : ''}\nGmail להתחברות: ${o.email || '—'}\nתחום: ${o.businessType || '—'}\nחבילה: ${o.planLabel || o.plan} · סה"כ: ${o.total} ₪${o.deposit ? ` · מקדמה: ${o.deposit} ₪` : ''}\nתמיכה: ${s} חודשים\nנחתם: ${fmtTs(o.signedAt)}${o.pricingInfo ? `\nמה משפיע על המחיר ללקוחות:\n${o.pricingInfo}` : ''}`, b);
         } else if (b.classList.contains('del')) {
             if (!confirm(`למחוק את ההצעה ל-${o.vendorName}? לא ניתן לשחזר.`)) return;
             b.disabled = true;

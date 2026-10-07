@@ -17,7 +17,8 @@
         if (p.length < 14 || !p[0]) throw new Error('bad');
         o = { id: p[0], vendorName: p[1], contactName: p[2], businessType: p[3], plan: p[4], price: +p[5] || 0, freeMonths: +p[6] || 0,
               extraMonths: +p[7] || 0, monthly: +p[8] || 0, discount: +p[9] || 0, total: +p[10] || 0, notes: p[11] || '', validDays: +p[12] || 14,
-              created: Core.parseISO(p[13]) || new Date(), phone: p[14] || '', listPrice: +p[15] || 0 };
+              created: Core.parseISO(p[13]) || new Date(), phone: p[14] || '', listPrice: +p[15] || 0,
+              email: p[16] || '', deposit: Math.min(+p[17] || 0, +p[10] || 0), pricingInfo: p[18] || '' };
     } catch(e) {
         main.innerHTML = '<div class="card card-b" style="text-align:center;margin-top:30px">הקישור להצעה אינו תקין. לקבלת הצעה חדשה פנו אלינו בוואטסאפ <a href="https://wa.me/' + esc(CT.whatsapp) + '">' + esc(CT.phone) + '</a>.</div>';
         return;
@@ -42,7 +43,8 @@
     ];
     const TERMS = [
         `ההצעה בתוקף עד ${Core.fmtDate(validUntil)}.`,
-        'התשלום יבוצע במלואו לפני תחילת ההקמה, אלא אם סוכם אחרת בהערות להצעה.',
+        o.deposit ? `מקדמה של ${money(o.deposit)} משולמת עם החתימה, והיתרה (${money(o.total - o.deposit)}) לפני תחילת ההקמה, אלא אם סוכם אחרת בהערות להצעה.`
+                  : 'התשלום יבוצע במלואו לפני תחילת ההקמה, אלא אם סוכם אחרת בהערות להצעה.',
         'ההקמה מתחילה לאחר קבלת התשלום וכל הנתונים (פרטי עסק, מחירון, תנאים, לוגו וכתובת Gmail להתחברות), ובדרך כלל מסתיימת בתוך 7 ימי עבודה.',
         months ? `תמיכה טכנית ל-${months} חודשים ממועד מסירת המערכת. לאחר מכן ניתן לחדש ב-${money(PF.sales.supportMonthly)} לחודש.` : `ההצעה אינה כוללת תמיכה טכנית חודשית. ניתן להוסיף בכל עת ב-${money(PF.sales.supportMonthly)} לחודש.`,
         'ביטול בתוך 14 יום מהחתימה ולפני תחילת ההקמה — החזר מלא. לאחר תחילת ההקמה לא יינתן החזר על דמי ההקמה.',
@@ -70,8 +72,14 @@
         <section class="card"><div class="card-h"><h2>המחיר</h2></div><div class="card-b">
           <div class="price-rows">${priceRows().map(([k, v, c]) => `<div class="row ${c || ''}"><span>${esc(k)}</span><span>${v}</span></div>`).join('')}</div>
           <div class="price-total"><span>סה"כ לתשלום</span><b>${money(o.total)}</b></div>
+          ${o.deposit ? `<div class="price-rows" style="margin-top:10px"><div class="row"><span>מקדמה עם החתימה</span><span>${money(o.deposit)}</span></div><div class="row"><span>יתרה לפני ההקמה</span><span>${money(o.total - o.deposit)}</span></div></div>` : ''}
           ${o.notes ? `<div class="callout" style="margin-top:14px"><b>הערות:</b> ${esc(o.notes)}</div>` : ''}
         </div></section>
+        ${o.email || o.pricingInfo ? `<section class="card"><div class="card-h"><h2>הפרטים להקמת המערכת</h2></div><div class="card-b">
+          ${o.email ? `<p style="margin:0 0 10px"><b>Gmail להתחברות למערכת:</b> <bdi>${esc(o.email)}</bdi></p>` : ''}
+          ${o.pricingInfo ? `<div><b>מה משפיע על המחיר ללקוחות שלכם:</b><div class="callout" style="margin-top:6px;white-space:pre-line">${esc(o.pricingInfo)}</div></div>` : ''}
+          <p class="note" style="margin:10px 0 0">לפי הפרטים האלה נבנה את המחירון שלכם. משהו לא מדויק? כתבו לנו בוואטסאפ לפני החתימה.</p>
+        </div></section>` : ''}
         <section class="card"><div class="card-h"><h2>איך זה עובד</h2></div><div class="card-b"><ol class="steps">
           <li>חותמים כאן על ההצעה — זה לוקח דקה.</li>
           <li>מעבירים תשלום ושולחים לנו את הפרטים: מחירון, חבילות, תנאים, לוגו וכתובת Gmail.</li>
@@ -125,7 +133,10 @@
             <tr><td class="k">לכבוד</td><td>${esc(o.vendorName)} · ${esc(o.contactName)}${o.phone ? ' · ' + esc(o.phone) : ''}</td></tr>
             ${priceRows().map(([k, v]) => `<tr><td class="k">${esc(k)}</td><td>${v.replace(/<\/?s>/g, '')}</td></tr>`).join('')}
             <tr><td class="k tot">סה"כ לתשלום</td><td class="tot">${o.total.toLocaleString()} ש"ח</td></tr>
+            ${o.deposit ? `<tr><td class="k">מקדמה עם החתימה</td><td>${o.deposit.toLocaleString()} ש"ח · יתרה ${(o.total - o.deposit).toLocaleString()} ש"ח</td></tr>` : ''}
+            ${o.email ? `<tr><td class="k">Gmail להתחברות</td><td>${esc(o.email)}</td></tr>` : ''}
           </table></div>
+          ${o.pricingInfo ? `<div class="sec"><div class="h">מה משפיע על המחיר ללקוחות</div><div class="notes" style="white-space:pre-line">${esc(o.pricingInfo)}</div></div>` : ''}
           ${o.notes ? `<div class="sec"><div class="h">הערות</div><div class="notes">${esc(o.notes)}</div></div>` : ''}
           <div class="sec"><div class="h">מה כלול</div><ul>${FEATURES.map(f => `<li><span class="mk">✓</span>${esc(f)}</li>`).join('')}</ul></div>
           <div class="sec"><div class="h">תנאי ההסכם</div><ul>${TERMS.map((t, i) => `<li><span class="mk">${i + 1}.</span>${esc(t)}</li>`).join('')}</ul></div>
@@ -165,7 +176,7 @@
             if (!CT.email) return resolve(false);
             const f = $('fs-form'); f.action = 'https://formsubmit.co/' + CT.email;
             const fields = { _subject: `הצעה נחתמה — ${o.vendorName}`, _captcha: 'false', _template: 'table', 'עסק': o.vendorName, 'חותם/ת': signer,
-                'איש קשר': o.contactName, 'טלפון': o.phone || '—', 'חבילה': plan.label, 'חודשי תמיכה': String(months), 'סה"כ': o.total + ' ש"ח', 'הערות': o.notes || '—',
+                'איש קשר': o.contactName, 'טלפון': o.phone || '—', 'חבילה': plan.label, 'חודשי תמיכה': String(months), 'סה"כ': o.total + ' ש"ח', 'מקדמה': o.deposit ? o.deposit + ' ש"ח' : '—', 'Gmail להתחברות': o.email || '—', 'מה משפיע על המחיר': o.pricingInfo || '—', 'הערות': o.notes || '—',
                 'נחתם': meta.ts.toLocaleString('he-IL'), 'IP': meta.ip || '—', 'מזהה הצעה': o.id };
             f.innerHTML = Object.entries(fields).map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`).join('') + '<input type="file" name="attachment" id="fs_files">';
             try { const dt = new DataTransfer(); if (pdfBlob) dt.items.add(new File([pdfBlob], `SnapBox_Offer_${o.id}.pdf`, { type: 'application/pdf' })); $('fs_files').files = dt.files; } catch(e){}

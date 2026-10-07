@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230d9488'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial'%3E%E2%82%AA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="vendor.css?v=20261007h">
+<link rel="stylesheet" href="vendor.css?v=20261007i">
 <title>לוח ניהול | מחולל הצעות מחיר</title>
 </head>
 <body>
@@ -63,6 +63,7 @@
               <div><label class="lbl" for="o_vendor">שם העסק *</label><input class="field" id="o_vendor" required placeholder="למשל DJ נועה"></div>
               <div><label class="lbl" for="o_contact">איש/אשת קשר *</label><input class="field" id="o_contact" required placeholder="שם מלא"></div>
               <div><label class="lbl" for="o_phone">טלפון <small>· נשמר בהצעה</small></label><input class="field ltr" style="text-align:left" id="o_phone" inputmode="tel" placeholder="050-0000000"></div>
+              <div><label class="lbl" for="o_email">Gmail להתחברות <small>· המייל שהספק יתחבר איתו</small></label><input class="field ltr" style="text-align:left" type="email" id="o_email" inputmode="email" placeholder="name@gmail.com"></div>
               <div><label class="lbl" for="o_type">תחום העסק</label><input class="field" id="o_type" list="o_types" placeholder="DJ / צלם / עיצוב אירועים"><datalist id="o_types"><option value="DJ"><option value="צלם/ת"><option value="עמדת צילום"><option value="עיצוב ובלונים"><option value="הפקת אירועים"><option value="להקה / נגנים"><option value="קייטרינג"></datalist></div>
               <div class="span2"><label class="lbl" for="o_plan">חבילה *</label><select class="field" id="o_plan"></select></div>
               <div><label class="lbl" for="o_price">מחיר המערכת (₪) *</label><input class="field" type="number" min="0" id="o_price" required></div>
@@ -76,7 +77,9 @@
                 </div>
               </div>
               <div><label class="lbl" for="o_discount">הנחה (₪)</label><input class="field" type="number" min="0" id="o_discount" value="0"></div>
+              <div><label class="lbl" for="o_deposit">מקדמה (₪) <small>· משולמת עם החתימה</small></label><input class="field" type="number" min="0" id="o_deposit" value="500"></div>
               <div><label class="lbl" for="o_valid">תוקף ההצעה (ימים)</label><input class="field" type="number" min="1" id="o_valid" value="14"></div>
+              <div class="span2"><label class="lbl" for="o_pricing">מה משפיע על המחיר ללקוחות שלו <small>· חבילות, מחירים, תוספות, מרחק, מוזמנים, שעות נוספות, מקדמה</small></label><textarea class="field" id="o_pricing" rows="4" maxlength="1500" placeholder="למשל: חבילה בסיסית 3,500 ₪ ל-5 שעות, שעה נוספת 500 ₪, תוספת 600 ₪ מעל 300 מוזמנים, נסיעה מעל 30 ק״מ 200 ₪, מקדמה 1,000 ₪"></textarea></div>
               <div class="span2"><label class="lbl" for="o_notes">הערות / סיכום שיחה <small>· יופיע בהצעה</small></label><textarea class="field" id="o_notes" rows="2"></textarea></div>
               <button type="submit" class="btn primary lg block span2" id="o_gen">יצירת קישור להצעה</button>
             </form>
@@ -186,10 +189,10 @@
   <nav aria-label="מסמכים"><a href="../legal/terms.html">תנאי שימוש והסכם שירות</a><a href="../legal/privacy.html">מדיניות פרטיות</a><a href="../legal/accessibility.html">הצהרת נגישות</a></nav>
   <p>Snap Box · לוח ניהול</p>
 </footer>
-<script src="platform.js?v=20261007h"></script>
-<script src="registry.js?v=20261007h"></script>
-<script src="core.js?v=20261007h"></script>
-<script src="admin.js?v=20261007h"></script>
+<script src="platform.js?v=20261007i"></script>
+<script src="registry.js?v=20261007i"></script>
+<script src="core.js?v=20261007i"></script>
+<script src="admin.js?v=20261007i"></script>
 <script>window.PRIVACY_URL = '../legal/privacy.html';</script>
 <script src="../common/cookie.js"></script>
 <script src="../common/a11y.js"></script>
