@@ -9,7 +9,7 @@ const AXE = fs.readFileSync(NM + 'axe-core/axe.min.js', 'utf8');
 const SITE = 'http://localhost:8791', SYS = SITE + '/system';
 const EMU = 'http://127.0.0.1:8085/v1/projects/check-b2a66/databases/default/documents/';
 const SHOTS = S + '/shots-onboard/'; fs.mkdirSync(SHOTS, { recursive: true });
-const OWNER = 'arielkahalani1@gmail.com';
+const OWNER = 'arielkahalani1@gmail.com', VENDOR = 'snapboxevent.official@gmail.com';
 const REG = fs.readFileSync('/home/user/system.snapbox/vendors/registry.js', 'utf8');   // the real registry
 const errors = [];
 let failures = 0;
@@ -83,6 +83,9 @@ const val = f => f && (f.stringValue !== undefined ? f.stringValue : f.integerVa
     status: str('signed'), createdAt: { timestampValue: '2026-10-07T09:50:00Z' }, signedAt: { timestampValue: '2026-10-07T10:12:00Z' },
     ip: str('1.2.3.4'), userAgent: str('test'), pdfData: str(pdf) } });
   check(seeded.status === 200, 'signed offer exists (vendorName "כחגח")');
+  // Before the move, the Gmail belonged to Ilana (tenant + login index)
+  await emu('POST', 'tenants?documentId=ilana', { fields: { slug: str('ilana'), name: str('אילנה עיצוב אירועים'), admins: { arrayValue: { values: [str(VENDOR)] } }, active: { booleanValue: true } } });
+  await emu('POST', 'vendorIndex?documentId=' + encodeURIComponent(VENDOR), { fields: { tenant: str('ilana') } });
 
   console.log('2. Owner opens the admin: snap cup is created and filled from the signed offer (offerName)');
   const O = await newPage(b, 'owner');
@@ -113,12 +116,27 @@ const val = f => f && (f.stringValue !== undefined ? f.stringValue : f.integerVa
   await O.p.screenshot({ path: SHOTS + 'admin-manage.png' });
   await O.p.click('#edit-close');
   await O.p.screenshot({ path: SHOTS + 'admin-vendors.png', fullPage: true });
+  const vi = await emu('GET', 'vendorIndex/' + encodeURIComponent(VENDOR));
+  check(vi.status === 200 && val(vi.body.fields.tenant) === 'snapcup', 'the Gmail moved from Ilana to snap cup (login index)');
+  const il = await emu('GET', 'tenants/ilana');
+  check(!((il.body.fields || {}).admins || {}).arrayValue || !(il.body.fields.admins.arrayValue.values || []).length, 'Ilana no longer has the Gmail');
 
-  console.log('3. Owner enters the vendor account and creates a photography quote (items)');
+  console.log('3. Owner can enter the account; David logs in with the Gmail and creates a photography quote');
   await O.p.goto(SYS + '/vendors/app.html?t=snapcup');
   await O.p.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 });
-  check((await O.p.textContent('body')).includes('snap cup'), 'vendor account shows snap cup');
-  check((await O.p.textContent('#support-card')).includes('לא כלולה כרגע'), 'support card: not included (0 months) + add via WhatsApp');
+  check((await O.p.textContent('body')).includes('snap cup'), 'owner: "כניסה לחשבון" opens snap cup');
+  const V = await newPage(b, 'vendor');
+  await login(V.p, VENDOR);
+  await V.p.waitForURL(/app\.html\?t=snapcup/, { timeout: 15000 });
+  await V.p.waitForSelector('#consent:not(.hidden)', { timeout: 15000 });
+  check(true, 'David\'s Gmail opens snap cup → first login asks to accept the terms');
+  await V.p.check('#consent-check'); await V.p.click('#consent-btn');
+  await V.p.waitForSelector('#main-app:not(.hidden)', { timeout: 15000 });
+  check((await V.p.textContent('body')).includes('snap cup'), 'vendor account shows snap cup');
+  check((await V.p.textContent('#support-card')).includes('לא כלולה כרגע'), 'support card: not included (0 months) + add via WhatsApp');
+  await V.p.waitForSelector('#agr-card:not(.hidden)', { timeout: 15000 }).catch(() => {});
+  check(await V.p.isVisible('#agr-card'), 'vendor sees "my agreement" card (the signed offer)');
+  const Op = O.p; O.p = V.p;   // the quote is created by David himself
   check(await O.p.isHidden('#in_service') && await O.p.isVisible('#catalog'), 'items mode: price list instead of packages');
   check(await O.p.locator('#catalog button').count() === 8, 'price list has 8 photography items');
   await O.p.fill('#in_clientName', 'נועה ואיתי'); await O.p.fill('#in_clientPhone', '052-1112233');
@@ -139,6 +157,9 @@ const val = f => f && (f.stringValue !== undefined ? f.stringValue : f.integerVa
   check(await O.p.evaluate(() => document.getElementById('wa-preview-img').naturalWidth) === 1200, 'WhatsApp image loads (1200×630)');
   check(await O.p.textContent('#wa-preview-url') === link, 'preview: image + link line');
   await O.p.screenshot({ path: SHOTS + 'result.png', fullPage: true });
+
+  O.p = Op;
+  await V.p.screenshot({ path: SHOTS + 'vendor-result.png', fullPage: true });
 
   console.log('4. The customer opens the link');
   const C = await newPage(b, 'customer');
