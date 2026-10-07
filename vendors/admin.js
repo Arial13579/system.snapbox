@@ -87,6 +87,9 @@
         if (o.pdfData) await saveAgreement(slug, o.pdfData, { source: 'offer', offerId: o.id, label: `הצעה חתומה · ${o.vendorName || ''}`, signedAt: o.signedAt || null });
     }
 
+    // מייל ההתחברות של הספק: מרשימת הספקים (registry.js), ואם אין — מהכרטיס ב-Firebase
+    const loginEmails = t => { const r = (window.REGISTRY || []).find(x => x.slug === t.id); return ((r && r.admins && r.admins.length) ? r.admins : (t.admins || [])).map(e => String(e).toLowerCase()); };
+
     let VENDORS = [];
     const planLabel = k => (SALES.plans[k] || {}).label || (k ? k : '—');
     async function loadVendor(d){
@@ -136,7 +139,7 @@
             const agr = t.agreement ? `<button type="button" class="btn sm agr-view" data-id="${esc(t.id)}">צפייה</button><div class="sub">${Core.fmtDate(t.agreement.at)}</div>`
                 : '<span class="badge mute">אין</span>';
             return `<tr>
-                <td class="vend-cell"><b>${esc(t.name)}</b><span>${[esc(t.contactName || ''), t.phone ? '<span class="ltr">' + esc(t.phone) + '</span>' : ''].filter(Boolean).join(' · ')}</span><span>${(t.admins || []).map(esc).join(', ') || 'רק אתה'}</span>${t.inRegistry ? '' : '<span>⚠ לא ברשימת הספקים</span>'}</td>
+                <td class="vend-cell"><b>${esc(t.name)}</b><span>${[esc(t.contactName || ''), t.phone ? '<span class="ltr">' + esc(t.phone) + '</span>' : ''].filter(Boolean).join(' · ')}</span><span>${loginEmails(t).map(e => '<bdi>' + esc(e) + '</bdi>').join(', ') || 'אין עדיין Gmail להתחברות'}</span>${t.inRegistry ? '' : '<span>⚠ ספק ישן שלא בשימוש · אפשר למחוק ב"ניהול"</span>'}</td>
                 <td>${esc(planLabel(t.plan))}<div class="sub">${[t.purchaseDate ? Core.fmtDate(t.purchaseDate) : '', t.pricePaid ? Core.money(t.pricePaid) : ''].filter(Boolean).join(' · ')}</div></td>
                 <td>${supportCell(t.support)}</td>
                 <td>${agr}</td>
