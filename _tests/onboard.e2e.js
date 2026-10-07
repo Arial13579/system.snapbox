@@ -1,4 +1,4 @@
-// New vendor onboarding (כחגח · kachgach): signed offer → owner admin fills the card + agreement → quote → customer page.
+// New vendor onboarding (snap cup · snapcup, signed as "כחגח"): signed offer → owner admin fills the card + agreement → quote → customer page.
 // Run inside: firebase emulators:exec --only firestore,auth --project check-b2a66 "node onboard.e2e.js"
 // (deps in $S/t/node_modules, static server on :8791 serving $S/www with system → system.snapbox, hatzaa → hatzaa — like full.e2e.js)
 const S = '/tmp/claude-0/-home-user/33274e87-36f1-52fb-a542-54f1e7d0e4b6/scratchpad';
@@ -61,7 +61,7 @@ async function axe(p, label){
   await p.waitForTimeout(800);
   await p.addScriptTag({ content: AXE });
   const r = await p.evaluate(async () => (await axe.run(document, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] })).violations
-    .filter(v => v.impact === 'serious' || v.impact === 'critical').map(v => v.id + ': ' + v.nodes.slice(0, 2).map(n => n.target.join(' ')).join(' | ')));
+    .filter(v => v.impact === 'serious' || v.impact === 'critical').map(v => v.id + ': ' + v.nodes.slice(0, 2).map(n => n.target.join(' ') + ' [' + ((n.any[0] && n.any[0].message) || '') + ']').join(' | ')));
   check(!r.length, `axe WCAG AA clean: ${label}` + (r.length ? '\n      ' + r.join('\n      ') : ''));
 }
 const emu = async (method, p, body) => {
@@ -74,68 +74,67 @@ const val = f => f && (f.stringValue !== undefined ? f.stringValue : f.integerVa
 (async () => {
   const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--ignore-certificate-errors'] });
 
-  console.log('1. The vendor signed the owner\'s offer (as in the "סיכום להקמה")');
+  console.log('1. The vendor signed the owner\'s offer (signed as "כחגח")');
   const pdf = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF').toString('base64');
   const seeded = await emu('POST', 'platformQuotes?documentId=offer-kachgach', { fields: {
-    vendorName: str('כחגח'), contactName: str('דוד לוי'), phone: str('0546056180'), businessType: str('דייגי אח יקר'),
+    vendorName: str('כחגח'), contactName: str('דוד לוי'), phone: str('0546056180'), businessType: str('צלם אח יקר'),
     plan: str('regular'), planLabel: str('מחיר רגיל'), price: int(1999), listPrice: int(1999), freeMonths: int(0), extraMonths: int(0),
     monthly: int(69), discount: int(0), total: int(1999), notes: str(''), validDays: int(14), createdISO: str('2026-10-07'),
     status: str('signed'), createdAt: { timestampValue: '2026-10-07T09:50:00Z' }, signedAt: { timestampValue: '2026-10-07T10:12:00Z' },
     ip: str('1.2.3.4'), userAgent: str('test'), pdfData: str(pdf) } });
-  check(seeded.status === 200, 'signed offer for כחגח exists');
+  check(seeded.status === 200, 'signed offer exists (vendorName "כחגח")');
 
-  console.log('2. Owner opens the admin: the new vendor is created and filled from the signed offer');
+  console.log('2. Owner opens the admin: snap cup is created and filled from the signed offer (offerName)');
   const O = await newPage(b, 'owner');
   await login(O.p, OWNER);
   await O.p.waitForURL(/admin\.html/, { timeout: 15000 });
-  await O.p.waitForSelector('#tbody button.edit[data-id=kachgach]', { timeout: 20000 });
+  await O.p.waitForSelector('#tbody button.edit[data-id=snapcup]', { timeout: 20000 });
   let t = null;
-  for (let i = 0; i < 20; i++) { t = await emu('GET', 'tenants/kachgach'); if (t.body.fields && t.body.fields.agreement) break; await new Promise(r => setTimeout(r, 300)); }
+  for (let i = 0; i < 20; i++) { t = await emu('GET', 'tenants/snapcup'); if (t.body.fields && t.body.fields.agreement) break; await new Promise(r => setTimeout(r, 300)); }
   const F = t.body.fields || {};
-  check(val(F.name) === 'כחגח' && val(F.active) !== false, 'vendor card created: כחגח');
+  check(val(F.name) === 'snap cup', 'vendor card created: snap cup');
   check(val(F.contactName) === 'דוד לוי' && val(F.phone) === '0546056180', 'contact + phone from the offer');
   check(val(F.plan) === 'regular' && val(F.pricePaid) === 1999, 'plan "מחיר רגיל", paid ₪1,999');
   check(val(F.purchaseDate) === '2026-10-07', 'purchase date = signing date (7.10.2026)');
   check(val(F.supportUntil) === '', 'support: 0 months → none');
   const agr = F.agreement && F.agreement.mapValue && F.agreement.mapValue.fields;
   check(agr && val(agr.source) === 'offer', 'agreement attached from the signed offer');
-  const file = await emu('GET', 'tenants/kachgach/files/agreement');
+  const file = await emu('GET', 'tenants/snapcup/files/agreement');
   check(file.status === 200 && val(file.body.fields.pdfData) === pdf, 'signed PDF stored in the vendor card');
-  await O.p.reload(); await O.p.waitForSelector('#tbody button.edit[data-id=kachgach]', { timeout: 20000 });
+  await O.p.reload(); await O.p.waitForSelector('#tbody button.edit[data-id=snapcup]', { timeout: 20000 });
   await O.p.waitForFunction(() => document.getElementById('tbody').textContent.includes('דוד לוי'), null, { timeout: 15000 });
-  const row = await O.p.locator('#tbody tr', { has: O.p.locator('button.edit[data-id=kachgach]') }).textContent();
-  check(row.includes('דוד לוי') && row.includes('מחיר רגיל') && row.includes('1,999'), 'admin row: contact, plan and amount');
-  const again = await emu('GET', 'tenants/kachgach');
+  const row = await O.p.locator('#tbody tr', { has: O.p.locator('button.edit[data-id=snapcup]') }).textContent();
+  check(row.includes('snap cup') && row.includes('דוד לוי') && row.includes('מחיר רגיל') && row.includes('1,999'), 'admin row: name, contact, plan and amount');
+  const again = await emu('GET', 'tenants/snapcup');
   check(val(again.body.fields.contactName) === 'דוד לוי', 'second sync keeps the details (filled only once)');
-  await O.p.click('#tbody button.edit[data-id=kachgach]');
+  await O.p.click('#tbody button.edit[data-id=snapcup]');
   await O.p.waitForFunction(() => document.getElementById('e_agr_status').textContent.includes('יש הסכם חתום'), null, { timeout: 15000 });
   check(true, 'manage dialog: signed agreement present');
   await O.p.screenshot({ path: SHOTS + 'admin-manage.png' });
   await O.p.click('#edit-close');
   await O.p.screenshot({ path: SHOTS + 'admin-vendors.png', fullPage: true });
 
-  console.log('3. Owner enters the vendor account and creates a DJ quote');
-  await O.p.goto(SYS + '/vendors/app.html?t=kachgach');
+  console.log('3. Owner enters the vendor account and creates a photography quote (items)');
+  await O.p.goto(SYS + '/vendors/app.html?t=snapcup');
   await O.p.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 });
-  const top = await O.p.textContent('body');
-  check(top.includes('כחגח'), 'vendor account shows כחגח');
+  check((await O.p.textContent('body')).includes('snap cup'), 'vendor account shows snap cup');
   check((await O.p.textContent('#support-card')).includes('לא כלולה כרגע'), 'support card: not included (0 months) + add via WhatsApp');
-  check(await O.p.locator('#in_service option').count() === 3, '3 DJ packages in the generator');
+  check(await O.p.isHidden('#in_service') && await O.p.isVisible('#catalog'), 'items mode: price list instead of packages');
+  check(await O.p.locator('#catalog button').count() === 8, 'price list has 8 photography items');
   await O.p.fill('#in_clientName', 'נועה ואיתי'); await O.p.fill('#in_clientPhone', '052-1112233');
-  await O.p.fill('#in_eventType', 'חתונה');
-  await O.p.selectOption('#in_service', 'dj_plus');
-  await O.p.fill('#in_location', 'באר שבע'); await O.p.locator('#in_location').blur();
-  await O.p.locator('#in_date').pressSequentially('20082027'); await O.p.locator('#in_startTime').pressSequentially('2000'); await O.p.locator('#in_endTime').pressSequentially('0100');
-  await O.p.fill('#in_guests', '220'); await O.p.locator('#in_guests').dispatchEvent('input');
-  await O.p.waitForFunction(() => document.getElementById('in_distance').value === '112', null, { timeout: 15000 });
-  await O.p.waitForTimeout(300);
-  check(await O.p.inputValue('#in_price') === '5800', 'price = DJ פרימיום 4,800 + 220 guests 600 + 112 km 400 = ₪5,800 (got ' + await O.p.inputValue('#in_price') + ')');
-  await axe(O.p, 'kachgach generator');
+  await O.p.fill('#in_eventType', 'חתונה'); await O.p.locator('#in_date').pressSequentially('20082027');
+  await O.p.fill('#in_location', 'אולם הגנים, ראשון לציון');
+  await O.p.locator('#in_itStart').pressSequentially('1930'); await O.p.fill('#in_itGuests', '250');
+  await O.p.click('#catalog button[data-i="0"]');
+  await O.p.click('#catalog button[data-i="2"]');
+  check(await O.p.inputValue('#in_price') === '8000', 'total = stills 3,500 + video 4,500 = ₪8,000 (got ' + await O.p.inputValue('#in_price') + ')');
+  check(await O.p.inputValue('#in_deposit') === '2400', 'deposit 30% suggested = ₪2,400');
+  await axe(O.p, 'snapcup generator');
   await O.p.click('#gen-btn'); await O.p.waitForSelector('#link-result:not(.hidden)', { timeout: 20000 });
   const link = await O.p.inputValue('#shareable-url');
-  check(/\/hatzaa\/kachgach\/\?k=[a-z0-9]{10}$/.test(link), 'customer link = short link on the neutral site');
+  check(/\/hatzaa\/snapcup\/\?k=[a-z0-9]{10}$/.test(link), 'customer link = short link on the neutral site');
   check((await O.p.getAttribute('#wa-share-btn', 'href')).startsWith('https://wa.me/972521112233?text='), 'WhatsApp opens the client chat directly');
-  check((await O.p.getAttribute('#wa-preview-img', 'src')).includes('/hatzaa/kachgach/og.jpg'), 'preview shows the כחגח WhatsApp image');
+  check((await O.p.getAttribute('#wa-preview-img', 'src')).includes('/hatzaa/snapcup/og.jpg'), 'preview shows the snap cup WhatsApp image');
   await O.p.waitForFunction(() => document.getElementById('wa-preview-img').naturalWidth === 1200, null, { timeout: 10000 }).catch(() => {});
   check(await O.p.evaluate(() => document.getElementById('wa-preview-img').naturalWidth) === 1200, 'WhatsApp image loads (1200×630)');
   check(await O.p.textContent('#wa-preview-url') === link, 'preview: image + link line');
@@ -146,18 +145,21 @@ const val = f => f && (f.stringValue !== undefined ? f.stringValue : f.integerVa
   await C.p.goto(link.replace('https://arial13579.github.io', SITE));
   await C.p.waitForSelector('#sig-canvas', { timeout: 20000 }); await C.p.waitForTimeout(500);
   const ct = await C.p.textContent('body');
-  check(ct.includes('כחגח') && ct.includes('DJ פרימיום') && ct.includes('5,800'), 'customer sees כחגח, the package and the price');
-  check(!/snap ?box/i.test(ct), 'no Snap Box anywhere on the customer page');
-  check(await C.p.locator('.contact a[href^="tel:"]').count() === 1 && await C.p.locator('.contact a[href^="https://wa.me/972546056180"]').count() === 1 && await C.p.locator('.contact a[href^="mailto:"]').count() === 1, 'contact box: phone, WhatsApp and email');
-  await axe(C.p, 'kachgach customer page');
+  const noBrand = txt => !/snap ?box/i.test(txt.replace(/snapboxevent\.official@gmail\.com/gi, ''));   // the vendor email the owner chose contains "snapbox"
+  check(ct.includes('snap cup') && ct.includes('צלם אחלה כבר ביקר לי'), 'customer sees snap cup + the tagline');
+  check(ct.includes('צילום סטילס לאירוע') && ct.includes('צילום וידאו') && ct.includes('8,000') && ct.includes('2,400'), 'customer sees the items, total and deposit');
+  check(ct.includes('מספר עוסק 3333333'), 'business ID shown');
+  check(noBrand(ct), 'no Snap Box on the customer page (besides the vendor email the owner chose)');
+  check(await C.p.locator('.contact a[href^="tel:"]').count() === 1 && await C.p.locator('.contact a[href^="https://wa.me/972546056180"]').count() === 1 && await C.p.locator('.contact a[href^="mailto:snapboxevent.official@gmail.com"]').count() === 1, 'contact box: phone, WhatsApp and email');
+  await axe(C.p, 'snapcup customer page');
   await C.p.screenshot({ path: SHOTS + 'customer.png', fullPage: true });
   for (const d of ['terms', 'privacy', 'accessibility', 'refunds']) {
-    await C.p.goto(SITE + '/hatzaa/legal/' + d + '.html?t=kachgach');
+    await C.p.goto(SITE + '/hatzaa/legal/' + d + '.html?t=snapcup');
     await C.p.waitForSelector('section.card'); await C.p.waitForTimeout(500);
     const lt = await C.p.textContent('body');
-    check(lt.includes('כחגח') && lt.includes('054-6056180') && !/snap ?box/i.test(lt), `legal/${d}: כחגח + phone, no Snap Box`);
-    if (d === 'refunds') check(lt.includes('בניכוי 10% דמי טיפול') && lt.includes('פעם אחת ללא עלות'), 'refunds page shows the vendor policy');
-    await axe(C.p, 'kachgach legal/' + d);
+    check(lt.includes('snap cup') && lt.includes('054-6056180') && lt.includes('3333333') && noBrand(lt), `legal/${d}: snap cup, phone and business ID, no Snap Box`);
+    if (d === 'refunds') check(lt.includes('יוחזר 50% מהמקדמה') && lt.includes('פעם אחת ללא עלות'), 'refunds page shows the vendor policy');
+    await axe(C.p, 'snapcup legal/' + d);
   }
 
   await b.close();
