@@ -35,7 +35,10 @@ await no('anon cannot read noa quote', getDoc(doc(anon, 'tenants/noa/quotes/q1')
 console.log('Client signing (anonymous)');
 await no('anon cannot change price', updateDoc(doc(anon, 'tenants/noa/quotes/q1'), { price: 1 }));
 await no('anon cannot sign + change price', updateDoc(doc(anon, 'tenants/noa/quotes/q1'), { status: 'signed', price: 1 }));
-await ok('anon signs', updateDoc(doc(anon, 'tenants/noa/quotes/q1'), { status: 'signed', signedAt: serverTimestamp(), ip: '1.2.3.4', userAgent: 'UA' }));
+await no('anon cannot sign with an IP', updateDoc(doc(anon, 'tenants/noa/quotes/q1'), { status: 'signed', signedAt: serverTimestamp(), ip: '1.2.3.4', userAgent: 'UA' }));
+await no('anon cannot backdate signature', updateDoc(doc(anon, 'tenants/noa/quotes/q1'), { status: 'signed', signedAt: new Date('2020-01-01'), ip: null, userAgent: 'UA' }));
+await no('anon cannot send a huge userAgent', updateDoc(doc(anon, 'tenants/noa/quotes/q1'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'x'.repeat(700) }));
+await ok('anon signs (with signedQ)', updateDoc(doc(anon, 'tenants/noa/quotes/q1'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'UA', signedQ: 'YQ' }));
 await no('anon cannot sign twice', updateDoc(doc(anon, 'tenants/noa/quotes/q1'), { status: 'signed', ip: '9.9.9.9' }));
 await ok('anon attaches pdf', updateDoc(doc(anon, 'tenants/noa/quotes/q1'), { pdfData: 'JVBERi0xLjQ=' }));
 await no('anon cannot replace pdf', updateDoc(doc(anon, 'tenants/noa/quotes/q1'), { pdfData: 'other' }));
@@ -80,7 +83,7 @@ await no('vendor cannot read platform quotes', getDoc(doc(noa, 'platformQuotes/p
 await no('vendor cannot create platform quote', setDoc(doc(noa, 'platformQuotes/p2'), { status: 'pending' }));
 await no('anon cannot read platform quote', getDoc(doc(anon, 'platformQuotes/p1')));
 await no('anon cannot change total', updateDoc(doc(anon, 'platformQuotes/p1'), { total: 1 }));
-await ok('anon signs platform quote', updateDoc(doc(anon, 'platformQuotes/p1'), { status: 'signed', signedAt: serverTimestamp(), ip: '1.1.1.1', userAgent: 'UA' }));
+await ok('anon signs platform quote', updateDoc(doc(anon, 'platformQuotes/p1'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'UA', signedQ: 'YQ', signerName: 'דוד' }));
 await ok('anon attaches pdf', updateDoc(doc(anon, 'platformQuotes/p1'), { pdfData: 'x' }));
 await no('anon cannot replace pdf', updateDoc(doc(anon, 'platformQuotes/p1'), { pdfData: 'y' }));
 await no('stranger cannot list platform quotes', getDocs(collection(stranger, 'platformQuotes')));
@@ -148,6 +151,23 @@ await ok('anon reads promo', getDoc(doc(anon, 'public/promo')));
 await no('anon cannot write promo', setDoc(doc(anon, 'public/promo'), { soldOut: false }));
 await no('vendor cannot write promo', updateDoc(doc(noa, 'public/promo'), { launchSigned: 0 }));
 await no('anon cannot list public', getDocs(collection(anon, 'public')));
+
+// ספק מוגבל / הצעות חתומות / הערות פנימיות
+await ok('owner seeds pending + signed quotes', Promise.all([
+  setDoc(doc(owner, 'tenants/noa/quotes/m1'), { status: 'pending', price: 100 }),
+  setDoc(doc(owner, 'tenants/noa/quotes/m2'), { status: 'pending', price: 100 }).then(() => updateDoc(doc(owner, 'tenants/noa/quotes/m2'), { status: 'signed' })) ]));
+await no('limited noa cannot delete quote', deleteDoc(doc(noa, 'tenants/noa/quotes/m1')));
+await no('limited noa cannot edit quote', updateDoc(doc(noa, 'tenants/noa/quotes/m1'), { price: 1 }));
+await ok('owner lifts limit again', updateDoc(doc(owner, 'tenants/noa'), { limited: false }));
+await ok('noa edits pending quote (shortId)', updateDoc(doc(noa, 'tenants/noa/quotes/m1'), { shortId: 'abc' }));
+await no('noa cannot change price of signed quote', updateDoc(doc(noa, 'tenants/noa/quotes/m2'), { price: 1 }));
+await no('noa cannot un-sign a quote', updateDoc(doc(noa, 'tenants/noa/quotes/m2'), { status: 'pending' }));
+await ok('noa replaces pdf of signed quote', updateDoc(doc(noa, 'tenants/noa/quotes/m2'), { pdfData: 'JVBE' }));
+await ok('noa deletes own quote', deleteDoc(doc(noa, 'tenants/noa/quotes/m1')));
+await ok('owner writes private notes', setDoc(doc(owner, 'tenants/noa/private/meta'), { notes: 'internal' }));
+await no('vendor cannot read private notes', getDoc(doc(noa, 'tenants/noa/private/meta')));
+await no('vendor cannot write private notes', setDoc(doc(noa, 'tenants/noa/private/meta'), { notes: 'x' }));
+await no('anon cannot read private notes', getDoc(doc(anon, 'tenants/noa/private/meta')));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();

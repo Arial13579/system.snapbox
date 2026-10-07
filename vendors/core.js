@@ -95,6 +95,20 @@
     }
 
     function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m])); }
+    function b64UrlDecode(str){
+        str = String(str).replace(/-/g, '+').replace(/_/g, '/'); while (str.length % 4) str += '=';
+        const bin = atob(str), bytes = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return new TextDecoder().decode(bytes);
+    }
+    /* האם מה שנחתם (signedQ = הפרטים בדיוק כפי שהוצגו לחותם) שונה מההצעה המקורית?
+       quote: מחיר, מקדמה ותאריך. offer: סכום, חבילה ומקדמה. מחזיר true רק כשיש הבדל ממשי. */
+    function signedMismatch(doc, kind){
+        if (!doc || doc.status !== 'signed' || !doc.signedQ) return false;
+        let p; try { p = b64UrlDecode(doc.signedQ).split('|'); } catch(e) { return true; }
+        const num = (a, b) => (Number(a) || 0) !== (Number(b) || 0);
+        if (kind === 'offer') return p[0] !== doc.id || num(p[10], doc.total) || String(p[4] || '') !== String(doc.plan || '') || (p.length > 17 && num(p[17], doc.deposit));
+        return p[10] !== doc.id || num(p[7], doc.price) || num(p[8], doc.deposit) || String(p[3] || '') !== String(doc.date || '');
+    }
     function b64UrlEncode(str){
         const bytes = new TextEncoder().encode(str);
         let bin = ''; bytes.forEach(b => bin += String.fromCharCode(b));
@@ -179,5 +193,5 @@
         return { state: days <= 30 ? 'expiring' : 'active', until, days, months: Math.max(0, months), left, label: 'פעילה עד ' + fmtDate(until) };
     }
 
-    window.Core = { fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();

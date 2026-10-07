@@ -57,6 +57,7 @@
         'ההקמה מתחילה לאחר קבלת התשלום וכל הנתונים (פרטי עסק, מחירון, תנאים, לוגו וכתובת Gmail להתחברות), ובדרך כלל מסתיימת בתוך 7 ימי עבודה.',
         months ? `תמיכה טכנית ל-${months} חודשים ממועד מסירת המערכת. לאחר מכן ניתן לחדש ב-${money(PF.sales.supportMonthly)} לחודש.` : `ההצעה אינה כוללת תמיכה טכנית חודשית. ניתן להוסיף בכל עת ב-${money(PF.sales.supportMonthly)} לחודש.`,
         'ביטול בתוך 14 יום מהחתימה ולפני תחילת ההקמה — החזר מלא. לאחר תחילת ההקמה לא יינתן החזר על דמי ההקמה.',
+        ...(o.plan === 'launch' ? [`מחיר ההשקה מוגבל ל-${PF.sales.plans.launch.limit || 5} הספקים הראשונים שחותמים עליו. ההצעה ניתנת לחתימה כל עוד נותרו מקומות במבצע.`] : []),
         'ההתקשרות כפופה לתנאי השימוש והסכם השירות לספקים של Snap Box, המהווים חלק בלתי נפרד מהסכם זה.'
     ];
     const priceRows = () => {
@@ -173,10 +174,13 @@
         }
         const blob = pdf.output('blob'); if (!blob || blob.size < 12000) throw new Error('blank'); return blob;
     }
-    async function saveSigned(pdfBlob){
+    async function saveSigned(pdfBlob, signer){
         try {
             const f = await Core.fb(), ref = f.fs.doc(f.db, 'platformQuotes', o.id);
-            await withTimeout(f.fs.updateDoc(ref, { status: 'signed', signedAt: f.fs.serverTimestamp(), ip: meta.ip || null, userAgent: meta.ua }), 12000, null);
+            const base = { status: 'signed', signedAt: f.fs.serverTimestamp(), ip: null, userAgent: meta.ua ? String(meta.ua).slice(0, 500) : null };
+            // אם הכללים עוד לא עודכנו (signedQ/signerName) — חותמים בלעדיהם
+            try { await withTimeout(f.fs.updateDoc(ref, { ...base, signedQ: String(qp || '').slice(0, 7900), signerName: String(signer || '').slice(0, 100) }), 12000, null); }
+            catch(e1) { await withTimeout(f.fs.updateDoc(ref, base), 12000, null); }
             if (pdfBlob && pdfBlob.size <= 700 * 1024) { const d = await blobToB64(pdfBlob); await withTimeout(f.fs.updateDoc(ref, { pdfData: d }), 12000, null); }
         } catch(e) { console.warn('save failed', e); }
     }
@@ -205,7 +209,7 @@
         sigUrl = canvas.toDataURL('image/png');
         meta = { ts: new Date(), ip: await getIp(), ua: navigator.userAgent };
         let pdf = null; try { pdf = await makePdf(signer); } catch(err) { console.error(err); }
-        const [mailed] = await Promise.all([email(pdf, signer), saveSigned(pdf)]);
+        const [mailed] = await Promise.all([email(pdf, signer), saveSigned(pdf, signer)]);
         if (pdf) { const a = document.createElement('a'); a.href = URL.createObjectURL(pdf); a.download = `SnapBox_Offer_${o.vendorName.replace(/[\\/:*?"<>|]+/g, '_')}.pdf`; document.body.appendChild(a); a.click(); setTimeout(() => a.remove(), 5000); }
         ov.style.display = 'none';
         $('sign-controls').innerHTML = pdf && mailed

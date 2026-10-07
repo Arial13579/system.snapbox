@@ -8,6 +8,7 @@ rules_version = '2';
 //   tenants/{ספק}                 — פרטי ספק: admins (רשימת מיילים), active (פעיל/מושהה)
 //   tenants/{ספק}/quotes/{הצעה}   — ההצעות של הספק
 //   tenants/{ספק}/consents/{…}    — אישורי תנאי השימוש של הספק
+//   tenants/{ספק}/private/meta    — הערות פנימיות של הבעלים (הספק לא רואה)
 //   tenants/{ספק}/files/{קובץ}    — ההסכם החתום של הספק מול Snap Box (רק הבעלים מעלה/מחליף)
 //   deletedTenants/{ספק}          — ספקים שנמחקו לצמיתות (כדי שהסנכרון לא ייצור אותם מחדש)
 //   platformQuotes/{הצעה}         — הצעות מחיר של Snap Box לספקים
@@ -41,12 +42,21 @@ service cloud.firestore {
     function canCreateFor(t) {
       return isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true;
     }
-    // לקוח חותם: רק pending → signed, ורק שדות התיעוד
+    // לקוח חותם: רק pending → signed, ורק שדות התיעוד.
+    // זמן החתימה = זמן השרת (אי אפשר להקדים/לאחר), לא נשמר IP, ו-signedQ = הפרטים בדיוק כפי שהוצגו לחותם (להשוואה מול המקור).
     function isClientSigning() {
       return resource.data.status == 'pending'
         && request.resource.data.status == 'signed'
         && request.resource.data.diff(resource.data).affectedKeys()
-             .hasOnly(['status', 'signedAt', 'ip', 'userAgent']);
+             .hasOnly(['status', 'signedAt', 'ip', 'userAgent', 'signedQ', 'signerName'])
+        && request.resource.data.signedAt == request.time
+        && request.resource.data.get('ip', null) == null
+        && (request.resource.data.get('userAgent', null) == null
+            || (request.resource.data.userAgent is string && request.resource.data.userAgent.size() < 600))
+        && (!('signedQ' in request.resource.data)
+            || (request.resource.data.signedQ is string && request.resource.data.signedQ.size() < 8000))
+        && (!('signerName' in request.resource.data)
+            || (request.resource.data.signerName is string && request.resource.data.signerName.size() < 120));
     }
     // לקוח מצרף PDF: פעם אחת בלבד, אחרי החתימה
     function isClientAttachingPdf() {
@@ -63,10 +73,20 @@ service cloud.firestore {
       allow write: if isOwner();
 
       match /quotes/{q} {
-        allow read, delete: if isOwner() || isVendorOf(t);
+        allow read: if isOwner() || isVendorOf(t);
+        // ספק מוגבל (צפייה בלבד) לא מוחק ולא משנה. בהצעה חתומה הספק יכול רק להחליף את קובץ ה-PDF.
+        allow delete: if isOwner() || canCreateFor(t);
         allow create: if (isOwner() || canCreateFor(t)) && request.resource.data.status == 'pending';
-        allow update: if isOwner() || isVendorOf(t) || isClientSigning() || isClientAttachingPdf();
+        allow update: if isOwner()
+          || (canCreateFor(t) && (resource.data.status != 'signed'
+                || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pdfData'])))
+          || isClientSigning() || isClientAttachingPdf();
       }
+    }
+
+    // ---- הערות פנימיות של הבעלים על ספק: רק הבעלים (הספק לא רואה) ----
+    match /tenants/{t}/private/{d} {
+      allow read, write: if isOwner();
     }
 
     // ---- ההסכם החתום של הספק מול Snap Box: הספק רואה, רק הבעלים מעלה/מחליף ----

@@ -182,6 +182,7 @@ async function draw(p){
   await O.p.click('.admin-tabs button[data-tab=offers]');
   await O.p.waitForSelector('#otbody .badge.ok', { timeout: 15000 });
   check(await O.p.locator('#otbody .view').count() === 1, 'signed offer PDF stored');
+  check(!(await O.p.textContent('#otbody')).includes('פרטים שונים'), 'signed offer matches what was sent (no tamper warning)');
   check((await O.p.textContent('#okpis')).includes('₪1,813'), 'signed offers total KPI');
   await O.ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: SITE });
   await O.p.click('#otbody .setup'); await O.p.waitForTimeout(400);
@@ -225,6 +226,7 @@ async function draw(p){
   await V.p.click('.tabs button[data-tab=dash]');
   await V.p.waitForSelector('#tbody .pill.signed', { timeout: 15000 });
   check(true, 'vendor dashboard shows the signed quote');
+  check(!(await V.p.textContent('#tbody')).includes('פרטים שונים'), 'signed quote matches what was sent (no tamper warning)');
   await axe(V.p, 'vendor dashboard');
   await V.p.screenshot({ path: SHOTS + 'vendor-dash-mobile.png', fullPage: true });
 
@@ -360,6 +362,7 @@ async function draw(p){
 
   await I.p.click('.tabs button[data-tab=dash]');
   await I.p.waitForSelector('#tbody .pill.signed', { timeout: 15000 });
+  check(!(await I.p.textContent('#tbody')).includes('פרטים שונים'), 'items-mode signed quote: no tamper warning');
   await I.p.waitForSelector('#tbody .view-file', { timeout: 15000 });
   check((await I.p.textContent('#tbody')).includes('עיצוב שולחן כלה וחתן +2'), 'dashboard shows items summary');
   const fc = I.p.waitForEvent('filechooser'); await I.p.click('#tbody .upload-file');
