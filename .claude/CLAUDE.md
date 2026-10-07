@@ -127,6 +127,7 @@
 - נוסו ונכשלו בטלפון של הבעלים, ובוטלו: (1) קישור קצר, (2) wa.me בלי מספר, (3) תפריט השיתוף `navigator.share({url})`, (4) 1000 × U+200E לפני הקישור ("קרא עוד").
 - (5) רענון כל הדפים ב-Facebook Sharing Debugger (Scrape Again) — התמונה מתעדכנת, אבל שורת הקישור נשארת. האזהרה היחידה שם: `fb:app_id` (לא רלוונטית לוואטסאפ).
 - המצב הנוכחי בשלוש המערכות: `wa.me/?text=<url>` רגיל.
+- תמונות תצוגה (og.jpg): `offer/og.jpg` (הצעה לספק), `og.jpg` בשורש (אתר המכירה + כניסת ספקים, נוסף אחרי אזהרת Debugger "og:image should be explicitly provided"). נוצרות עם `hatzaa/tools/make_og.mjs` — אפשר `og: { head, cta }` ב-config לכותרת ולכפתור מותאמים.
 - הדרך היחידה לתמונה + כפתור בלי קישור גלוי: **WhatsApp Business (Cloud) API** — הודעת template עם כותרת תמונה וכפתור URL. דורש חשבון Meta Business, מספר עסקי ייעודי, אישור template, שרת (למשל Cloudflare Worker / Firebase Functions בתוכנית Blaze) ותשלום לשיחה. ממתין להחלטת הבעלים.
 
 ## מטמון בדפדפן
