@@ -144,7 +144,15 @@
     /* ---- שליחה בוואטסאפ: wa.me עם הקישור בלבד. וואטסאפ מציג כרטיס תמונה + שורת קישור.
        נוסו ונכשלו אצל הבעלים: תפריט השיתוף, ו-1000 תווים בלתי נראים ("קרא עוד"). בוואטסאפ רגיל אי אפשר להסתיר את הקישור. */
     const waText = url => url;
-    function bindWhatsApp(a, url){ a.href = 'https://wa.me/?text=' + encodeURIComponent(url); a.onclick = null; }
+    // טלפון ישראלי (050-1234567 / +972…) → 972501234567. מספר לא תקין → '' (וואטסאפ ישאל למי לשלוח)
+    function waPhone(p){
+        let d = String(p || '').replace(/\D/g, '');
+        if (d.startsWith('00')) d = d.slice(2);
+        if (d.startsWith('0')) d = '972' + d.slice(1);
+        return /^\d{10,15}$/.test(d) ? d : '';
+    }
+    // עם טלפון — נפתח ישר הצ'אט של הלקוח; בלי טלפון — וואטסאפ שואל למי לשלוח
+    function bindWhatsApp(a, url, phone){ a.href = 'https://wa.me/' + waPhone(phone) + '?text=' + encodeURIComponent(url); a.onclick = null; }
 
     const GOOGLE_SVG = '<svg viewBox="0 0 48 48" width="18" height="18" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6.1 29.6 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.7-.4-3.5z"/><path fill="#FF3D00" d="m6.3 14.7 6.6 4.8C14.6 15.9 18.9 13 24 13c3.1 0 5.8 1.1 8 3l5.7-5.7C34.6 6.1 29.6 4 24 4c-7.7 0-14.4 4.4-17.7 10.7z"/><path fill="#4CAF50" d="M24 44c5.5 0 10.4-1.9 14.3-5.1l-6.6-5.6C29.6 35 26.9 36 24 36c-5.3 0-9.7-3.1-11.3-7.5l-6.6 5.1C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.3-4.2 5.7l6.6 5.6C39.9 37.1 44 31.4 44 24c0-1.3-.1-2.7-.4-3.5z"/></svg>';
 
@@ -171,5 +179,5 @@
         return { state: days <= 30 ? 'expiring' : 'active', until, days, months: Math.max(0, months), left, label: 'פעילה עד ' + fmtDate(until) };
     }
 
-    window.Core = { fb, bindWhatsApp, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();

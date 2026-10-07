@@ -362,10 +362,14 @@
             const { id, ...data } = q;
             await fs.setDoc(fs.doc(db, 'platformQuotes', id), { ...data, status: 'pending', createdAt: fs.serverTimestamp() });
         } catch(err) { alert('השמירה נכשלה: ' + (err.code || err.message)); btn.disabled = false; btn.textContent = 'יצירת קישור להצעה'; return; }
-        // בכל מקום — הקישור המלא בלבד, ווואטסאפ שואל למי לשלוח (כמו במערכת המקורית): ההודעה מוצגת ככרטיס תמונה
-        const url = offerUrl(q);
+        // קישור קצר (/offer/?k=…); אם נכשל — הקישור הארוך. וואטסאפ נפתח ישר לטלפון של הספק (אם הוזן)
+        let url = offerUrl(q);
+        try {
+            const s = await Core.makeShortLink('offer', '', url);
+            if (s.id) { url = s.url; await fs.updateDoc(fs.doc(db, 'platformQuotes', q.id), { shortId: s.id }).catch(() => {}); }
+        } catch(err) { console.warn('short link failed', err); }
         $('o_url').value = url; $('o_preview').href = url; $('o_wa_preview').href = url;
-        Core.bindWhatsApp($('o_wa'), url);   // בטלפון: תפריט השיתוף → וואטסאפ, ככרטיס תמונה בלבד
+        Core.bindWhatsApp($('o_wa'), url, q.phone);
         $('o_result').classList.remove('hidden'); $('o_result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         btn.disabled = false; btn.textContent = 'יצירת קישור להצעה';
     }
@@ -399,7 +403,7 @@
     $('otbody').addEventListener('click', async e => {
         const b = e.target.closest('button'); if (!b) return;
         const o = OFFERS.find(x => x.id === b.dataset.id); if (!o) return;
-        if (b.classList.contains('copy')) copyText(offerUrl(o), b);
+        if (b.classList.contains('copy')) copyText(Core.shortUrl(offerUrl(o), o.shortId), b);
         else if (b.classList.contains('setup')) {
             const s = (o.freeMonths || 0) + (o.extraMonths || 0);
             copyText(`ספק חדש להקמה:\nעסק: ${o.vendorName}\nאיש קשר: ${o.contactName}${o.phone ? ' · ' + o.phone : ''}\nתחום: ${o.businessType || '—'}\nחבילה: ${o.planLabel || o.plan} · שולם: ${o.total} ₪\nתמיכה: ${s} חודשים\nנחתם: ${fmtTs(o.signedAt)}`, b);

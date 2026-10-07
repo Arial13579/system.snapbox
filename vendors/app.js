@@ -315,17 +315,27 @@
             alert(err.code === 'permission-denied' ? 'אין הרשאה ליצור הצעה (ייתכן שהחשבון מוגבל). פנו ל-Snap Box.' : 'שמירת ההצעה נכשלה (' + (err.code || err.message) + '). בדקו את החיבור ונסו שוב.');
             btn.disabled = false; btn.textContent = 'יצירת הצעה ללקוח'; return;
         }
-        showResult(q, Core.shareUrl(slug, q));
+        // קישור קצר (…/?k=xxxxxxxxxx); אם נכשל — הקישור הארוך, שממשיך לעבוד
+        let url = Core.shareUrl(slug, q);
+        try {
+            const s = await Core.makeShortLink('quote', slug, url);
+            if (s.id) { url = s.url; q.shortId = s.id; await fb.fs.updateDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id), { shortId: s.id }).catch(() => {}); }
+        } catch(err) { console.warn('short link failed', err); }
+        showResult(q, url);
         btn.disabled = false; btn.textContent = 'יצירת הצעה ללקוח';
     });
-    // בכל מקום (וואטסאפ, העתקה, שיתוף) — הקישור המלא בלבד, כמו במערכת המקורית:
-    // הודעה שכולה קישור מוצגת בוואטסאפ ככרטיס תמונה, בלי שורת קישור. לחיצה על התמונה פותחת את ההצעה.
+    // בכל מקום (וואטסאפ, העתקה, שיתוף) — הקישור הקצר. וואטסאפ מציג מעליו את כרטיס התמונה.
     function showResult(q, url){
         const B = T.business || {};
         const msg = url;
         $('shareable-url').value = url;
-        // בטלפון: תפריט השיתוף → וואטסאפ → בוחרים למי, וההודעה מגיעה ככרטיס תמונה בלי שורת קישור
-        Core.bindWhatsApp($('wa-share-btn'), msg);
+        // אם הוזן טלפון הלקוח — הכפתור פותח ישר את הצ'אט שלו, וההודעה כבר מוכנה (רק לשלוח)
+        const hasPhone = !!Core.waPhone(q.clientPhone);
+        Core.bindWhatsApp($('wa-share-btn'), msg, q.clientPhone);
+        $('wa-share-btn').textContent = hasPhone ? `שליחה בוואטסאפ ל-${q.clientName || 'לקוח'}` : 'שליחה ללקוח בוואטסאפ';
+        $('wa-hint').textContent = hasPhone
+            ? 'הצ\'אט של הלקוח ייפתח עם ההודעה מוכנה. שולחים כמו שזה, בלי להוסיף טקסט: ההודעה מגיעה עם התמונה, ולחיצה עליה פותחת את ההצעה.'
+            : 'לא הוזן טלפון תקין, אז וואטסאפ ישאל למי לשלוח. שולחים כמו שזה, בלי להוסיף טקסט: ההודעה מגיעה עם התמונה, ולחיצה עליה פותחת את ההצעה.';
         $('preview-btn').href = url; $('wa-preview').href = url;
         const img = $('wa-preview-img');
         img.onerror = () => { img.onerror = null; img.src = Core.PF.customerBase + '/assets/og-default.jpg'; };
@@ -403,7 +413,7 @@
     $('tbody').addEventListener('click', async e => {
         const btn = e.target.closest('button'); if (!btn) return;
         const q = QUOTES.find(x => x.id === btn.dataset.id); if (!q) return;
-        if (btn.classList.contains('copy-link')) copyText(Core.shareUrl(slug, q), btn);
+        if (btn.classList.contains('copy-link')) copyText(Core.shortUrl(Core.shareUrl(slug, q), q.shortId), btn);
         else if (btn.classList.contains('delete-row')) {
             if (!confirm(`למחוק לצמיתות את ההצעה של ${q.clientName || 'הלקוח'}? לא ניתן לשחזר.`)) return;
             btn.disabled = true; btn.textContent = 'מוחק…';
