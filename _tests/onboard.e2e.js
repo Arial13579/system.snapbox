@@ -10,7 +10,9 @@ const SITE = 'http://localhost:8791', SYS = SITE + '/system';
 const EMU = 'http://127.0.0.1:8085/v1/projects/check-b2a66/databases/default/documents/';
 const SHOTS = S + '/shots-onboard/'; fs.mkdirSync(SHOTS, { recursive: true });
 const OWNER = 'arielkahalani1@gmail.com', VENDOR = 'snapboxevent.official@gmail.com';
-const REG = fs.readFileSync('/home/user/system.snapbox/vendors/registry.js', 'utf8');   // the real registry
+// the real registry + the sample vendor snap cup (hatzaa/snapcup), which the owner deleted from the live list
+const REG = fs.readFileSync('/home/user/system.snapbox/vendors/registry.js', 'utf8')
+  + "\nwindow.REGISTRY.push({ slug: 'snapcup', name: 'snap cup', offerName: 'כחגח', admins: ['snapboxevent.official@gmail.com'] });";
 const errors = [];
 let failures = 0;
 const check = (cond, msg) => { console.log((cond ? '  ✓ ' : '  ✗ ') + msg); if (!cond) failures++; };

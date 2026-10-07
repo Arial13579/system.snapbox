@@ -142,6 +142,10 @@ async function draw(p){
   await O.p.check('#o_support_on'); await O.p.click('#o_quick button[data-m="6"]');
   await O.p.fill('#o_discount', '100'); await O.p.locator('#o_discount').dispatchEvent('input');
   await O.p.fill('#o_notes', 'כולל פגישת הדרכה בזום');
+  check(await O.p.inputValue('#o_deposit') === '500', 'deposit defaults to ₪500');
+  await O.p.fill('#o_email', 'Dani.Photo@gmail.com'); await O.p.fill('#o_deposit', '600'); await O.p.locator('#o_deposit').dispatchEvent('input');
+  await O.p.fill('#o_pricing', 'חבילה בסיסית 3,500 ₪ ל-5 שעות\nשעה נוספת 500 ₪');
+  check((await O.p.textContent('#o_summary')).includes('₪1,213'), 'summary: deposit ₪600, balance ₪1,213');
   const sumTxt = await O.p.textContent('#o_summary');
   check(sumTxt.includes('₪1,813'), 'offer total = 1499 + 6×69 − 100 = ₪1,813');
   check(sumTxt.includes('8 חודשי תמיכה'), 'support months = 2 included + 6');
@@ -162,6 +166,7 @@ async function draw(p){
   await P.p.waitForSelector('#sig-canvas');
   const ot = await P.p.textContent('main');
   check(ot.includes('צלם הדגמה') && ot.includes('₪1,813') && ot.includes('8 חודשים'), 'offer page shows vendor, total and support');
+  check(ot.includes('dani.photo@gmail.com') && ot.includes('שעה נוספת 500') && ot.includes('₪600') && ot.includes('₪1,213'), 'offer page shows the Gmail, pricing info, deposit and balance');
   await hasA11yWidget(P.p, 'offer page');
   await axe(P.p, 'offer page');
   await P.p.screenshot({ path: SHOTS + 'offer-mobile.png', fullPage: true });
@@ -178,6 +183,10 @@ async function draw(p){
   await O.p.waitForSelector('#otbody .badge.ok', { timeout: 15000 });
   check(await O.p.locator('#otbody .view').count() === 1, 'signed offer PDF stored');
   check((await O.p.textContent('#okpis')).includes('₪1,813'), 'signed offers total KPI');
+  await O.ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: SITE });
+  await O.p.click('#otbody .setup'); await O.p.waitForTimeout(400);
+  const setupTxt = await O.p.evaluate(() => navigator.clipboard.readText());
+  check(setupTxt.includes('Gmail להתחברות: dani.photo@gmail.com') && setupTxt.includes('מקדמה: 600') && setupTxt.includes('שעה נוספת 500 ₪'), 'setup summary includes Gmail, deposit and pricing info');
   await O.p.screenshot({ path: SHOTS + 'admin-offers.png', fullPage: true });
 
   console.log('F. Vendor first login: terms consent, support card, quote flow');
