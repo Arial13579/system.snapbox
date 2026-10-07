@@ -1,0 +1,167 @@
+// New vendor onboarding (כחגח · kachgach): signed offer → owner admin fills the card + agreement → quote → customer page.
+// Run inside: firebase emulators:exec --only firestore,auth --project check-b2a66 "node onboard.e2e.js"
+// (deps in $S/t/node_modules, static server on :8791 serving $S/www with system → system.snapbox, hatzaa → hatzaa — like full.e2e.js)
+const S = '/tmp/claude-0/-home-user/33274e87-36f1-52fb-a542-54f1e7d0e4b6/scratchpad';
+const NM = S + '/t/node_modules/', FB = NM + 'firebase/', FBV = require(NM + 'firebase/package.json').version;
+const { chromium } = require(NM + 'playwright-core');
+const fs = require('fs'), path = require('path');
+const AXE = fs.readFileSync(NM + 'axe-core/axe.min.js', 'utf8');
+const SITE = 'http://localhost:8791', SYS = SITE + '/system';
+const EMU = 'http://127.0.0.1:8085/v1/projects/check-b2a66/databases/default/documents/';
+const SHOTS = S + '/shots-onboard/'; fs.mkdirSync(SHOTS, { recursive: true });
+const OWNER = 'arielkahalani1@gmail.com';
+const REG = fs.readFileSync('/home/user/system.snapbox/vendors/registry.js', 'utf8');   // the real registry
+const errors = [];
+let failures = 0;
+const check = (cond, msg) => { console.log((cond ? '  ✓ ' : '  ✗ ') + msg); if (!cond) failures++; };
+
+async function setup(ctx){
+  await ctx.addInitScript(() => { window.__EMU__ = { firestore: 8085, auth: 9099 }; });
+  await ctx.route('**/*', async route => {
+    const u = route.request().url();
+    const m = u.match(/gstatic\.com\/firebasejs\/([\d.]+)\/(firebase-(app|auth|firestore)\.js)$/);
+    const H = { 'Access-Control-Allow-Origin': '*' };
+    if (m && m[1] !== FBV) return route.fulfill({ body: `export * from 'https://www.gstatic.com/firebasejs/${FBV}/${m[2]}';`, contentType: 'application/javascript', headers: H });
+    if (m) return route.fulfill({ body: fs.readFileSync(FB + m[2]), contentType: 'application/javascript', headers: H });
+    if (u.endsWith('html2canvas.min.js')) return route.fulfill({ body: fs.readFileSync(NM + 'html2canvas/dist/html2canvas.min.js'), contentType: 'application/javascript' });
+    if (u.endsWith('jspdf.umd.min.js')) return route.fulfill({ body: fs.readFileSync(NM + 'jspdf/dist/jspdf.umd.min.js'), contentType: 'application/javascript' });
+    if (u.endsWith('chart.umd.min.js')) return route.fulfill({ body: fs.readFileSync(NM + 'chart.js/dist/chart.umd.js'), contentType: 'application/javascript' });
+    if (u.includes('/vendors/registry.js')) return route.fulfill({ body: REG, contentType: 'application/javascript' });
+    if (u.startsWith('https://arial13579.github.io/hatzaa/')) {
+      const rel = decodeURIComponent(new URL(u).pathname.replace('/hatzaa/', '')) || 'index.html';
+      let f = path.join('/home/user/hatzaa', rel); if (f.endsWith('/')) f += 'index.html';
+      if (!fs.existsSync(f)) return route.fulfill({ status: 404, body: 'nf' });
+      return route.fulfill({ body: fs.readFileSync(f), contentType: f.endsWith('.js') ? 'application/javascript' : f.endsWith('.css') ? 'text/css' : f.endsWith('.jpg') ? 'image/jpeg' : f.endsWith('.svg') ? 'image/svg+xml' : 'text/html' });
+    }
+    if (u.includes('ipify')) return route.fulfill({ body: '{"ip":"1.2.3.4"}', contentType: 'application/json' });
+    if (u.includes('tmpfiles')) return route.fulfill({ body: '{"data":{"url":"https://tmpfiles.org/1/x.pdf"}}', contentType: 'application/json' });
+    if (u.includes('formsubmit')) return route.fulfill({ body: 'ok', contentType: 'text/html' });
+    if (u.includes('nominatim')) return route.fulfill({ body: '[{"lat":"31.252","lon":"34.791","display_name":"באר שבע, מחוז הדרום"}]', contentType: 'application/json' });
+    if (u.includes('osrm')) return route.fulfill({ body: '{"routes":[{"distance":112400}]}', contentType: 'application/json' });
+    if (u.startsWith(SITE) || u.includes('127.0.0.1')) return route.continue();
+    if (u.includes('fonts.g')) return route.fulfill({ body: '', contentType: 'text/css' });
+    return route.abort();
+  });
+}
+async function newPage(b, name){
+  const ctx = await b.newContext({ viewport: { width: 390, height: 844 }, locale: 'he-IL', acceptDownloads: true });
+  await setup(ctx);
+  const p = await ctx.newPage();
+  p.on('pageerror', e => errors.push(name + ': ' + e.message));
+  p.on('console', m => { if (m.type() === 'error' && !/404|ERR_FAILED|net::|favicon|Could not reach Cloud Firestore backend/.test(m.text())) errors.push(name + ' console: ' + m.text()); });
+  p.on('dialog', d => d.accept());
+  return { ctx, p };
+}
+async function login(p, email){
+  await p.goto(SYS + '/vendors/');
+  await p.waitForFunction(() => window.__fb);
+  await p.evaluate(e => __fb.authMod.signInWithCredential(__fb.auth, __fb.authMod.GoogleAuthProvider.credential(JSON.stringify({ sub: 'u-' + e, email: e, email_verified: true }))), email);
+}
+async function axe(p, label){
+  await p.waitForTimeout(800);
+  await p.addScriptTag({ content: AXE });
+  const r = await p.evaluate(async () => (await axe.run(document, { runOnly: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] })).violations
+    .filter(v => v.impact === 'serious' || v.impact === 'critical').map(v => v.id + ': ' + v.nodes.slice(0, 2).map(n => n.target.join(' ')).join(' | ')));
+  check(!r.length, `axe WCAG AA clean: ${label}` + (r.length ? '\n      ' + r.join('\n      ') : ''));
+}
+const emu = async (method, p, body) => {
+  const r = await fetch(EMU + p, { method, headers: { Authorization: 'Bearer owner', 'Content-Type': 'application/json' }, body: body && JSON.stringify(body) });
+  return { status: r.status, body: await r.json() };
+};
+const str = v => ({ stringValue: v }), int = v => ({ integerValue: String(v) });
+const val = f => f && (f.stringValue !== undefined ? f.stringValue : f.integerValue !== undefined ? Number(f.integerValue) : f.doubleValue !== undefined ? f.doubleValue : f.mapValue ? f.mapValue.fields : f);
+
+(async () => {
+  const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--ignore-certificate-errors'] });
+
+  console.log('1. The vendor signed the owner\'s offer (as in the "סיכום להקמה")');
+  const pdf = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog>>endobj\ntrailer<</Root 1 0 R>>\n%%EOF').toString('base64');
+  const seeded = await emu('POST', 'platformQuotes?documentId=offer-kachgach', { fields: {
+    vendorName: str('כחגח'), contactName: str('דוד לוי'), phone: str('0546056180'), businessType: str('דייגי אח יקר'),
+    plan: str('regular'), planLabel: str('מחיר רגיל'), price: int(1999), listPrice: int(1999), freeMonths: int(0), extraMonths: int(0),
+    monthly: int(69), discount: int(0), total: int(1999), notes: str(''), validDays: int(14), createdISO: str('2026-10-07'),
+    status: str('signed'), createdAt: { timestampValue: '2026-10-07T09:50:00Z' }, signedAt: { timestampValue: '2026-10-07T10:12:00Z' },
+    ip: str('1.2.3.4'), userAgent: str('test'), pdfData: str(pdf) } });
+  check(seeded.status === 200, 'signed offer for כחגח exists');
+
+  console.log('2. Owner opens the admin: the new vendor is created and filled from the signed offer');
+  const O = await newPage(b, 'owner');
+  await login(O.p, OWNER);
+  await O.p.waitForURL(/admin\.html/, { timeout: 15000 });
+  await O.p.waitForSelector('#tbody button.edit[data-id=kachgach]', { timeout: 20000 });
+  let t = null;
+  for (let i = 0; i < 20; i++) { t = await emu('GET', 'tenants/kachgach'); if (t.body.fields && t.body.fields.agreement) break; await new Promise(r => setTimeout(r, 300)); }
+  const F = t.body.fields || {};
+  check(val(F.name) === 'כחגח' && val(F.active) !== false, 'vendor card created: כחגח');
+  check(val(F.contactName) === 'דוד לוי' && val(F.phone) === '0546056180', 'contact + phone from the offer');
+  check(val(F.plan) === 'regular' && val(F.pricePaid) === 1999, 'plan "מחיר רגיל", paid ₪1,999');
+  check(val(F.purchaseDate) === '2026-10-07', 'purchase date = signing date (7.10.2026)');
+  check(val(F.supportUntil) === '', 'support: 0 months → none');
+  const agr = F.agreement && F.agreement.mapValue && F.agreement.mapValue.fields;
+  check(agr && val(agr.source) === 'offer', 'agreement attached from the signed offer');
+  const file = await emu('GET', 'tenants/kachgach/files/agreement');
+  check(file.status === 200 && val(file.body.fields.pdfData) === pdf, 'signed PDF stored in the vendor card');
+  await O.p.reload(); await O.p.waitForSelector('#tbody button.edit[data-id=kachgach]', { timeout: 20000 });
+  await O.p.waitForFunction(() => document.getElementById('tbody').textContent.includes('דוד לוי'), null, { timeout: 15000 });
+  const row = await O.p.locator('#tbody tr', { has: O.p.locator('button.edit[data-id=kachgach]') }).textContent();
+  check(row.includes('דוד לוי') && row.includes('מחיר רגיל') && row.includes('1,999'), 'admin row: contact, plan and amount');
+  const again = await emu('GET', 'tenants/kachgach');
+  check(val(again.body.fields.contactName) === 'דוד לוי', 'second sync keeps the details (filled only once)');
+  await O.p.click('#tbody button.edit[data-id=kachgach]');
+  await O.p.waitForFunction(() => document.getElementById('e_agr_status').textContent.includes('יש הסכם חתום'), null, { timeout: 15000 });
+  check(true, 'manage dialog: signed agreement present');
+  await O.p.screenshot({ path: SHOTS + 'admin-manage.png' });
+  await O.p.click('#edit-close');
+  await O.p.screenshot({ path: SHOTS + 'admin-vendors.png', fullPage: true });
+
+  console.log('3. Owner enters the vendor account and creates a DJ quote');
+  await O.p.goto(SYS + '/vendors/app.html?t=kachgach');
+  await O.p.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 });
+  const top = await O.p.textContent('body');
+  check(top.includes('כחגח'), 'vendor account shows כחגח');
+  check((await O.p.textContent('#support-card')).includes('לא כלולה כרגע'), 'support card: not included (0 months) + add via WhatsApp');
+  check(await O.p.locator('#in_service option').count() === 3, '3 DJ packages in the generator');
+  await O.p.fill('#in_clientName', 'נועה ואיתי'); await O.p.fill('#in_clientPhone', '052-1112233');
+  await O.p.fill('#in_eventType', 'חתונה');
+  await O.p.selectOption('#in_service', 'dj_plus');
+  await O.p.fill('#in_location', 'באר שבע'); await O.p.locator('#in_location').blur();
+  await O.p.locator('#in_date').pressSequentially('20082027'); await O.p.locator('#in_startTime').pressSequentially('2000'); await O.p.locator('#in_endTime').pressSequentially('0100');
+  await O.p.fill('#in_guests', '220'); await O.p.locator('#in_guests').dispatchEvent('input');
+  await O.p.waitForFunction(() => document.getElementById('in_distance').value === '112', null, { timeout: 15000 });
+  await O.p.waitForTimeout(300);
+  check(await O.p.inputValue('#in_price') === '5800', 'price = DJ פרימיום 4,800 + 220 guests 600 + 112 km 400 = ₪5,800 (got ' + await O.p.inputValue('#in_price') + ')');
+  await axe(O.p, 'kachgach generator');
+  await O.p.click('#gen-btn'); await O.p.waitForSelector('#link-result:not(.hidden)', { timeout: 20000 });
+  const link = await O.p.inputValue('#shareable-url');
+  check(/\/hatzaa\/kachgach\/\?k=[a-z0-9]{10}$/.test(link), 'customer link = short link on the neutral site');
+  check((await O.p.getAttribute('#wa-share-btn', 'href')).startsWith('https://wa.me/972521112233?text='), 'WhatsApp opens the client chat directly');
+  check((await O.p.getAttribute('#wa-preview-img', 'src')).includes('/hatzaa/kachgach/og.jpg'), 'preview shows the כחגח WhatsApp image');
+  await O.p.waitForFunction(() => document.getElementById('wa-preview-img').naturalWidth === 1200, null, { timeout: 10000 }).catch(() => {});
+  check(await O.p.evaluate(() => document.getElementById('wa-preview-img').naturalWidth) === 1200, 'WhatsApp image loads (1200×630)');
+  check(await O.p.textContent('#wa-preview-url') === link, 'preview: image + link line');
+  await O.p.screenshot({ path: SHOTS + 'result.png', fullPage: true });
+
+  console.log('4. The customer opens the link');
+  const C = await newPage(b, 'customer');
+  await C.p.goto(link.replace('https://arial13579.github.io', SITE));
+  await C.p.waitForSelector('#sig-canvas', { timeout: 20000 }); await C.p.waitForTimeout(500);
+  const ct = await C.p.textContent('body');
+  check(ct.includes('כחגח') && ct.includes('DJ פרימיום') && ct.includes('5,800'), 'customer sees כחגח, the package and the price');
+  check(!/snap ?box/i.test(ct), 'no Snap Box anywhere on the customer page');
+  check(await C.p.locator('.contact a[href^="tel:"]').count() === 1 && await C.p.locator('.contact a[href^="https://wa.me/972546056180"]').count() === 1 && await C.p.locator('.contact a[href^="mailto:"]').count() === 1, 'contact box: phone, WhatsApp and email');
+  await axe(C.p, 'kachgach customer page');
+  await C.p.screenshot({ path: SHOTS + 'customer.png', fullPage: true });
+  for (const d of ['terms', 'privacy', 'accessibility', 'refunds']) {
+    await C.p.goto(SITE + '/hatzaa/legal/' + d + '.html?t=kachgach');
+    await C.p.waitForSelector('section.card'); await C.p.waitForTimeout(500);
+    const lt = await C.p.textContent('body');
+    check(lt.includes('כחגח') && lt.includes('054-6056180') && !/snap ?box/i.test(lt), `legal/${d}: כחגח + phone, no Snap Box`);
+    if (d === 'refunds') check(lt.includes('בניכוי 10% דמי טיפול') && lt.includes('פעם אחת ללא עלות'), 'refunds page shows the vendor policy');
+    await axe(C.p, 'kachgach legal/' + d);
+  }
+
+  await b.close();
+  if (errors.length) { console.log('\nPage errors:'); errors.forEach(e => console.log('  - ' + e)); }
+  console.log(failures ? `\n${failures} FAILED` : (errors.length ? '\nchecks passed, but there were page errors' : '\nALL CHECKS PASSED'));
+  process.exit(failures || errors.length ? 1 : 0);
+})().catch(e => { console.error(e); process.exit(1); });

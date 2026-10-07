@@ -5,5 +5,6 @@
    admins — כתובות Gmail שמורשות להיכנס לחשבון של הספק                                    */
 window.REGISTRY = [
     { slug: 'demo',  name: 'עסק לדוגמה',          admins: [] },
-    { slug: 'ilana', name: 'אילנה עיצוב אירועים', admins: ['snapboxevent.official@gmail.com'] }   // ספקית לבדיקה
+    { slug: 'ilana', name: 'אילנה עיצוב אירועים', admins: ['snapboxevent.official@gmail.com'] },  // ספקית לבדיקה
+    { slug: 'kachgach', name: 'כחגח',             admins: [] }   // DJ · דוד לוי (הצעה חתומה 7.10.2026). חסר: Gmail להתחברות
 ];
