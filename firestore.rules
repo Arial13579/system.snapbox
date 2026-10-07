@@ -100,6 +100,12 @@ service cloud.firestore {
       allow delete: if isOwner() || (resource.data.kind == 'quote' && isVendorOf(resource.data.tenant));
     }
 
+    // ---- מצב מבצע ההשקה (כמה נחתמו מתוך 5). כולם קוראים, רק הבעלים כותב ----
+    match /public/{doc} {
+      allow get: if true;
+      allow list, write: if isOwner();
+    }
+
     // ---- הצעות מחיר של הבעלים לספקים (מכירת המערכת) ----
     match /platformQuotes/{q} {
       allow read, create, delete: if isOwner();
