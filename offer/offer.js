@@ -28,13 +28,22 @@
     const validUntil = new Date(o.created.getFullYear(), o.created.getMonth(), o.created.getDate() + o.validDays);
     const today = new Date(); today.setHours(0, 0, 0, 0);
     const expired = today > validUntil;
+    // מבצע ההשקה מוגבל ל-5 חתימות. כשנגמר, הצעה במחיר ההשקה כבר לא ניתנת לחתימה
+    let promoOut = false;
+    if (o.plan === 'launch') {
+        try {
+            const f = await Core.fb();
+            const s = await Promise.race([f.fs.getDoc(f.fs.doc(f.db, 'public', 'promo')), new Promise(r => setTimeout(() => r(null), 6000))]);
+            promoOut = !!(s && s.exists() && s.data().soldOut);
+        } catch(e) { console.warn('promo check failed', e); }
+    }
     const shortId = '#' + o.id.slice(-6).toUpperCase();
     document.title = `הצעת מחיר ל-${o.vendorName} | Snap Box`;
 
     const FEATURES = [
         'מחולל הצעות מחיר עם המחירון, החבילות והתוספות שלכם — המחיר מחושב אוטומטית',
         'דף הצעה ללקוח בעיצוב, בצבעים ובלוגו של העסק — בלי שום אזכור שלנו',
-        'חתימה דיגיטלית עם תיעוד מועד, IP ודפדפן לחיזוק התוקף המשפטי',
+        'חתימה דיגיטלית עם תיעוד מועד ודפדפן לחיזוק התוקף המשפטי',
         'הסכם PDF חתום שיורד ללקוח ונשלח אליכם למייל',
         'לוח בקרה: כל ההצעות, מה נחתם, אחוז סגירה והכנסות',
         'חישוב מרחק נסיעה אוטומטי וכפתור "הוסף ליומן" ללקוח',
@@ -91,20 +100,20 @@
           <p class="hint" style="margin-top:10px">הנוסח המלא: <a href="../legal/terms.html" target="_blank" rel="noopener">תנאי שימוש והסכם שירות לספקים</a> · <a href="../legal/privacy.html" target="_blank" rel="noopener">מדיניות פרטיות</a></p>
         </div></section>
         <section class="card" id="sign-card"><div class="card-h"><h2>אישור וחתימה</h2></div><div class="card-b">
-          ${expired ? `<div class="expired">תוקף ההצעה הסתיים ב-${Core.fmtDate(validUntil)}. לקבלת הצעה מעודכנת: <a href="https://wa.me/${esc(CT.whatsapp)}">וואטסאפ ${esc(CT.phone)}</a></div>` : `
+          ${promoOut ? `<div class="expired">מבצע ההשקה נגמר · הפתעות בהמשך 🎁<br>לקבלת הצעה מעודכנת: <a href="https://wa.me/${esc(CT.whatsapp)}">וואטסאפ ${esc(CT.phone)}</a></div>` : expired ? `<div class="expired">תוקף ההצעה הסתיים ב-${Core.fmtDate(validUntil)}. לקבלת הצעה מעודכנת: <a href="https://wa.me/${esc(CT.whatsapp)}">וואטסאפ ${esc(CT.phone)}</a></div>` : `
           <form id="sign-form" style="display:flex;flex-direction:column;gap:14px">
             <div><label class="lbl" for="signer">שם החותם/ת *</label><input class="field" id="signer" required value="${esc(o.contactName)}" autocomplete="name"></div>
             <div><div class="sig-head"><label class="lbl" style="margin:0" for="sig-canvas">חתימה *</label><button type="button" class="link" id="clear-sig">ניקוי</button></div>
               <canvas id="sig-canvas" aria-label="תיבת חתימה"></canvas><p class="hint">תאריך: ${new Date().toLocaleDateString('he-IL')}</p></div>
             <div id="sign-controls" style="display:flex;flex-direction:column;gap:12px">
-              <div class="callout">בלחיצה, ההסכם החתום יירד אליכם כ-PDF ויישלח אלינו. לחיזוק התוקף המשפטי מתועדים תאריך, שעה, כתובת IP וסוג הדפדפן.</div>
+              <div class="callout">בלחיצה, ההסכם החתום יירד אליכם כ-PDF ויישלח אלינו. לחיזוק התוקף המשפטי מתועדים תאריך, שעה וסוג הדפדפן.</div>
               <label class="agree"><input type="checkbox" id="agree" required><span>קראתי ואני מאשר/ת את ההצעה, את תנאי ההסכם ואת <a href="../legal/terms.html" target="_blank" rel="noopener">תנאי השימוש והסכם השירות</a>.</span></label>
               <button type="submit" class="btn primary lg block" id="sign-btn">חתימה ואישור ההצעה</button>
             </div>
           </form>`}
         </div></section>
       </div>`;
-    if (expired) return;
+    if (expired || promoOut) return;
 
     /* ---------- חתימה ---------- */
     const canvas = $('sig-canvas'), ctx = canvas.getContext('2d');
@@ -122,7 +131,7 @@
     $('clear-sig').addEventListener('click', () => { ctx.clearRect(0, 0, canvas.width, canvas.height); signed = false; });
 
     const withTimeout = (p, ms, fb) => Promise.race([p, new Promise(r => setTimeout(() => r(fb), ms))]);
-    async function getIp(){ try { const r = await withTimeout(fetch('https://api.ipify.org?format=json'), 5000, null); return r ? (await r.json()).ip || null : null; } catch(e) { return null; } }
+    async function getIp(){ return null; }   // כתובת IP לא נאספת
     const blobToB64 = b => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(',')[1] || ''); r.onerror = rej; r.readAsDataURL(b); });
 
     function buildPdf(signer){
@@ -143,7 +152,7 @@
           <div class="sec sign"><div class="h">אישור וחתימה</div>
             <p>אני, <b>${esc(signer)}</b>, בשם <b>${esc(o.vendorName)}</b>, מאשר/ת את הצעת המחיר ואת תנאי ההסכם המפורטים במסמך זה ואת תנאי השימוש והסכם השירות לספקים של Snap Box, וחותם/ת עליהם בחתימה דיגיטלית מחייבת.</p>
             <img class="sig" src="${sigUrl}" alt="חתימה">
-            <div class="meta">תאריך: ${m.ts.toLocaleDateString('he-IL')} · שעה: ${m.ts.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}<br>כתובת IP: ${esc(m.ip || 'לא זוהתה')} · דפדפן: ${esc(m.ua)}</div></div>
+            <div class="meta">תאריך: ${m.ts.toLocaleDateString('he-IL')} · שעה: ${m.ts.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })}<br>דפדפן: ${esc(m.ua)}</div></div>
           <div class="ft">Snap Box · ${esc(CT.phone)} · ${esc(CT.email)} · system.snapbox.co.il</div></div>`;
     }
     async function makePdf(signer){
@@ -177,7 +186,7 @@
             const f = $('fs-form'); f.action = 'https://formsubmit.co/' + CT.email;
             const fields = { _subject: `הצעה נחתמה — ${o.vendorName}`, _captcha: 'false', _template: 'table', 'עסק': o.vendorName, 'חותם/ת': signer,
                 'איש קשר': o.contactName, 'טלפון': o.phone || '—', 'חבילה': plan.label, 'חודשי תמיכה': String(months), 'סה"כ': o.total + ' ש"ח', 'מקדמה': o.deposit ? o.deposit + ' ש"ח' : '—', 'Gmail להתחברות': o.email || '—', 'מה משפיע על המחיר': o.pricingInfo || '—', 'הערות': o.notes || '—',
-                'נחתם': meta.ts.toLocaleString('he-IL'), 'IP': meta.ip || '—', 'מזהה הצעה': o.id };
+                'נחתם': meta.ts.toLocaleString('he-IL'), 'מזהה הצעה': o.id };
             f.innerHTML = Object.entries(fields).map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`).join('') + '<input type="file" name="attachment" id="fs_files">';
             try { const dt = new DataTransfer(); if (pdfBlob) dt.items.add(new File([pdfBlob], `SnapBox_Offer_${o.id}.pdf`, { type: 'application/pdf' })); $('fs_files').files = dt.files; } catch(e){}
             const sink = document.querySelector('iframe[name="fs-sink"]'); let done = false; const fin = v => { if (!done) { done = true; resolve(v); } };

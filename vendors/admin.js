@@ -17,6 +17,8 @@
         initTabs(); initOfferForm(); initEdit();
         await sync();
         await renderVendors();
+        // מונה המבצע מתעדכן מיד בכניסה, לא רק כשפותחים את טאב ההצעות
+        if (!offersStarted) { offersStarted = true; startOffers(); }
     });
 
     /* ================= טאבים ================= */
@@ -412,7 +414,26 @@
             renderOffers();
         }, err => { console.error(err); $('otbody').innerHTML = '<tr><td colspan="8" class="loading">שגיאת הרשאות</td></tr>'; });
     }
+    // מבצע ההשקה: מוגבל ל-limit חתימות. נספר רק מה שנחתם, ונשמר ב-public/promo (האתר ודף ההצעה קוראים משם)
+    let PROMO = null;
+    function updatePromo(){
+        const L = SALES.plans.launch, limit = (L && L.limit) || 0; if (!limit) return;
+        const used = OFFERS.filter(o => o.status === 'signed' && o.plan === 'launch').length;
+        const promo = { launchLimit: limit, launchSigned: Math.min(used, limit), soldOut: used >= limit };
+        const opt = $('o_plan').querySelector('option[value="launch"]');
+        if (opt) {
+            opt.disabled = promo.soldOut;
+            opt.textContent = `${L.label} · ${Core.money(L.price)} · ` + (promo.soldOut ? 'המבצע נגמר' : `נשארו ${limit - promo.launchSigned} מתוך ${limit}`);
+        }
+        if (promo.soldOut && $('o_plan').value === 'launch') { $('o_plan').value = 'regular'; applyPlan(); }
+        $('o_promo').textContent = promo.soldOut ? `מבצע ההשקה נגמר: ${limit} מתוך ${limit} חתמו. באתר מופיע "נגמר המבצע".`
+            : `מבצע ההשקה: ${promo.launchSigned} מתוך ${limit} חתמו. נספר רק אחרי חתימה.`;
+        if (PROMO && PROMO.launchSigned === promo.launchSigned && PROMO.soldOut === promo.soldOut) return;
+        PROMO = promo;
+        fs.setDoc(fs.doc(db, 'public', 'promo'), { ...promo, updatedAt: fs.serverTimestamp() }).catch(err => console.warn('promo save failed', err));
+    }
     function renderOffers(){
+        updatePromo();
         const signed = OFFERS.filter(o => o.status === 'signed');
         const kpi = (v, l, hl) => `<div class="card kpi${hl ? ' hl' : ''}"><div class="l">${l}</div><div class="n">${v}</div></div>`;
         $('okpis').innerHTML = kpi(OFFERS.length, 'הצעות שנשלחו') + kpi(signed.length, 'נחתמו') + kpi(OFFERS.length - signed.length, 'ממתינות') +

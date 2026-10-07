@@ -142,6 +142,13 @@ await ok('owner limits noa', updateDoc(doc(owner, 'tenants/noa'), { limited: tru
 await no('limited vendor cannot create link', sl(noa, 'k7'));
 await ok('owner deletes offer link', deleteDoc(doc(owner, 'shortLinks/o1')));
 
+// מבצע ההשקה: public/promo — כולם קוראים, רק הבעלים כותב
+await ok('owner writes promo', setDoc(doc(owner, 'public/promo'), { launchLimit: 5, launchSigned: 2, soldOut: false }));
+await ok('anon reads promo', getDoc(doc(anon, 'public/promo')));
+await no('anon cannot write promo', setDoc(doc(anon, 'public/promo'), { soldOut: false }));
+await no('vendor cannot write promo', updateDoc(doc(noa, 'public/promo'), { launchSigned: 0 }));
+await no('anon cannot list public', getDocs(collection(anon, 'public')));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);

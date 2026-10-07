@@ -22,7 +22,7 @@ window.PLATFORM = {
     // מחירון מכירת המערכת לספקים (משמש את "הצעת מחיר לספק" בלוח הניהול)
     sales: {
         plans: {
-            launch:  { label: 'מחיר השקה', price: 1499, listPrice: 1999, freeSupportMonths: 2 },
+            launch:  { label: 'מחיר השקה', price: 1499, listPrice: 1999, freeSupportMonths: 2, limit: 5 },   // מוגבל ל-5 חתימות
             regular: { label: 'מחיר רגיל', price: 1999, listPrice: 1999, freeSupportMonths: 0 },
             custom:  { label: 'מחיר מותאם', price: 0,    listPrice: 0,    freeSupportMonths: 0 }
         },
