@@ -238,7 +238,9 @@
             if (t && t.supportCancelled && cancelSupport) data.supportCancelledAt = t.supportCancelledAt || data.supportCancelledAt;
             if (state === 'suspended' && t && t.state !== 'suspended' && !confirm('להשהות את הספק? הכניסה שלו תיחסם מיד.')) { btn.disabled = false; btn.textContent = 'שמירת השינויים'; return; }
             try {
-                await fs.setDoc(privRef(editing), { notes: $('e_notes').value.trim(), updatedAt: fs.serverTimestamp() }, { merge: true });
+                // הערות פנימיות — במסמך שרק הבעלים רואה. אם הכללים עוד לא עודכנו, נשארות בכרטיס כמו קודם
+                try { await fs.setDoc(privRef(editing), { notes: $('e_notes').value.trim(), updatedAt: fs.serverTimestamp() }, { merge: true }); }
+                catch(e1) { data.notes = $('e_notes').value.trim(); }
                 await fs.updateDoc(fs.doc(db, 'tenants', editing), data); $('edit-dlg').close(); await renderVendors();
             }
             catch(err) { $('e_status').textContent = 'השמירה נכשלה: ' + (err.code || err.message); }
@@ -329,7 +331,7 @@
             await deleteAll(fs.collection(db, 'tenants', id, 'quotes'));
             await deleteAll(fs.collection(db, 'tenants', id, 'consents'));
             await deleteAll(fs.collection(db, 'tenants', id, 'files'));
-            await deleteAll(fs.collection(db, 'tenants', id, 'private'));
+            await deleteAll(fs.collection(db, 'tenants', id, 'private')).catch(() => {});
             await deleteAll(fs.query(fs.collection(db, 'vendorIndex'), fs.where('tenant', '==', id)));
             await deleteAll(fs.query(fs.collection(db, 'shortLinks'), fs.where('tenant', '==', id))).catch(() => {});
             await fs.deleteDoc(fs.doc(db, 'tenants', id));

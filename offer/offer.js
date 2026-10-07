@@ -177,7 +177,10 @@
     async function saveSigned(pdfBlob, signer){
         try {
             const f = await Core.fb(), ref = f.fs.doc(f.db, 'platformQuotes', o.id);
-            await withTimeout(f.fs.updateDoc(ref, { status: 'signed', signedAt: f.fs.serverTimestamp(), ip: null, userAgent: meta.ua ? String(meta.ua).slice(0, 500) : null, signedQ: String(qp || '').slice(0, 7900), signerName: String(signer || '').slice(0, 100) }), 12000, null);
+            const base = { status: 'signed', signedAt: f.fs.serverTimestamp(), ip: null, userAgent: meta.ua ? String(meta.ua).slice(0, 500) : null };
+            // אם הכללים עוד לא עודכנו (signedQ/signerName) — חותמים בלעדיהם
+            try { await withTimeout(f.fs.updateDoc(ref, { ...base, signedQ: String(qp || '').slice(0, 7900), signerName: String(signer || '').slice(0, 100) }), 12000, null); }
+            catch(e1) { await withTimeout(f.fs.updateDoc(ref, base), 12000, null); }
             if (pdfBlob && pdfBlob.size <= 700 * 1024) { const d = await blobToB64(pdfBlob); await withTimeout(f.fs.updateDoc(ref, { pdfData: d }), 12000, null); }
         } catch(e) { console.warn('save failed', e); }
     }
