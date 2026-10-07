@@ -324,7 +324,7 @@
         showResult(q, url);
         btn.disabled = false; btn.textContent = 'יצירת הצעה ללקוח';
     });
-    // בכל מקום (וואטסאפ, העתקה, שיתוף) — הקישור הקצר. וואטסאפ מציג מעליו את כרטיס התמונה.
+    // בכל מקום (וואטסאפ, העתקה, שיתוף) — הקישור הקצר. הלקוח מקבל את כרטיס התמונה ומתחתיו את הקישור.
     function showResult(q, url){
         const B = T.business || {};
         const msg = url;
@@ -333,10 +333,11 @@
         const hasPhone = !!Core.waPhone(q.clientPhone);
         Core.bindWhatsApp($('wa-share-btn'), msg, q.clientPhone);
         $('wa-share-btn').textContent = hasPhone ? `שליחה בוואטסאפ ל-${q.clientName || 'לקוח'}` : 'שליחה ללקוח בוואטסאפ';
-        $('wa-hint').textContent = hasPhone
-            ? 'הצ\'אט של הלקוח ייפתח עם ההודעה מוכנה. שולחים כמו שזה, בלי להוסיף טקסט: ההודעה מגיעה עם התמונה, ולחיצה עליה פותחת את ההצעה.'
-            : 'לא הוזן טלפון תקין, אז וואטסאפ ישאל למי לשלוח. שולחים כמו שזה, בלי להוסיף טקסט: ההודעה מגיעה עם התמונה, ולחיצה עליה פותחת את ההצעה.';
-        $('preview-btn').href = url; $('wa-preview').href = url;
+        $('wa-hint').textContent = (hasPhone
+            ? 'הצ\'אט של הלקוח ייפתח עם ההודעה מוכנה. שולחים כמו שזה: '
+            : 'לא הוזן טלפון תקין, אז וואטסאפ ישאל למי לשלוח. שולחים כמו שזה: ')
+            + 'הלקוח יקבל את התמונה ומתחתיה קישור קצר. לחיצה על התמונה או על הקישור פותחת את ההצעה.';
+        $('preview-btn').href = url; $('wa-preview').href = url; $('wa-preview-url').textContent = url;
         const img = $('wa-preview-img');
         img.onerror = () => { img.onerror = null; img.src = Core.PF.customerBase + '/assets/og-default.jpg'; };
         img.src = `${Core.PF.customerBase}/${slug}/og.jpg?v=${encodeURIComponent(T.ogVersion || '1')}`;
