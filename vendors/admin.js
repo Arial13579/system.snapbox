@@ -61,7 +61,7 @@
                 const t = snap.exists() ? snap.data() : {};
                 if (!t.pricePaid && !t.purchaseDate && !t.agreement) {
                     if (!offers) offers = (await fs.getDocs(fs.query(fs.collection(db, 'platformQuotes'), fs.where('status', '==', 'signed')))).docs.map(d => ({ id: d.id, ...d.data() }));
-                    await fillFromOffer(slug, r.name || slug, offers);
+                    await fillFromOffer(slug, r.offerName || r.name || slug, offers);
                 }
             }
             const idx = await fs.getDocs(fs.collection(db, 'vendorIndex'));
@@ -72,6 +72,7 @@
     }
 
     // ספק חדש: איש קשר, טלפון, חבילה, סכום, תאריך רכישה, תמיכה וההסכם החתום — מההצעה החתומה האחרונה עם אותו שם עסק
+    // (name ב-registry, או offerName אם בהצעה נכתב שם אחר)
     const normName = s => String(s || '').replace(/\s+/g, '').toLowerCase();
     async function fillFromOffer(slug, name, offers){
         const o = offers.filter(x => normName(x.vendorName) === normName(name))
