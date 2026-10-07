@@ -108,6 +108,9 @@ const val = f => f && (f.stringValue !== undefined ? f.stringValue : f.integerVa
   await O.p.waitForFunction(() => document.getElementById('tbody').textContent.includes('דוד לוי'), null, { timeout: 15000 });
   const row = await O.p.locator('#tbody tr', { has: O.p.locator('button.edit[data-id=snapcup]') }).textContent();
   check(row.includes('snap cup') && row.includes('דוד לוי') && row.includes('מחיר רגיל') && row.includes('1,999'), 'admin row: name, contact, plan and amount');
+  check(row.includes(VENDOR) && !row.includes('רק אתה') && !row.includes('ספק ישן'), 'admin row shows the vendor login Gmail');
+  const irow = await O.p.locator('#tbody tr', { has: O.p.locator('button.edit[data-id=ilana]') }).textContent();
+  check(irow.includes('אין עדיין Gmail להתחברות'), 'vendor without Gmail: clear label');
   const again = await emu('GET', 'tenants/snapcup');
   check(val(again.body.fields.contactName) === 'דוד לוי', 'second sync keeps the details (filled only once)');
   await O.p.click('#tbody button.edit[data-id=snapcup]');
