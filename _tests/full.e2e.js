@@ -152,7 +152,7 @@ async function draw(p){
   const offerUrl = await O.p.inputValue('#o_url');
   check(/\/offer\/\?q=[A-Za-z0-9_-]{60,}$/.test(offerUrl), 'offer link = full link everywhere (like the original system)');
   const oWa = decodeURIComponent((await O.p.getAttribute('#o_wa', 'href')).split('text=')[1]);
-  check(/^\u200e{1000} https?:\/\/\S+\/offer\/\?q=[A-Za-z0-9_-]{60,}$/.test(oWa), 'WhatsApp to vendor: 1000 invisible chars, then the link (hidden behind "read more", image card only)');
+  check(/^https?:\/\/\S+\/offer\/\?q=[A-Za-z0-9_-]{60,}$/.test(oWa), 'WhatsApp to vendor: only the link');
   check((await O.p.getAttribute('#o_wa', 'href')).startsWith('https://wa.me/?text='), 'WhatsApp asks whom to send to (like the original system)');
 
   console.log('D. Prospective vendor signs the offer');
@@ -312,7 +312,7 @@ async function draw(p){
   const ilink = await I.p.inputValue('#shareable-url');
   check(/\/hatzaa\/ilana\/\?q=[A-Za-z0-9_-]{60,}$/.test(ilink), 'Ilana link = full link (copy = WhatsApp = same)');
   const waText = decodeURIComponent((await I.p.getAttribute('#wa-share-btn', 'href')).split('text=')[1]);
-  check(/^\u200e{1000} https?:\/\/\S+\/hatzaa\/ilana\/\?q=[A-Za-z0-9_-]{60,}$/.test(waText), 'WhatsApp to client: 1000 invisible chars, then the link (image card only)');
+  check(/^https?:\/\/\S+\/hatzaa\/ilana\/\?q=[A-Za-z0-9_-]{60,}$/.test(waText), 'WhatsApp to client: only the link');
   check(await I.p.evaluate(() => document.getElementById('wa-share-btn').onclick === null), 'WhatsApp button opens WhatsApp directly (no share menu step)');
   const html = fs.readFileSync('/home/user/hatzaa/ilana/index.html', 'utf8');
   check(/og:image" content="https:\/\/arial13579\.github\.io\/hatzaa\/ilana\/og\.jpg/.test(html), 'ilana page has its own og:image for WhatsApp');
