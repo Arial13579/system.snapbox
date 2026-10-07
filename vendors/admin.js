@@ -33,7 +33,8 @@
     }
 
     /* ================= ספקים ================= */
-    // registry.js ← Firebase: כרטיס לכל ספק + אינדקס מיילים (ומחיקת מיילים שהוסרו). לא נוגע בפרטי מנוי/תמיכה.
+    // registry.js ← Firebase: כרטיס לכל ספק + אינדקס מיילים (ומחיקת מיילים שהוסרו).
+    // פרטי מנוי/תמיכה: רק לספק שעוד אין לו — ממולאים פעם אחת מההצעה החתומה שלו (fillFromOffer). אחר כך עורכים בחלון "ניהול".
     // ספק שנמחק לצמיתות (deletedTenants) לא נוצר מחדש.
     let DELETED = [];
     // רשימת הספקים נטענת מחדש בכל סנכרון (בלי זיכרון מטמון של הדפדפן), כדי שספק חדש יופיע מיד
@@ -48,6 +49,7 @@
             DELETED = tomb.docs.map(d => ({ id: d.id, ...d.data() }));
             const gone = new Set(DELETED.map(d => d.id));
             const wanted = {};
+            let offers = null;
             for (const r of (window.REGISTRY || [])) {
                 const slug = String(r.slug || '').toLowerCase();
                 if (!/^[a-z0-9-]{2,40}$/.test(slug) || gone.has(slug)) continue;
@@ -56,12 +58,32 @@
                 if (snap.exists()) await fs.updateDoc(ref, { name: r.name || slug, admins });
                 else await fs.setDoc(ref, { slug, name: r.name || slug, admins, active: true, createdAt: fs.serverTimestamp() });
                 admins.forEach(e => { wanted[e] = slug; });
+                const t = snap.exists() ? snap.data() : {};
+                if (!t.pricePaid && !t.purchaseDate && !t.agreement) {
+                    if (!offers) offers = (await fs.getDocs(fs.query(fs.collection(db, 'platformQuotes'), fs.where('status', '==', 'signed')))).docs.map(d => ({ id: d.id, ...d.data() }));
+                    await fillFromOffer(slug, r.name || slug, offers);
+                }
             }
             const idx = await fs.getDocs(fs.collection(db, 'vendorIndex'));
             for (const d of idx.docs) if (wanted[d.id] !== d.data().tenant) await fs.deleteDoc(d.ref);
             for (const [email, slug] of Object.entries(wanted)) await fs.setDoc(fs.doc(db, 'vendorIndex', email), { tenant: slug });
             st.textContent = 'מסונכרן ✓';
         } catch(e) { console.error(e); st.textContent = 'הסנכרון נכשל: ' + (e.code || e.message); }
+    }
+
+    // ספק חדש: איש קשר, טלפון, חבילה, סכום, תאריך רכישה, תמיכה וההסכם החתום — מההצעה החתומה האחרונה עם אותו שם עסק
+    const normName = s => String(s || '').replace(/\s+/g, '').toLowerCase();
+    async function fillFromOffer(slug, name, offers){
+        const o = offers.filter(x => normName(x.vendorName) === normName(name))
+            .sort((a, b) => ((b.signedAt && b.signedAt.seconds) || 0) - ((a.signedAt && a.signedAt.seconds) || 0))[0];
+        if (!o) return;
+        const day = o.signedAt && o.signedAt.toDate ? o.signedAt.toDate() : new Date();
+        const months = (Number(o.freeMonths) || 0) + (Number(o.extraMonths) || 0);
+        await fs.updateDoc(fs.doc(db, 'tenants', slug), {
+            contactName: o.contactName || '', phone: o.phone || '', plan: o.plan || '', pricePaid: Number(o.total) || 0,
+            purchaseDate: Core.toISO(day), supportUntil: months ? Core.toISO(Core.addMonths(day, months)) : '',
+            updatedAt: fs.serverTimestamp() });
+        if (o.pdfData) await saveAgreement(slug, o.pdfData, { source: 'offer', offerId: o.id, label: `הצעה חתומה · ${o.vendorName || ''}`, signedAt: o.signedAt || null });
     }
 
     let VENDORS = [];
