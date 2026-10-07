@@ -400,7 +400,8 @@
         if (!rows.length) { $('tbody').innerHTML = '<tr><td colspan="9" class="loading">אין הצעות להצגה</td></tr>'; return; }
         $('tbody').innerHTML = rows.map(q => {
             const signed = q.status === 'signed', sa = fmtTs(q.signedAt);
-            const pill = signed ? `<span class="pill signed">נחתם</span>${sa ? `<div class="sub">${sa}</div>` : ''}` : '<span class="pill pending">ממתין</span>';
+            const bad = Core.signedMismatch(q, 'quote');
+            const pill = signed ? `<span class="pill signed">נחתם</span>${sa ? `<div class="sub">${sa}</div>` : ''}${bad ? '<div class="sub" style="color:#B91C1C;font-weight:700">⚠ נחתם על פרטים שונים מההצעה ששלחתם</div>' : ''}` : '<span class="pill pending">ממתין</span>';
             const file = q.pdfData ? `<div class="acts"><button type="button" class="btn sm view-file" data-id="${q.id}">צפייה</button><button type="button" class="btn sm upload-file" data-id="${q.id}">החלפה</button></div>`
                                    : `<button type="button" class="btn sm upload-file" data-id="${q.id}">העלאה</button>`;
             return `<tr><td>${fmtTs(q.createdAt) || '—'}</td><td class="name">${esc(q.clientName)}</td><td>${esc(q.eventType)}</td><td>${esc(serviceLabel(q))}</td>

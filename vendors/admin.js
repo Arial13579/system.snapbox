@@ -184,6 +184,7 @@
     }
     const fileToB64 = file => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(file); });
     const agrRef = id => fs.doc(db, 'tenants', id, 'files', 'agreement');
+    const privRef = id => fs.doc(db, 'tenants', id, 'private', 'meta');
     async function viewAgreement(id, btn){
         const old = btn && btn.textContent; if (btn) { btn.disabled = true; btn.textContent = 'פותח…'; }
         try { const s = await fs.getDoc(agrRef(id)); if (s.exists() && s.data().pdfData) openPdf(s.data().pdfData); else alert('לא נמצא קובץ הסכם.'); }
@@ -232,11 +233,14 @@
                 pricePaid: Number($('e_paid').value) || 0, purchaseDate: $('e_purchase').value || '', supportUntil: cancelSupport ? '' : ($('e_until').value || ''),
                 supportCancelled: cancelSupport, supportCancelledAt: cancelSupport ? Core.toISO(new Date()) : '',
                 active: state !== 'suspended', limited: state === 'limited',
-                notes: $('e_notes').value.trim(), updatedAt: fs.serverTimestamp() };
+                notes: fs.deleteField(), updatedAt: fs.serverTimestamp() };   // ההערות הפנימיות נשמרות בנפרד (הספק לא רואה)
             const t = VENDORS.find(v => v.id === editing);
             if (t && t.supportCancelled && cancelSupport) data.supportCancelledAt = t.supportCancelledAt || data.supportCancelledAt;
             if (state === 'suspended' && t && t.state !== 'suspended' && !confirm('להשהות את הספק? הכניסה שלו תיחסם מיד.')) { btn.disabled = false; btn.textContent = 'שמירת השינויים'; return; }
-            try { await fs.updateDoc(fs.doc(db, 'tenants', editing), data); $('edit-dlg').close(); await renderVendors(); }
+            try {
+                await fs.setDoc(privRef(editing), { notes: $('e_notes').value.trim(), updatedAt: fs.serverTimestamp() }, { merge: true });
+                await fs.updateDoc(fs.doc(db, 'tenants', editing), data); $('edit-dlg').close(); await renderVendors();
+            }
             catch(err) { $('e_status').textContent = 'השמירה נכשלה: ' + (err.code || err.message); }
             btn.disabled = false; btn.textContent = 'שמירת השינויים';
         });
@@ -298,6 +302,7 @@
         $('e_contact').value = t.contactName || ''; $('e_phone').value = t.phone || ''; $('e_plan').value = t.plan || '';
         $('e_paid').value = t.pricePaid || ''; $('e_purchase').value = t.purchaseDate || ''; $('e_until').value = t.supportUntil || '';
         $('e_notes').value = t.notes || ''; $('e_status').textContent = '';
+        fs.getDoc(privRef(id)).then(s => { if (editing === id && s.exists() && s.data().notes != null) $('e_notes').value = s.data().notes; }).catch(() => {});
         $('e_del_slug').textContent = id; $('e_del_confirm').value = ''; $('e_delete').disabled = true;
         $('e_agr_view').classList.add('hidden'); $('e_agr_status').textContent = 'טוען…';
         supNow();
@@ -324,6 +329,7 @@
             await deleteAll(fs.collection(db, 'tenants', id, 'quotes'));
             await deleteAll(fs.collection(db, 'tenants', id, 'consents'));
             await deleteAll(fs.collection(db, 'tenants', id, 'files'));
+            await deleteAll(fs.collection(db, 'tenants', id, 'private'));
             await deleteAll(fs.query(fs.collection(db, 'vendorIndex'), fs.where('tenant', '==', id)));
             await deleteAll(fs.query(fs.collection(db, 'shortLinks'), fs.where('tenant', '==', id))).catch(() => {});
             await fs.deleteDoc(fs.doc(db, 'tenants', id));
@@ -445,7 +451,7 @@
             <td>${esc(o.planLabel || planLabel(o.plan))}</td>
             <td>${(o.freeMonths || 0) + (o.extraMonths || 0)} חודשים</td>
             <td><b>${Core.money(o.total)}</b></td>
-            <td>${o.status === 'signed' ? `<span class="badge ok">נחתמה</span><div class="sub">${fmtTs(o.signedAt)}</div>` : '<span class="badge warn">ממתינה</span>'}</td>
+            <td>${o.status === 'signed' ? `<span class="badge ok">נחתמה</span><div class="sub">${fmtTs(o.signedAt)}${o.signerName ? ' · ' + esc(o.signerName) : ''}</div>${Core.signedMismatch(o, 'offer') ? '<div class="sub" style="color:#B91C1C;font-weight:700">⚠ נחתמה על פרטים שונים מההצעה ששלחת</div>' : ''}` : '<span class="badge warn">ממתינה</span>'}</td>
             <td>${o.pdfData ? `<button type="button" class="btn sm view" data-id="${o.id}">צפייה</button>` : '<span class="sub">—</span>'}</td>
             <td><div class="acts"><button type="button" class="btn sm copy" data-id="${o.id}">העתק קישור</button>
                 ${o.status === 'signed' ? `<button type="button" class="btn sm setup" data-id="${o.id}">סיכום להקמה</button>` : ''}
@@ -457,7 +463,7 @@
         if (b.classList.contains('copy')) copyText(Core.shortUrl(offerUrl(o), o.shortId), b);
         else if (b.classList.contains('setup')) {
             const s = (o.freeMonths || 0) + (o.extraMonths || 0);
-            copyText(`ספק חדש להקמה:\nעסק: ${o.vendorName}\nאיש קשר: ${o.contactName}${o.phone ? ' · ' + o.phone : ''}\nGmail להתחברות: ${o.email || '—'}\nתחום: ${o.businessType || '—'}\nחבילה: ${o.planLabel || o.plan} · סה"כ: ${o.total} ₪${o.deposit ? ` · מקדמה: ${o.deposit} ₪` : ''}\nתמיכה: ${s} חודשים\nנחתם: ${fmtTs(o.signedAt)}${o.pricingInfo ? `\nמה משפיע על המחיר ללקוחות:\n${o.pricingInfo}` : ''}`, b);
+            copyText(`ספק חדש להקמה:\nעסק: ${o.vendorName}\nאיש קשר: ${o.contactName}${o.phone ? ' · ' + o.phone : ''}\nGmail להתחברות: ${o.email || '—'}\nתחום: ${o.businessType || '—'}\nחבילה: ${o.planLabel || o.plan} · סה"כ: ${o.total} ₪${o.deposit ? ` · מקדמה: ${o.deposit} ₪` : ''}\nתמיכה: ${s} חודשים\nנחתם: ${fmtTs(o.signedAt)}${o.signerName ? ' · על ידי ' + o.signerName : ''}${Core.signedMismatch(o, 'offer') ? '\n⚠ נחתמה על פרטים שונים מההצעה שנשלחה — לבדוק לפני הקמה' : ''}${o.pricingInfo ? `\nמה משפיע על המחיר ללקוחות:\n${o.pricingInfo}` : ''}`, b);
         } else if (b.classList.contains('del')) {
             if (!confirm(`למחוק את ההצעה ל-${o.vendorName}? לא ניתן לשחזר.`)) return;
             b.disabled = true;
