@@ -150,10 +150,11 @@ async function draw(p){
   await O.p.click('#o_gen');
   await O.p.waitForSelector('#o_result:not(.hidden)');
   const offerUrl = await O.p.inputValue('#o_url');
-  check(/\/offer\/\?q=[A-Za-z0-9_-]{60,}$/.test(offerUrl), 'offer link = full link everywhere (like the original system)');
+  check(/\/offer\/\?k=[a-z0-9]{10}$/.test(offerUrl), 'offer link = short link (?k=)');
   const oWa = decodeURIComponent((await O.p.getAttribute('#o_wa', 'href')).split('text=')[1]);
-  check(/^https?:\/\/\S+\/offer\/\?q=[A-Za-z0-9_-]{60,}$/.test(oWa), 'WhatsApp to vendor: only the link');
-  check((await O.p.getAttribute('#o_wa', 'href')).startsWith('https://wa.me/?text='), 'WhatsApp asks whom to send to (like the original system)');
+  check(oWa === offerUrl, 'WhatsApp to vendor: only the short link');
+  check((await O.p.getAttribute('#o_wa', 'href')).startsWith('https://wa.me/972527654321?text='), 'vendor phone entered: WhatsApp opens the vendor chat directly');
+  check(await O.p.textContent('#o_wa_url') === offerUrl, 'preview: image card with the link line under it');
 
   console.log('D. Prospective vendor signs the offer');
   const P = await newPage(b, MOB, 'prospect');
@@ -202,7 +203,8 @@ async function draw(p){
   await V.p.screenshot({ path: SHOTS + 'vendor-app-mobile.png', fullPage: true });
   await V.p.click('#gen-btn'); await V.p.waitForSelector('#link-result:not(.hidden)');
   const link = await V.p.inputValue('#shareable-url');
-  check(/\/hatzaa\/demo\/\?q=[A-Za-z0-9_-]{60,}$/.test(link), 'customer link = full link (like the original system)');
+  check(/\/hatzaa\/demo\/\?k=[a-z0-9]{10}$/.test(link), 'customer link = short link (?k=)');
+  check((await V.p.getAttribute('#wa-share-btn', 'href')).startsWith('https://wa.me/?text='), 'no client phone: WhatsApp asks whom to send to');
   const C = await newPage(b, MOB, 'customer');
   await C.p.goto(link.replace('https://arial13579.github.io', SITE));
   await C.p.waitForSelector('#sig-canvas'); await C.p.waitForTimeout(500);
@@ -304,15 +306,17 @@ async function draw(p){
   await axe(I.p, 'ilana generator');
   await I.p.screenshot({ path: SHOTS + 'ilana-generator.png', fullPage: true });
   await I.p.click('#gen-btn'); await I.p.waitForSelector('#link-result:not(.hidden)');
-  check((await I.p.getAttribute('#wa-share-btn', 'href')).startsWith('https://wa.me/?text='), 'WhatsApp asks whom to send to (like the original system)');
+  check((await I.p.getAttribute('#wa-share-btn', 'href')).startsWith('https://wa.me/972521112233?text='), 'client phone entered: WhatsApp opens the client chat directly');
   check((await I.p.getAttribute('#wa-preview-img', 'src')).includes('/hatzaa/ilana/og.jpg'), 'result shows the WhatsApp preview image');
   await I.p.waitForFunction(() => document.getElementById('wa-preview-img').naturalWidth === 1200, null, { timeout: 10000 }).catch(() => {});
   check(await I.p.evaluate(() => document.getElementById('wa-preview-img').naturalWidth) === 1200, 'preview image loads (1200×630)');
   await I.p.screenshot({ path: SHOTS + 'ilana-result.png', fullPage: true });
   const ilink = await I.p.inputValue('#shareable-url');
-  check(/\/hatzaa\/ilana\/\?q=[A-Za-z0-9_-]{60,}$/.test(ilink), 'Ilana link = full link (copy = WhatsApp = same)');
+  check(/\/hatzaa\/ilana\/\?k=[a-z0-9]{10}$/.test(ilink), 'Ilana link = short link (copy = WhatsApp = same)');
   const waText = decodeURIComponent((await I.p.getAttribute('#wa-share-btn', 'href')).split('text=')[1]);
-  check(/^https?:\/\/\S+\/hatzaa\/ilana\/\?q=[A-Za-z0-9_-]{60,}$/.test(waText), 'WhatsApp to client: only the link');
+  check(waText === ilink, 'WhatsApp to client: only the short link');
+  check(await I.p.textContent('#wa-preview-url') === ilink, 'preview: image card with the link line under it');
+  check((await I.p.textContent('#wa-hint')).includes('קישור קצר'), 'hint: the client gets the image and a short link');
   check(await I.p.evaluate(() => document.getElementById('wa-share-btn').onclick === null), 'WhatsApp button opens WhatsApp directly (no share menu step)');
   const html = fs.readFileSync('/home/user/hatzaa/ilana/index.html', 'utf8');
   check(/og:image" content="https:\/\/arial13579\.github\.io\/hatzaa\/ilana\/og\.jpg/.test(html), 'ilana page has its own og:image for WhatsApp');

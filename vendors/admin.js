@@ -368,7 +368,7 @@
             const s = await Core.makeShortLink('offer', '', url);
             if (s.id) { url = s.url; await fs.updateDoc(fs.doc(db, 'platformQuotes', q.id), { shortId: s.id }).catch(() => {}); }
         } catch(err) { console.warn('short link failed', err); }
-        $('o_url').value = url; $('o_preview').href = url; $('o_wa_preview').href = url;
+        $('o_url').value = url; $('o_preview').href = url; $('o_wa_preview').href = url; $('o_wa_url').textContent = url;
         Core.bindWhatsApp($('o_wa'), url, q.phone);
         $('o_result').classList.remove('hidden'); $('o_result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         btn.disabled = false; btn.textContent = 'יצירת קישור להצעה';
