@@ -6,5 +6,6 @@
    offerName — (רשות) שם העסק כפי שנכתב בהצעה החתומה, אם הוא שונה מ-name. ממנה ממולאים פרטי הרכישה וההסכם */
 window.REGISTRY = [
     { slug: 'demo',  name: 'עסק לדוגמה',          admins: [] },
-    { slug: 'ilana', name: 'אילנה עיצוב אירועים', admins: [] }    // ספקית לבדיקה (בלי Gmail)
+    { slug: 'ilana', name: 'אילנה עיצוב אירועים', admins: [] },   // ספקית לבדיקה (בלי Gmail)
+    { slug: 'snapiiii', name: 'SNAPIIII', admins: ['snapboxevent.official@gmail.com'] }   // עמדת צילום · אלירן לבייב (הצעה חתומה 7.10.2026 14:06)
 ];
