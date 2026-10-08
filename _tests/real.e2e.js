@@ -119,30 +119,22 @@ function meter(p){ p.on('request', r => { const d = r.postData(); if (d && r.url
   const tPhone = Date.now() - t0; console.log('   phone: quote list ready in ' + sec(tPhone));
   check(tPhone < 25000, `vendor phone (old data, slow net): account + list in ${sec(tPhone)}`);
 
-  // 2) אותו ספק נכנס מהמחשב (גם ברשת איטית) — הטלפון חייב להתנתק מהר, המחשב נשאר
+  // 2) אותו ספק נכנס גם מהמחשב ומדפדפן נוסף (רשת איטית) — "חיבור אחד בלבד" כבוי לבקשת הבעלים: כולם נשארים מחוברים
   const PC = await newPage(b, DESK, 'vendor-pc'); meter(PC.p); await slow(PC.p);
   await login(PC.p, ILANA);
   await PC.p.waitForURL(/app\.html\?t=ilana/, { timeout: 60000 });
   t0 = Date.now();
   await PC.p.waitForSelector('#main-app:not(.hidden)', { timeout: 120000 });
   const tPc = Date.now() - t0;
-  await PH.p.waitForSelector('#kicked:not(.hidden)', { timeout: 60000 }).catch(() => {});
-  const tKick = Date.now() - t0;
-  check(await PH.p.isVisible('#kicked'), `phone disconnected after the computer opened (${sec(tKick)})`);
-  check(tKick < 15000, 'disconnect happens within 15s on a slow connection');
-  await PC.p.waitForTimeout(3000);
-  check(await PC.p.isVisible('#main-app') && !(await PC.p.isVisible('#kicked')), `computer stays connected (opened in ${sec(tPc)})`);
+  const BR = await newPage(b, DESK, 'vendor-browser2'); await slow(BR.p); await login(BR.p, ILANA);
+  await BR.p.waitForSelector('#main-app:not(.hidden)', { timeout: 120000 });
+  await PC.p.waitForTimeout(4000);
+  check(await PH.p.isVisible('#main-app') && !(await PH.p.isVisible('#kicked')), 'phone stays connected after the computer opened');
+  check(await PC.p.isVisible('#main-app') && !(await PC.p.isVisible('#kicked')), `computer connected (opened in ${sec(tPc)})`);
+  check(await BR.p.isVisible('#main-app') && !(await BR.p.isVisible('#kicked')), 'second browser connected too');
   await PC.p.click('button[data-tab="dash"]');
   t0 = Date.now(); await PC.p.waitForFunction(n => document.querySelectorAll('#tbody tr .pill').length >= n, N, { timeout: 180000 });
   console.log('   computer: list ready in ' + sec(Date.now() - t0));
-
-  // 3) דפדפן שני באותו מחשב
-  const BR = await newPage(b, DESK, 'vendor-browser2'); await slow(BR.p); await login(BR.p, ILANA);
-  await BR.p.waitForSelector('#main-app:not(.hidden)', { timeout: 120000 }); t0 = Date.now();
-  await PC.p.waitForSelector('#kicked:not(.hidden)', { timeout: 60000 }).catch(() => {});
-  check(await PC.p.isVisible('#kicked'), `second browser opened → first browser disconnected (${sec(Date.now() - t0)})`);
-  await BR.p.waitForTimeout(3000);
-  check(await BR.p.isVisible('#main-app') && !(await BR.p.isVisible('#kicked')), 'second browser stays connected');
 
   // 4) הבעלים בשני מכשירים בו-זמנית, רשת איטית
   await slow(O.p); meter(O.p);

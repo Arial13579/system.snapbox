@@ -42,7 +42,7 @@
         render(); remindSupport(); oneSession();
     });
     // חיבור אחד בלבד: פתיחה במקום אחר מנתקת כאן (הבעלים פטור)
-    const oneSession = () => { if (!isOwnerView) Core.singleSession(sameBrowser => {
+    const oneSession = () => { if (!isOwnerView && Core.PF.singleSession) Core.singleSession(sameBrowser => {
         leaving = true;
         $('main-app').classList.add('hidden'); $('consent').classList.add('hidden'); $('loading').classList.add('hidden');
         $('kicked').classList.remove('hidden');
