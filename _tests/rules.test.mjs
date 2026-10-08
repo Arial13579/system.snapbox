@@ -181,6 +181,25 @@ await no('other vendor cannot read reminder', getDoc(doc(yossi, 'tenants/noa/not
 await no('anon cannot read reminder', getDoc(doc(anon, 'tenants/noa/notices/support-2026-10-12')));
 await ok('owner deletes reminder', deleteDoc(doc(owner, 'tenants/noa/notices/support-2026-10-12')));
 
+// חבילות הספק
+const pk = { label: 'פרימיום', base: 3900, hours: 4, extraHour: 450, items: ['מגנטים'], deleted: false, updatedAt: serverTimestamp() };
+await ok('vendor adds a package', setDoc(doc(noa, 'tenants/noa/packages/pabc'), pk));
+await ok('vendor edits a package', setDoc(doc(noa, 'tenants/noa/packages/pabc'), { ...pk, base: 4100 }));
+await ok('vendor hides a config package', setDoc(doc(noa, 'tenants/noa/packages/booth'), { deleted: true, updatedAt: serverTimestamp() }));
+await ok('vendor deletes a package', deleteDoc(doc(noa, 'tenants/noa/packages/booth')));
+await ok('vendor reads own packages', getDocs(collection(noa, 'tenants/noa/packages')));
+await no('package with negative price rejected', setDoc(doc(noa, 'tenants/noa/packages/pbad'), { ...pk, base: -5 }));
+await no('package with extra fields rejected', setDoc(doc(noa, 'tenants/noa/packages/pbad'), { ...pk, active: true }));
+await no('package without name rejected', setDoc(doc(noa, 'tenants/noa/packages/pbad'), { ...pk, label: '' }));
+await no('other vendor cannot write my packages', setDoc(doc(yossi, 'tenants/noa/packages/px'), pk));
+await no('other vendor cannot read my packages', getDocs(collection(yossi, 'tenants/noa/packages')));
+await no('anon cannot read packages', getDocs(collection(anon, 'tenants/noa/packages')));
+await ok('owner limits noa (packages)', updateDoc(doc(owner, 'tenants/noa'), { limited: true }));
+await no('limited vendor cannot change packages', setDoc(doc(noa, 'tenants/noa/packages/pabc'), { ...pk, base: 1 }));
+await ok('limited vendor still reads packages', getDocs(collection(noa, 'tenants/noa/packages')));
+await ok('owner edits vendor package', setDoc(doc(owner, 'tenants/noa/packages/pabc'), { ...pk, base: 5000 }));
+await ok('owner lifts limit (packages)', updateDoc(doc(owner, 'tenants/noa'), { limited: false }));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);

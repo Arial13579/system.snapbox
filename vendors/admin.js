@@ -344,6 +344,7 @@
             await deleteAll(fs.collection(db, 'tenants', id, 'files'));
             await deleteAll(fs.collection(db, 'tenants', id, 'private')).catch(() => {});
             await deleteAll(fs.collection(db, 'tenants', id, 'notices')).catch(() => {});
+            await deleteAll(fs.collection(db, 'tenants', id, 'packages')).catch(() => {});
             await deleteAll(fs.query(fs.collection(db, 'vendorIndex'), fs.where('tenant', '==', id)));
             await deleteAll(fs.query(fs.collection(db, 'shortLinks'), fs.where('tenant', '==', id))).catch(() => {});
             await fs.deleteDoc(fs.doc(db, 'tenants', id));
