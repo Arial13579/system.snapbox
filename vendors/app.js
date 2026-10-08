@@ -105,6 +105,7 @@
         $('event-types').innerHTML = (L.eventTypes || []).map(x => `<option value="${esc(x)}">`).join('');
         renderServiceSelect(P.DEFAULT_SERVICE);
         renderPackages();
+        initMore();
         $('in_deposit').value = P.DEPOSIT != null ? P.DEPOSIT : 0;
         depositTouched = false;
         renderSums();
@@ -177,13 +178,15 @@
     }
     function onCalc(){
         const q = computeQuote(), box = $('price-breakdown');
-        if (!q) { box.classList.add('hidden'); return; }
+        if (!q) { box.classList.add('hidden'); lastBreakdown = []; return; }
         const row = (k, v) => `<div class="row"><span>${k}</span><span>₪${v.toLocaleString()}</span></div>`;
         let h = row(`${esc(q.svc.label)}${q.svc.hours ? ' · עד ' + hoursPlain(q.svc.hours) : ''}`, q.svc.base);
         if (q.sound) h += row(`תוספת לפי גודל האירוע · ${esc(q.soundLabel)}`, q.sound);
         if (q.travel) h += row(`נסיעה · ${esc(q.travelLabel)}`, q.travel);
         if (q.extraCost) h += row(`זמן נוסף · ${fmtDur(q.extraMin)} שעות`, q.extraCost);
         const disc = Math.min(discountNow(), q.total), fin = q.total - disc;
+        lastBreakdown = [[`${q.svc.label}${q.svc.hours ? ' · עד ' + hoursPlain(q.svc.hours) : ''}`, q.svc.base], q.sound ? [`תוספת לפי גודל האירוע · ${q.soundLabel}`, q.sound] : null,
+            q.travel ? [`נסיעה · ${q.travelLabel}`, q.travel] : null, q.extraCost ? [`זמן נוסף · ${fmtDur(q.extraMin)} שעות`, q.extraCost] : null].filter(Boolean).map(([label, amount]) => ({ label, amount }));
         if (disc) h += `<div class="row disc"><span>הנחה${discLabel(q.total)}</span><span>−₪${disc.toLocaleString()}</span></div>`;
         h += `<div class="row sum"><span>סה"כ מחיר מוצע</span><span>₪${fin.toLocaleString()}</span></div><div><button type="button" class="link" id="recalc">⟳ עדכן את שדה המחיר לסכום זה</button></div>`;
         box.innerHTML = h; box.classList.remove('hidden');
@@ -353,6 +356,53 @@
         if (MODE === 'items') renderCatalog(); else { renderServiceSelect(select); onCalc(); }
     }
 
+    /* ---- מה שהופך הצעה לסגירה: תוקף, תנאי תשלום, הטבות ותוספות (נשמר במכשיר כברירת מחדל לפעם הבאה) ---- */
+    let lastBreakdown = [], PERKS = [], EXTRAS = [];
+    const PAY_ALL = ['העברה בנקאית', 'ביט', 'פייבוקס', 'מזומן', 'כרטיס אשראי', "צ'ק"];
+    const prefKey = () => 'sb.qprefs.' + slug;
+    function loadPrefs(){ try { return JSON.parse(localStorage.getItem(prefKey()) || '{}'); } catch(e) { return {}; } }
+    function savePrefs(){ try { localStorage.setItem(prefKey(), JSON.stringify({ valid: $('in_valid').value, due: $('in_due').value, methods: payMethods() })); } catch(e) {} }
+    const payMethods = () => [...document.querySelectorAll('#pay-methods input:checked')].map(i => i.value);
+    function validUntilISO(){ const d = Number($('in_valid').value) || 0; if (!d) return ''; const x = new Date(); x.setDate(x.getDate() + d); return Core.toISO(x); }
+    function initMore(){
+        const pr = loadPrefs();
+        $('in_valid').value = String(pr.valid != null ? pr.valid : (P.QUOTE_VALID_DAYS != null ? P.QUOTE_VALID_DAYS : 14));
+        if (![...$('in_valid').options].some(o => o.value === $('in_valid').value)) $('in_valid').value = '14';
+        $('in_due').value = pr.due != null ? pr.due : (P.BALANCE_DUE || 'ביום האירוע');
+        const on = pr.methods || P.PAYMENT_METHODS || ['העברה בנקאית', 'ביט', 'מזומן'];
+        $('pay-methods').innerHTML = PAY_ALL.concat(on.filter(m => !PAY_ALL.includes(m))).map(m => `<label class="chip"><input type="checkbox" value="${esc(m)}"${on.includes(m) ? ' checked' : ''}><span>${esc(m)}</span></label>`).join('');
+        validHint();
+    }
+    function validHint(){ const v = validUntilISO(); $('valid-hint').textContent = v ? 'בתוקף עד ' + Core.fmtDate(v) : 'ללא תאריך תפוגה'; }
+    $('in_valid').addEventListener('change', () => { validHint(); savePrefs(); });
+    $('in_due').addEventListener('change', savePrefs);
+    $('pay-methods').addEventListener('change', savePrefs);
+    function rowsUi(box, list, fields){
+        $(box).innerHTML = list.map((r, i) => `<div class="mrow" data-i="${i}">${fields.map(f => `<input class="field" data-k="${f.k}" ${f.type ? `type="${f.type}" min="0" inputmode="numeric"` : 'maxlength="100"'} placeholder="${f.ph}" aria-label="${f.ph}" value="${esc(r[f.k] || '')}">`).join('')}<button type="button" class="rm" aria-label="הסרה">✕</button></div>`).join('');
+    }
+    function bindRows(box, list, fields, addBtn, blank){
+        $(addBtn).addEventListener('click', () => { list.push({ ...blank }); rowsUi(box, list, fields); const r = $(box).lastElementChild; if (r) r.querySelector('input').focus(); });
+        $(box).addEventListener('input', e => { const r = e.target.closest('.mrow'); if (!r) return; list[+r.dataset.i][e.target.dataset.k] = e.target.value; });
+        $(box).addEventListener('click', e => { const b = e.target.closest('.rm'); if (!b) return; list.splice(+b.closest('.mrow').dataset.i, 1); rowsUi(box, list, fields); });
+    }
+    const PERK_F = [{ k: 'label', ph: 'למשל: מגנטים לכל האורחים' }, { k: 'worth', ph: 'שווי ₪', type: 'number' }];
+    const EXTRA_F = [{ k: 'label', ph: 'למשל: שעה נוספת' }, { k: 'price', ph: 'מחיר ₪', type: 'number' }, { k: 'desc', ph: 'פירוט קצר (אופציונלי)' }];
+    bindRows('perks', PERKS, PERK_F, 'add-perk', { label: '', worth: '' });
+    bindRows('extras', EXTRAS, EXTRA_F, 'add-extra', { label: '', price: '', desc: '' });
+    function quoteExtras(){
+        const cl = s => Core.clean(String(s || '').trim()).slice(0, 100);
+        const out = {
+            validUntil: validUntilISO(),
+            payment: { methods: payMethods(), due: cl($('in_due').value).slice(0, 60) },
+            perks: PERKS.filter(p => cl(p.label)).map(p => ({ label: cl(p.label), worth: Math.max(0, Number(p.worth) || 0) })).slice(0, 10),
+            extras: EXTRAS.filter(p => cl(p.label)).map(p => ({ label: cl(p.label), price: Math.max(0, Number(p.price) || 0), desc: cl(p.desc) })).slice(0, 10)
+        };
+        // פירוט המחיר נשלח רק כשהוא תואם בדיוק למחיר הסופי (אם המחיר שונה ידנית — לא מציגים פירוט)
+        if (MODE !== 'items' && lastBreakdown.length && lastBreakdown.reduce((s, x) => s + x.amount, 0) - discountNow() === (Number($('in_price').value) || 0)) out.breakdown = lastBreakdown;
+        savePrefs();
+        return out;
+    }
+
     /* ---- סיכום: מחיר, מקדמה, יתרה ---- */
     let depositTouched = false;
     function renderSums(){
@@ -442,6 +492,7 @@
             const pkg = { label: Core.clean(sv.label || ''), hours: Number(sv.hours) || 0, lead: Core.clean(sv.lead || ''), items: (sv.items || []).map(x => Core.clean(x)).slice(0, 20) };
             q = { ...base, service: $('in_service').value, pkg, discount: discountNow(), startTime: g('in_startTime'), endTime: g('in_endTime'), guests: Number($('in_guests').value) || 0 };
         }
+        Object.assign(q, quoteExtras());   // תוקף, תשלום, הטבות, תוספות ופירוט מחיר
         if (q.deposit > q.price) { alert('המקדמה גדולה מהמחיר הכולל.'); return; }
         const btn = $('gen-btn'); btn.disabled = true; btn.textContent = 'שומר…';
         try {

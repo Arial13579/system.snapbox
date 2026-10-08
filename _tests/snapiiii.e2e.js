@@ -225,6 +225,53 @@ const val = f => f && (f.stringValue !== undefined ? f.stringValue : f.integerVa
   await axe(C2.p, 'customer page with discount');
   await C2.p.screenshot({ path: SHOTS + 'customer-discount.png', fullPage: true });
 
+  console.log('6. What closes deals: price breakdown, perks, optional extras, validity, payment terms');
+  await VP.click('.tabs button[data-tab="new"]');
+  await VP.reload(); await VP.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 });
+  await VP.click('.tabs button[data-tab="new"]');
+  check(await VP.inputValue('#in_valid') === '14' && (await VP.textContent('#valid-hint')).startsWith('בתוקף עד'), 'validity: 14 days by default, shows the date');
+  check(await VP.locator('#pay-methods input:checked').count() === 3, 'payment methods: 3 defaults ticked');
+  await VP.fill('#in_clientName', 'מאיה ודניאל'); await VP.fill('#in_eventType', 'חתונה');
+  await VP.selectOption('#in_service', 'booth_m');
+  await VP.fill('#in_location', 'דימונה'); await VP.locator('#in_location').blur();
+  await VP.locator('#in_date').pressSequentially('01092027'); await VP.locator('#in_startTime').pressSequentially('2000'); await VP.locator('#in_endTime').pressSequentially('0000');
+  await VP.fill('#in_guests', '300'); await VP.locator('#in_guests').dispatchEvent('input');
+  await VP.waitForFunction(() => document.getElementById('in_distance').value === '112', null, { timeout: 15000 }); await VP.waitForTimeout(300);
+  check(await VP.inputValue('#in_price') === '3850', 'price = 3,200 + 1 extra hour 500 + travel 150 = ₪3,850 (got ' + await VP.inputValue('#in_price') + ')');
+  await VP.click('#disc-quick button[data-p="10"]');
+  await VP.selectOption('#in_valid', '7'); await VP.fill('#in_due', 'עד שבוע לפני האירוע');
+  await VP.check('#pay-methods input[value="פייבוקס"]');
+  await VP.click('#add-perk'); const pr = VP.locator('#perks .mrow').last();
+  await pr.locator('[data-k="label"]').fill('100 מגנטים נוספים'); await pr.locator('[data-k="worth"]').fill('300');
+  await VP.click('#add-extra'); const ex = VP.locator('#extras .mrow').last();
+  await ex.locator('[data-k="label"]').fill('שעה נוספת'); await ex.locator('[data-k="price"]').fill('500'); await ex.locator('[data-k="desc"]').fill('הארכת הפעילות');
+  await axe(VP, 'generator with perks / extras / payment');
+  await VP.screenshot({ path: SHOTS + 'more-box.png', fullPage: true });
+  await VP.click('#gen-btn'); await VP.waitForSelector('#link-result:not(.hidden)', { timeout: 20000 });
+  const link3 = await VP.inputValue('#shareable-url');
+  const C3 = await newPage(b, 'customer3');
+  await C3.p.goto(link3.replace('https://arial13579.github.io', SITE));
+  await C3.p.waitForSelector('#sig-canvas', { timeout: 20000 }); await C3.p.waitForTimeout(500);
+  const t3 = await C3.p.textContent('body');
+  check(t3.includes('פירוט המחיר') && t3.includes('3,200') && t3.includes('זמן נוסף') && t3.includes('−₪385') && t3.includes('3,465'), 'client sees the price breakdown: package, extra time, travel, discount, total');
+  check(t3.includes('100 מגנטים נוספים') && t3.includes('מתנה') && t3.includes('300'), 'client sees the free perk and its worth');
+  check(t3.includes('תוספות אפשריות') && t3.includes('שעה נוספת') && t3.includes('+₪500') && t3.includes('לא כלולות במחיר'), 'client sees optional extras (not in the total)');
+  check(t3.includes('תשלום ולוח זמנים') && t3.includes('עם החתימה') && t3.includes('עד שבוע לפני האירוע') && t3.includes('פייבוקס'), 'client sees payment schedule and methods');
+  check(/בתוקף עד \d\d\/\d\d\/\d{4}/.test(t3), 'client sees "valid until" date');
+  check(await C3.p.isVisible('#submit-btn'), 'valid quote can be signed');
+  await axe(C3.p, 'customer page with perks / extras / payment');
+  await C3.p.screenshot({ path: SHOTS + 'customer-more.png', fullPage: true });
+
+  console.log('7. Expired quote cannot be signed');
+  const expired = await VP.evaluate(() => Core.shareUrl('snapiiii', { id: 'expired1', clientName: 'בדיקה', eventType: 'חתונה', location: 'x', date: '01/01/2027', price: 1000, deposit: 200, service: 'booth', validUntil: '2020-01-01' }));
+  const C4 = await newPage(b, 'customer4');
+  await C4.p.goto(expired.replace('https://arial13579.github.io', SITE));
+  await C4.p.waitForSelector('#sig-canvas', { timeout: 20000 });
+  const t4 = await C4.p.textContent('body');
+  check(t4.includes('תוקף ההצעה פג') && await C4.p.locator('#submit-btn').count() === 0, 'expired: no sign button, asks for an updated quote');
+  check(await C4.p.locator('a[href*="wa.me/972546056180"]').count() >= 1, 'expired: WhatsApp button to ask for an updated quote');
+  await C4.p.screenshot({ path: SHOTS + 'customer-expired.png', fullPage: true });
+
   await b.close();
   if (errors.length) { console.log('\nPage errors:'); errors.forEach(e => console.log('  - ' + e)); }
   console.log(failures ? `\n${failures} FAILED` : (errors.length ? '\nchecks passed, but there were page errors' : '\nALL CHECKS PASSED'));
