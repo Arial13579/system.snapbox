@@ -17,31 +17,47 @@
         $('user-email').textContent = u.email;
         isOwnerView = Core.isOwner(u);
         if (!isOwnerView) {
-            const mine = await Core.tenantOf(u);
+            let mine;
+            try { mine = await Core.tenantOf(u); }
+            catch(e) { block(Core.isQuota(e) ? Core.QUOTA_MSG : 'לא הצלחנו להתחבר לשרת כרגע. בדקו את החיבור לאינטרנט ורעננו את הדף.'); return; }
             if (!mine) { leaving = true; Core.signOutQuiet(); block('החשבון ' + u.email + ' לא רשום כספק במערכת.'); return; }
             if (mine !== slug) { location.replace('app.html?t=' + encodeURIComponent(mine)); return; }
         }
         // בדיקת הרשאה מול השרת (ספק מושהה / לא משויך — ייחסם כאן)
+        // הכול במקביל (ולא אחד אחרי השני): כרטיס הספק, ההגדרות, החבילות ואישור התנאים
+        const tenantP = Core.withRetry(() => fb.fs.getDoc(fb.fs.doc(fb.db, 'tenants', slug)));
+        const cfgP = Core.loadTenant(slug), pkgP = fetchPackages(), consentP = isOwnerView ? Promise.resolve(true) : hasConsent();
+        [tenantP, cfgP, pkgP, consentP].forEach(p => p.catch(() => {}));
         try {
-            const snap = await fb.fs.getDoc(fb.fs.doc(fb.db, 'tenants', slug));
+            const snap = await tenantP;
             if (!snap.exists()) { block(isOwnerView ? 'הספק עדיין לא סונכרן. היכנס ללוח הניהול כדי לסנכרן.' : 'החשבון לא נמצא.'); return; }
             tenantData = snap.data() || {};
-        } catch(e) { block('החשבון מושהה או שאין לך הרשאה אליו. לבירור פנו ל-Snap Box.'); return; }
-        try { T = await Core.loadTenant(slug); } catch(e) { block('לא נמצאו הגדרות העסק. פנו ל-Snap Box.'); return; }
+        } catch(e) { block(e && e.code === 'permission-denied' ? 'החשבון מושהה או שאין לך הרשאה אליו. לבירור פנו ל-Snap Box.' : Core.isQuota(e) ? Core.QUOTA_MSG : 'לא הצלחנו להתחבר לשרת כרגע. בדקו את החיבור לאינטרנט ורעננו את הדף.'); return; }
+        try { T = await cfgP; } catch(e) { block('לא נמצאו הגדרות העסק. פנו ל-Snap Box.'); return; }
         P = T.pricing || {};
         MODE = P.MODE === 'items' ? 'items' : 'classic';
         CFG_SERVICES = { ...(P.SERVICES || {}) }; CFG_CATALOG = (P.CATALOG || []).slice();
-        await loadPackages();
-        if (!isOwnerView && !(await hasConsent())) { askConsent(); return; }
-        render(); remindSupport();
+        PKG_DOCS = await pkgP.catch(() => []); applyPackages();
+        if (!(await consentP.catch(() => false))) { askConsent(); return; }
+        render(); remindSupport(); oneSession();
     });
+    // חיבור אחד בלבד: פתיחה במקום אחר מנתקת כאן (הבעלים פטור)
+    const oneSession = () => { if (!isOwnerView && Core.PF.singleSession) Core.singleSession(sameBrowser => {
+        leaving = true;
+        $('main-app').classList.add('hidden'); $('consent').classList.add('hidden'); $('loading').classList.add('hidden');
+        $('kicked').classList.remove('hidden');
+        $('kicked-msg').textContent = sameBrowser ? 'החשבון נפתח בלשונית אחרת בדפדפן הזה, ולכן הלשונית הזו נסגרה. אפשר להמשיך לעבוד בלשונית החדשה.'
+            : 'החשבון נפתח במכשיר או בדפדפן אחר, ולכן נותקת כאן. אפשר להיות מחוברים רק ממקום אחד בכל פעם.';
+        $('kicked-btn').textContent = sameBrowser ? 'להמשיך לעבוד כאן' : 'להתחבר שוב כאן';
+        $('kicked-btn').onclick = () => { location.href = sameBrowser ? location.href : './'; };
+    }).catch(() => {}); };
     // שבוע אחרון של התמיכה → מייל תזכורת אחד (אם עוד לא נשלח לתאריך הזה)
     const remindSupport = () => Core.supportReminder(slug, tenantData, (tenantData.admins || []).concat(T.business.email || []), T.business.name).catch(() => {});
 
     /* ================= אישור תנאי שימוש ================= */
     const consentId = () => (user.email || '').toLowerCase() + '|' + Core.PF.termsVersion;
     async function hasConsent(){
-        try { return (await fb.fs.getDoc(fb.fs.doc(fb.db, 'tenants', slug, 'consents', consentId()))).exists(); }
+        try { return (await Core.withRetry(() => fb.fs.getDoc(fb.fs.doc(fb.db, 'tenants', slug, 'consents', consentId()))) ).exists(); }
         catch(e) { return false; }
     }
     function askConsent(){
@@ -55,7 +71,7 @@
                 await fb.fs.setDoc(fb.fs.doc(fb.db, 'tenants', slug, 'consents', consentId()), {
                     email: (user.email || '').toLowerCase(), version: Core.PF.termsVersion, acceptedAt: fb.fs.serverTimestamp(), userAgent: navigator.userAgent.slice(0, 300) });
                 $('consent').classList.add('hidden');
-                render(); remindSupport();
+                render(); remindSupport(); oneSession();
             } catch(e) { $('consent-err').textContent = 'השמירה נכשלה, נסו שוב.'; btn.disabled = false; btn.textContent = 'אישור וכניסה לחשבון'; }
         });
     }
@@ -269,9 +285,12 @@
        מזהה = מפתח החבילה. חבילה מההגדרות (config) שנערכה נשמרת באותו מזהה; deleted:true מסתיר אותה. חבילה חדשה = p<אקראי>.
        במצב פריטים — אותו דבר על פריטי המחירון (מזהה cat<מספר> לפריטים מההגדרות). */
     let CFG_SERVICES = {}, CFG_CATALOG = [], PKG_DOCS = [], editingPkg = null;
-    async function loadPackages(){
-        try { PKG_DOCS = (await fb.fs.getDocs(fb.fs.collection(fb.db, 'tenants', slug, 'packages'))).docs.map(d => ({ id: d.id, ...d.data() })); }
-        catch(e) { PKG_DOCS = []; }
+    async function fetchPackages(){
+        try { return (await fb.fs.getDocs(fb.fs.collection(fb.db, 'tenants', slug, 'packages'))).docs.map(d => ({ id: d.id, ...d.data() })); }
+        catch(e) { return []; }
+    }
+    async function loadPackages(){ PKG_DOCS = await fetchPackages(); applyPackages(); }
+    function applyPackages(){
         const S = {}; Object.entries(CFG_SERVICES).forEach(([k, v]) => { S[k] = { ...v }; });
         const C = CFG_CATALOG.map((c, i) => ({ ...c, id: 'cat' + i }));
         PKG_DOCS.forEach(x => {
@@ -607,7 +626,7 @@
         else if (btn.classList.contains('delete-row')) {
             if (!confirm(`למחוק לצמיתות את ההצעה של ${q.clientName || 'הלקוח'}? לא ניתן לשחזר.`)) return;
             btn.disabled = true; btn.textContent = 'מוחק…';
-            try { await fb.fs.deleteDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id)); Core.deleteShortLink(q.shortId); } catch(err) { alert('המחיקה נכשלה.'); btn.disabled = false; btn.textContent = 'מחיקה'; }
+            try { await Core.deletePdf(`tenants/${slug}/quotes/${q.id}`); await fb.fs.deleteDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id)); Core.deleteShortLink(q.shortId); } catch(err) { alert('המחיקה נכשלה.'); btn.disabled = false; btn.textContent = 'מחיקה'; }
         } else if (btn.classList.contains('view-file')) {
             Core.openPdf(`tenants/${slug}/quotes/${q.id}`, q);
         } else if (btn.classList.contains('upload-file')) { pendingUploadId = q.id; $('fileUploadInput').click(); }
@@ -619,6 +638,6 @@
         if (file.type !== 'application/pdf') { alert('אפשר להעלות רק קובץ PDF.'); return; }
         if (file.size > 700 * 1024) { alert('הקובץ גדול מדי (עד כ-700KB).'); return; }
         const data = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(',')[1]); fr.readAsDataURL(file); });
-        try { await fb.fs.updateDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', id), { pdfData: data }); } catch(err) { alert('ההעלאה נכשלה.'); }
+        try { await Core.putPdf(`tenants/${slug}/quotes/${id}`, data); } catch(err) { alert('ההעלאה נכשלה.'); }
     });
 })();
