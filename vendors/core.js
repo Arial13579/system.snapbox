@@ -61,60 +61,43 @@
     }
 
     // לאיזה ספק שייך המשתמש (לפי vendorIndex/{email})
-    // ניסיון חוזר בתקלת רשת (לא בחסימת הרשאות) — כדי שאינטרנט איטי לא ייראה כמו "לא רשום"
-    async function withRetry(fn, tries){
-        let last;
-        for (let i = 0; i < (tries || 4); i++) {
-            try { return await fn(); }
-            catch(e) { last = e; if (e && e.code === 'permission-denied') throw e; await new Promise(r => setTimeout(r, 700 * (i + 1))); }
-        }
-        throw last;
+    /* PDF חתום: בהצעות חדשות הוא נשמר במסמך נפרד <מסמך>/pdf/file (והמסמך מסומן hasPdf), בישנות — בשדה pdfData של המסמך עצמו.
+       קוראים משני המקומות. החלון נפתח מיד בלחיצה (לפני הטעינה), כדי שהטלפון לא יחסום אותו. */
+    const hasPdf = d => !!(d && (d.pdfData || d.hasPdf));
+    async function openPdf(path, d){
+        const w = window.open('', '_blank');
+        try {
+            let b64 = d && d.pdfData;
+            if (!b64) { const f = await fb(), s = await f.fs.getDoc(f.fs.doc(f.db, path + '/pdf/file')); b64 = s.exists() ? s.data().pdfData : null; }
+            if (!b64) throw new Error('missing');
+            const bin = atob(b64), a = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) a[i] = bin.charCodeAt(i);
+            const url = URL.createObjectURL(new Blob([a], { type: 'application/pdf' }));
+            if (w) w.location.href = url; else window.open(url, '_blank');
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
+        } catch(e) { if (w) w.close(); alert('פתיחת הקובץ נכשלה.'); }
     }
-    // null = המייל לא רשום כספק. בבעיית חיבור — זורק שגיאה (ולא מחזיר "לא רשום")
+    async function getPdf(path, d){
+        if (d && d.pdfData) return d.pdfData;
+        const f = await fb(), s = await f.fs.getDoc(f.fs.doc(f.db, path + '/pdf/file'));
+        return s.exists() ? s.data().pdfData : null;
+    }
+
     async function tenantOf(user){
         const f = await fb();
-        const snap = await withRetry(() => f.fs.getDoc(f.fs.doc(f.db, 'vendorIndex', (user.email || '').toLowerCase())));
-        return snap.exists() ? snap.data().tenant : null;
+        try {
+            const snap = await f.fs.getDoc(f.fs.doc(f.db, 'vendorIndex', (user.email || '').toLowerCase()));
+            return snap.exists() ? snap.data().tenant : null;
+        } catch(e){ return null; }
     }
 
     // מצב הגישה של משתמש: { slug, state: 'ok' | 'suspended' | 'none' }. ספק מושהה לא יכול לקרוא את כרטיס הספק (נאכף בשרת).
     async function vendorAccess(user){
-        let slug;
-        try { slug = await tenantOf(user); } catch(e) { return { slug: null, state: 'error' }; }
+        const slug = await tenantOf(user);
         if (!slug) return { slug: null, state: 'none' };
         const f = await fb();
-        try { const snap = await withRetry(() => f.fs.getDoc(f.fs.doc(f.db, 'tenants', slug))); return { slug, state: snap.exists() ? 'ok' : 'none', data: snap.exists() ? snap.data() : null }; }
-        catch(e) { return { slug, state: e && e.code === 'permission-denied' ? 'suspended' : 'error' }; }
+        try { const snap = await f.fs.getDoc(f.fs.doc(f.db, 'tenants', slug)); return { slug, state: snap.exists() ? 'ok' : 'none', data: snap.exists() ? snap.data() : null }; }
+        catch(e) { return { slug, state: 'suspended' }; }
     }
-
-    /* ---- PDF חתום: במסמך נפרד <מסמך>/pdf/file, כדי שהרשימות לא יורידו את כל הקבצים בכל טעינה ----
-       מסמכים ישנים מחזיקים את הקובץ בשדה pdfData של המסמך עצמו — נקראים כרגיל ומועברים (migratePdf) בפעם הבאה שהרשימה נטענת. */
-    const hasPdf = d => !!(d && (d.hasPdf || d.pdfData));
-    async function getPdf(path, d){
-        if (d && d.pdfData) return d.pdfData;
-        const f = await fb(), s = await withRetry(() => f.fs.getDoc(f.fs.doc(f.db, path + '/pdf/file')));
-        return s.exists() ? s.data().pdfData : null;
-    }
-    async function putPdf(path, pdfData, noFallback){
-        const f = await fb();
-        try { await f.fs.setDoc(f.fs.doc(f.db, path + '/pdf/file'), { pdfData, at: f.fs.serverTimestamp() }); }
-        catch(e) {
-            // כללים ישנים (לפני ההדבקה ב-Firebase): שומרים כמו קודם, בתוך המסמך
-            if (noFallback || !(e && e.code === 'permission-denied')) throw e;
-            await f.fs.updateDoc(f.fs.doc(f.db, path), { pdfData }); return;
-        }
-        await f.fs.updateDoc(f.fs.doc(f.db, path), { hasPdf: true, pdfData: f.fs.deleteField() });
-    }
-    // תור אחד: קובץ אחד בכל פעם, וכל קובץ פעם אחת בלבד — גם אם הרשימה מתעדכנת שוב ושוב בזמן ההעברה
-    // (בלי זה כל עדכון של הרשימה התחיל את כל ההעברות מחדש, והחיבור נחנק)
-    const migrated = new Set(); let migQ = Promise.resolve(true);
-    function migratePdf(path, d){
-        if (!d || !d.pdfData || migrated.has(path)) return Promise.resolve(false);
-        migrated.add(path);
-        const data = d.pdfData;
-        return (migQ = migQ.then(() => putPdf(path, data, true).then(() => true, () => false)));
-    }
-    async function deletePdf(path){ const f = await fb(); try { await f.fs.deleteDoc(f.fs.doc(f.db, path + '/pdf/file')); } catch(e) {} }
 
     function loadScript(src){
         return new Promise((resolve, reject) => {
@@ -266,29 +249,5 @@
         return true;
     }
 
-    /* ---- חיבור אחד בלבד לכל ספק (הבעלים פטור) ----
-       כל פתיחה של חשבון הספק רושמת sessions/{email} = { sid, bid } (sid חדש בכל טעינת דף, bid קבוע לדפדפן).
-       כל דף פתוח מאזין למסמך: אם נרשם sid אחר — החשבון נפתח במקום אחר, והדף הזה מתנתק.
-       בדפדפן/מכשיר אחר — התנתקות מלאה. באותו דפדפן (לשונית אחרת) — רק חסימת הלשונית, כדי לא לנתק גם את הלשונית החדשה. */
-    const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, '0')).join('');
-    async function singleSession(onKicked){
-        const f = await fb(), u = f.auth.currentUser;
-        if (!u || isOwner(u)) return false;
-        let bid = ''; try { bid = localStorage.getItem('sb.bid') || ''; if (!bid) { bid = rid(); localStorage.setItem('sb.bid', bid); } } catch(e) { bid = rid(); }
-        const sid = rid(), ref = f.fs.doc(f.db, 'sessions', String(u.email || '').toLowerCase());
-        try { await f.fs.setDoc(ref, { sid, bid, at: f.fs.serverTimestamp(), ua: navigator.userAgent.slice(0, 200) }); }
-        catch(e) { console.warn('session claim failed', e); return false; }   // לפני עדכון הכללים — לא חוסמים
-        let done = false;
-        const unsub = f.fs.onSnapshot(ref, s => {
-            const d = s.data();
-            if (done || !d || !d.sid || d.sid === sid) return;
-            done = true; unsub();
-            const sameBrowser = d.bid === bid;
-            if (!sameBrowser) f.authMod.signOut(f.auth).catch(() => {});
-            onKicked(sameBrowser);
-        }, () => {});
-        return true;
-    }
-
-    window.Core = { withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { hasPdf, openPdf, getPdf, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();
