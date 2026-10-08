@@ -2,7 +2,7 @@
 // Run inside: firebase emulators:exec --only firestore,auth --project check-b2a66 "node onboard.e2e.js"
 // (deps in $S/t/node_modules, static server on :8791 serving $S/www with system → system.snapbox, hatzaa → hatzaa — like full.e2e.js)
 const S = '/tmp/claude-0/-home-user/33274e87-36f1-52fb-a542-54f1e7d0e4b6/scratchpad';
-const NM = S + '/t/node_modules/', FB = NM + 'firebase/', FBV = require(NM + 'firebase/package.json').version;
+const NM = S + '/t/node_modules/', FB = (process.env.FBDIR || NM + 'firebase/'), FBV = require(FB + 'package.json').version;
 const { chromium } = require(NM + 'playwright-core');
 const fs = require('fs'), path = require('path');
 const AXE = fs.readFileSync(NM + 'axe-core/axe.min.js', 'utf8');

@@ -1,7 +1,7 @@
 // Full end-to-end test of the Snap Box vendor platform against Firebase emulators + axe accessibility scan.
 // Run: node full.e2e.js   (deps in $S/t/node_modules, static server on :8791 serving $S/www with system → system.snapbox, hatzaa → hatzaa)
 const S = '/tmp/claude-0/-home-user/33274e87-36f1-52fb-a542-54f1e7d0e4b6/scratchpad';
-const NM = S + '/t/node_modules/', FB = NM + 'firebase/', FBV = require(NM + 'firebase/package.json').version;
+const NM = S + '/t/node_modules/', FB = (process.env.FBDIR || NM + 'firebase/'), FBV = require(FB + 'package.json').version;
 const { chromium } = require(NM + 'playwright-core');
 const fs = require('fs'), path = require('path');
 const AXE = fs.readFileSync(NM + 'axe-core/axe.min.js', 'utf8');
@@ -182,6 +182,9 @@ async function draw(p){
   await O.p.click('.admin-tabs button[data-tab=offers]');
   await O.p.waitForSelector('#otbody .badge.ok', { timeout: 15000 });
   check(await O.p.locator('#otbody .view').count() === 1, 'signed offer PDF stored');
+  { const pop = O.p.waitForEvent('popup', { timeout: 10000 }).catch(() => null); await O.p.click('#otbody .view');
+    const w = await pop; if (w) await w.waitForURL(/^blob:/, { timeout: 15000 }).catch(() => {});
+    check(!!w && /^blob:/.test(w.url()), 'owner: signed offer PDF opens'); if (w) await w.close(); }
   check(!(await O.p.textContent('#otbody')).includes('פרטים שונים'), 'signed offer matches what was sent (no tamper warning)');
   check((await O.p.textContent('#okpis')).includes('₪1,813'), 'signed offers total KPI');
   await O.ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: SITE });
@@ -364,6 +367,10 @@ async function draw(p){
   await I.p.waitForSelector('#tbody .pill.signed', { timeout: 15000 });
   check(!(await I.p.textContent('#tbody')).includes('פרטים שונים'), 'items-mode signed quote: no tamper warning');
   await I.p.waitForSelector('#tbody .view-file', { timeout: 15000 });
+  { // הקובץ החתום (נשמר במסמך נפרד) נפתח בלחיצה על "צפייה"
+    const pop = I.p.waitForEvent('popup', { timeout: 10000 }).catch(() => null); await I.p.click('#tbody .view-file');
+    const w = await pop; if (w) await w.waitForURL(/^blob:/, { timeout: 15000 }).catch(() => {});
+    check(!!w && /^blob:/.test(w.url()), 'vendor: signed PDF (stored separately) opens from the dashboard'); if (w) await w.close(); }
   check((await I.p.textContent('#tbody')).includes('עיצוב שולחן כלה וחתן +2'), 'dashboard shows items summary');
   const fc = I.p.waitForEvent('filechooser'); await I.p.click('#tbody .upload-file');
   await (await fc).setFiles(SHOTS + 'offer-signed.pdf');

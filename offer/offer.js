@@ -181,12 +181,7 @@
             // אם הכללים עוד לא עודכנו (signedQ/signerName) — חותמים בלעדיהם
             try { await withTimeout(f.fs.updateDoc(ref, { ...base, signedQ: String(qp || '').slice(0, 7900), signerName: String(signer || '').slice(0, 100) }), 12000, null); }
             catch(e1) { await withTimeout(f.fs.updateDoc(ref, base), 12000, null); }
-            if (pdfBlob && pdfBlob.size <= 700 * 1024) {
-                const d = await blobToB64(pdfBlob);
-                // PDF במסמך נפרד (הרשימות נטענות מהר); אם הכללים עוד ישנים — כמו קודם, בתוך ההצעה
-                try { await withTimeout(f.fs.setDoc(f.fs.doc(f.db, 'platformQuotes', o.id, 'pdf', 'file'), { pdfData: d, at: f.fs.serverTimestamp() }).then(() => f.fs.updateDoc(ref, { hasPdf: true })), 15000, null); }
-                catch(e2) { await withTimeout(f.fs.updateDoc(ref, { pdfData: d }), 12000, null); }
-            }
+            if (pdfBlob && pdfBlob.size <= 700 * 1024) { const d = await blobToB64(pdfBlob); await withTimeout(f.fs.updateDoc(ref, { pdfData: d }), 12000, null); }
         } catch(e) { console.warn('save failed', e); }
     }
     function email(pdfBlob, signer){

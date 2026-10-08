@@ -1,7 +1,7 @@
 // Launch promo limited to 5 signed offers: admin counter + public/promo + sales page + offer page block.
 // Run inside: firebase emulators:exec --only firestore,auth --project check-b2a66 "node promo.e2e.js" (setup like full.e2e.js)
 const S = '/tmp/claude-0/-home-user/33274e87-36f1-52fb-a542-54f1e7d0e4b6/scratchpad';
-const NM = S + '/t/node_modules/', FB = NM + 'firebase/', FBV = require(NM + 'firebase/package.json').version;
+const NM = S + '/t/node_modules/', FB = (process.env.FBDIR || NM + 'firebase/'), FBV = require(FB + 'package.json').version;
 const { chromium } = require(NM + 'playwright-core');
 const fs = require('fs');
 const SITE = 'http://localhost:8791', SYS = SITE + '/system';
