@@ -61,6 +61,16 @@ service cloud.firestore {
         && (!('signerName' in request.resource.data)
             || (request.resource.data.signerName is string && request.resource.data.signerName.size() < 120));
     }
+    // לקוח מסמן שה-PDF נשמר (במסמך הנפרד …/pdf/file): רק אחרי החתימה, רק hasPdf=true
+    function isClientMarkingPdf() {
+      return resource.data.status == 'signed'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasPdf'])
+        && request.resource.data.hasPdf == true;
+    }
+    function validPdf() {
+      return request.resource.data.keys().hasOnly(['pdfData', 'at'])
+        && request.resource.data.pdfData is string && request.resource.data.pdfData.size() < 1000000;
+    }
     // לקוח מצרף PDF: פעם אחת בלבד, אחרי החתימה
     function isClientAttachingPdf() {
       return resource.data.status == 'signed'
@@ -82,8 +92,8 @@ service cloud.firestore {
         allow create: if (isOwner() || canCreateFor(t)) && request.resource.data.status == 'pending';
         allow update: if isOwner()
           || (canCreateFor(t) && (resource.data.status != 'signed'
-                || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pdfData'])))
-          || isClientSigning() || isClientAttachingPdf();
+                || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pdfData', 'hasPdf'])))
+          || isClientSigning() || isClientAttachingPdf() || isClientMarkingPdf();
       }
     }
 
@@ -111,6 +121,22 @@ service cloud.firestore {
         && n == 'support-' + request.resource.data.until
         && request.resource.data.sentAt == request.time);
       allow update, delete: if isOwner();
+    }
+
+    // ---- PDF חתום של הצעה ללקוח (מסמך נפרד, כדי שהרשימות ייטענו מהר) ----
+    // הלקוח (בלי התחברות) יוצר פעם אחת, רק אחרי שההצעה נחתמה. הספק (לא מוגבל) יכול להחליף. קריאה — הספק והבעלים.
+    match /tenants/{t}/quotes/{q}/pdf/{f} {
+      allow read: if isOwner() || isVendorOf(t);
+      allow create: if f == 'file' && validPdf()
+        && (isOwner() || canCreateFor(t) || get(/databases/$(database)/documents/tenants/$(t)/quotes/$(q)).data.status == 'signed');
+      allow update: if f == 'file' && validPdf() && (isOwner() || canCreateFor(t));
+      allow delete: if isOwner() || canCreateFor(t);
+    }
+    // ---- PDF חתום של הצעה לספק ----
+    match /platformQuotes/{q}/pdf/{f} {
+      allow read, update, delete: if isOwner();
+      allow create: if f == 'file' && validPdf()
+        && (isOwner() || get(/databases/$(database)/documents/platformQuotes/$(q)).data.status == 'signed');
     }
 
     // ---- הערות פנימיות של הבעלים על ספק: רק הבעלים (הספק לא רואה) ----
@@ -158,7 +184,7 @@ service cloud.firestore {
     // ---- הצעות מחיר של הבעלים לספקים (מכירת המערכת) ----
     match /platformQuotes/{q} {
       allow read, create, delete: if isOwner();
-      allow update: if isOwner() || isClientSigning() || isClientAttachingPdf();
+      allow update: if isOwner() || isClientSigning() || isClientAttachingPdf() || isClientMarkingPdf();
     }
 
     // ---- חיבור פעיל אחד לכל ספק: כל משתמש קורא/כותב רק את הרשומה של המייל שלו ----
@@ -182,7 +208,7 @@ service cloud.firestore {
     // ---- המערכת הקיימת של CHECK (ללא שינוי) ----
     match /check_quotes/{quoteId} {
       allow read, create, delete: if isOwner();
-      allow update: if isOwner() || isClientSigning() || isClientAttachingPdf();
+      allow update: if isOwner() || isClientSigning() || isClientAttachingPdf() || isClientMarkingPdf();
     }
   }
 }

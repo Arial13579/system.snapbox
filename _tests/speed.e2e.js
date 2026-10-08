@@ -1,4 +1,4 @@
-// One active session per vendor: opening the account elsewhere disconnects the previous place (owner exempt).
+// Load speed on a slow phone connection (3G-like): vendor dashboard + owner admin, before/after moving PDFs out of the list docs.
 // Run like full.e2e.js.
 const S = '/tmp/claude-0/-home-user/33274e87-36f1-52fb-a542-54f1e7d0e4b6/scratchpad';
 const NM = S + '/t/node_modules/', FB = NM + 'firebase/', FBV = require(NM + 'firebase/package.json').version;
@@ -6,7 +6,7 @@ const { chromium } = require(NM + 'playwright-core');
 const fs = require('fs'), path = require('path');
 const AXE = fs.readFileSync(NM + 'axe-core/axe.min.js', 'utf8');
 const SITE = 'http://localhost:8791', SYS = SITE + '/system';
-const SHOTS = S + '/shots-session/'; fs.mkdirSync(SHOTS, { recursive: true });
+const SHOTS = S + '/shots-speed/'; fs.mkdirSync(SHOTS, { recursive: true });
 const ILANA = 'snapboxevent.official@gmail.com';
 const fs_size_offer = () => fs.statSync(SHOTS + 'offer-signed.pdf').size;
 const REG = `window.REGISTRY = [{ slug: 'demo', name: 'עסק לדוגמה', admins: ['noa@gmail.com'] }, { slug: 'ilana', name: 'אילנה עיצוב אירועים', admins: ['${ILANA}'] }];`;
@@ -82,67 +82,55 @@ async function setUntil(slug, v){ const r = await fetch(REST + `tenants/${slug}?
 async function hasNotice(slug, v){ return (await fetch(REST + `tenants/${slug}/notices/support-${v}`, { headers: H })).ok; }
 const reminders = () => sent.filter(s => s.url.includes('formsubmit.co/ajax/') && s.body.includes('תזכורת'));
 
+const big = 'JVBERi0xLjQK' + 'A'.repeat(300000);
+async function put(path, fields){ const r = await fetch(REST + path, { method: 'PATCH', headers: H, body: JSON.stringify({ fields }) }); if (!r.ok) throw new Error(await r.text()); }
+async function slow(page){ const cdp = await page.context().newCDPSession(page); await cdp.send('Network.enable'); await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 150, downloadThroughput: 400 * 1024, uploadThroughput: 150 * 1024 }); }
+const sec = ms => (ms / 1000).toFixed(1) + 's';
 (async () => {
   const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--ignore-certificate-errors'] });
-  const MOB = { width: 390, height: 844 }, DESK = { width: 1280, height: 900 };
-  const open = async (P) => { await P.waitForURL(/app\.html\?t=ilana/, { timeout: 15000 });
-    await P.waitForSelector('#consent:not(.hidden), #main-app:not(.hidden)', { timeout: 15000 });
-    if (await P.isVisible('#consent')) { await P.check('#consent-check'); await P.click('#consent-btn'); }
-    await P.waitForSelector('#main-app:not(.hidden)', { timeout: 15000 }); await P.waitForTimeout(800); };
-  const signedIn = P => P.evaluate(() => Core.fb().then(f => !!f.auth.currentUser));
-
-  console.log('1. Owner syncs, vendor opens the account on the phone');
+  const DESK = { width: 1280, height: 900 }, MOB = { width: 390, height: 844 };
   const O = await newPage(b, DESK, 'owner'); await login(O.p, 'arielkahalani1@gmail.com');
   await O.p.waitForURL(/admin\.html/, { timeout: 15000 }); await O.p.waitForSelector('#tbody tr td:not(.loading)', { timeout: 20000 });
-  const A = await newPage(b, MOB, 'phone'); await login(A.p, ILANA); await open(A.p);
-  check(await A.p.isVisible('#main-app'), 'phone: account open');
+  const now = new Date().toISOString();
+  for (let i = 0; i < 20; i++) await put(`tenants/ilana/quotes/s${i}`, { status: { stringValue: 'signed' }, clientName: { stringValue: 'לקוח ' + i }, price: { integerValue: 5000 }, deposit: { integerValue: 1500 }, createdAt: { timestampValue: now }, pdfData: { stringValue: big } });
+  for (let i = 0; i < 5; i++) await put(`platformQuotes/so${i}`, { status: { stringValue: 'signed' }, vendorName: { stringValue: 'ספק ' + i }, plan: { stringValue: 'regular' }, total: { integerValue: 1999 }, createdAt: { timestampValue: now }, signedAt: { timestampValue: now }, pdfData: { stringValue: big } });
+  console.log('seeded: 20 signed client quotes + 5 signed vendor offers, 300KB PDF each, old format (≈7.5MB)');
 
-  console.log('2. Same vendor opens the account on the computer → the phone is disconnected');
-  const B = await newPage(b, DESK, 'computer'); await login(B.p, ILANA); await open(B.p);
-  await A.p.waitForSelector('#kicked:not(.hidden)', { timeout: 10000 });
-  check(true, 'phone: "החשבון נפתח במקום אחר" screen');
-  check((await A.p.textContent('#kicked-msg')).includes('מכשיר או בדפדפן אחר') && await A.p.isHidden('#main-app'), 'phone: account hidden, explains it was opened on another device');
-  await A.p.waitForTimeout(500);
-  check(!(await signedIn(A.p)), 'phone: fully signed out');
-  check(await B.p.isVisible('#main-app') && await signedIn(B.p), 'computer: stays connected');
-  await A.p.screenshot({ path: SHOTS + 'kicked-device.png' });
+  const I = await newPage(b, MOB, 'ilana'); await login(I.p, ILANA);
+  await I.p.waitForURL(/app\.html\?t=ilana/, { timeout: 15000 });
+  await I.p.waitForSelector('#consent:not(.hidden), #main-app:not(.hidden)', { timeout: 15000 });
+  if (await I.p.isVisible('#consent')) { await I.p.check('#consent-check'); await I.p.click('#consent-btn'); }
+  await I.p.waitForSelector('#main-app:not(.hidden)', { timeout: 15000 });
+  // מדידה לפני ההעברה: חסימת ההעברה (בלי כללים חדשים) מדמה את המצב הישן
+  async function dashTime(label){
+    await slow(I.p);
+    await I.p.goto('about:blank'); const t0 = Date.now(); await I.p.goto(SYS + '/vendors/app.html?t=ilana#dash');
+    await I.p.waitForSelector('#main-app:not(.hidden)', { timeout: 120000 }); const tApp = Date.now() - t0;
+    for (let k = 0; k < 90; k++) { const n = await I.p.evaluate(() => document.querySelectorAll('#tbody tr .pill').length); if (n >= 20) break; if (k % 10 === 0) console.log('     t+' + sec(Date.now() - t0) + ' rows=' + n + ' tab=' + (await I.p.isVisible('#tab-dash')) + ' tbody=' + (await I.p.textContent('#tbody')).slice(0, 60)); await I.p.waitForTimeout(2000); }
+    const tList = Date.now() - t0;
+    console.log(`   ${label}: account opens in ${sec(tApp)}, quote list ready in ${sec(tList)}`);
+    return tList;
+  }
+  const before = await dashTime('vendor, PDFs inside the list (old)');
+  // ההעברה החד-פעמית (קורית ברקע בפעם הראשונה שהרשימה נטענת) — מחכים שתסתיים, ואז מודדים שוב
+  const cdp0 = await I.p.context().newCDPSession(I.p); await cdp0.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
+  await I.p.goto('about:blank'); await I.p.goto(SYS + '/vendors/app.html?t=ilana#dash');
+  let left = 20;
+  for (let i = 0; i < 120 && left; i++) { left = 0; for (let k = 0; k < 20; k++) { const j = await (await fetch(REST + 'tenants/ilana/quotes/s' + k, { headers: H })).json(); if (j.fields.pdfData) left++; } if (left) await new Promise(r => setTimeout(r, 1000)); }
+  check(left === 0, 'one-time move of all 20 old PDFs finished');
+  const after = await dashTime('vendor, PDFs moved out (new)');
+  check(after < before / 2, `vendor dashboard on a slow phone: ${sec(before)} → ${sec(after)}`);
+  check(after < 8000, 'vendor dashboard loads in under 8s on a slow phone connection');
 
-  console.log('3. A second tab in the same browser → the first tab closes, the new one stays');
-  const B2 = await B.ctx.newPage(); B2.on('pageerror', e => errors.push('tab2: ' + e.message)); B2.on('dialog', d => d.accept());
-  await B2.goto(SYS + '/vendors/app.html?t=ilana'); await open(B2);
-  await B.p.waitForSelector('#kicked:not(.hidden)', { timeout: 10000 });
-  check((await B.p.textContent('#kicked-msg')).includes('בלשונית אחרת'), 'first tab: "opened in another tab"');
-  await B.p.waitForTimeout(500);
-  check(await B2.isVisible('#main-app') && await signedIn(B2), 'new tab: stays open and signed in (not logged out with the old tab)');
-  await B.p.screenshot({ path: SHOTS + 'kicked-tab.png' });
-
-  console.log('4. Owner opens the vendor account → nobody is disconnected (owner exempt)');
-  const O2 = await O.ctx.newPage(); await O2.goto(SYS + '/vendors/app.html?t=ilana'); await O2.waitForSelector('#main-app:not(.hidden)', { timeout: 15000 });
-  await O2.waitForTimeout(1500);
-  check(await B2.isVisible('#main-app') && await B2.isHidden('#kicked'), 'vendor not disconnected when the owner views the account');
-  const O3 = await O.ctx.newPage(); await O3.goto(SYS + '/vendors/admin.html'); await O3.waitForSelector('#tbody tr td:not(.loading)', { timeout: 20000 });
-  check(await O.p.isVisible('#tbody'), 'owner can be open in several tabs at once');
-
-  console.log('4b. Owner on a second, separate device at the same time → both stay connected');
-  const O4 = await newPage(b, MOB, 'owner-phone'); await login(O4.p, 'arielkahalani1@gmail.com');
-  await O4.p.waitForURL(/admin\.html/, { timeout: 15000 }); await O4.p.waitForSelector('#tbody tr td:not(.loading)', { timeout: 20000 });
-  await O4.p.waitForTimeout(1500);
-  check(await signedIn(O.p) && await signedIn(O4.p) && await O3.isVisible('#tbody'), 'owner: computer + phone connected at the same time');
-
-  console.log('4c. Vendor on a third device (another browser) → the computer tab is disconnected, the new one stays');
-  const C = await newPage(b, DESK, 'other-browser'); await login(C.p, ILANA); await open(C.p);
-  await B2.waitForSelector('#kicked:not(.hidden)', { timeout: 10000 });
-  await B2.waitForTimeout(500);
-  check((await B2.textContent('#kicked-msg')).includes('מכשיר או בדפדפן אחר') && !(await signedIn(B2)), 'computer: disconnected and signed out');
-  check(await C.p.isVisible('#main-app') && await signedIn(C.p), 'other browser: open');
-  await C.p.waitForTimeout(1500);
-  check(await C.p.isHidden('#kicked'), 'other browser: stays open (not kicked back)');
-
-  console.log('5. The phone logs in again → takes over, the computer is disconnected');
-  await A.p.click('#kicked-btn'); await A.p.waitForURL(/vendors\/(\?|$|index)/, { timeout: 10000 });
-  await login(A.p, ILANA); await open(A.p);
-  await C.p.waitForSelector('#kicked:not(.hidden)', { timeout: 10000 });
-  check(await A.p.isVisible('#main-app') && await A.p.isHidden('#kicked'), 'last opened wins: the phone is open, the other browser is disconnected');
+  await slow(O.p);
+  await O.p.goto('about:blank'); const t0 = Date.now(); await O.p.goto(SYS + '/vendors/admin.html');
+  await O.p.waitForSelector('#tbody tr td:not(.loading)', { timeout: 120000 }); const tA = Date.now() - t0;
+  await O.p.click('button[data-tab="offers"]'); await O.p.waitForFunction(() => document.querySelectorAll('#otbody .view').length >= 5, null, { timeout: 120000 }); const tB = Date.now() - t0;
+  console.log(`   owner admin (offers migrated on this load): vendor list in ${sec(tA)}, offers list in ${sec(tB)}`);
+  await O.p.goto('about:blank'); const t1 = Date.now(); await O.p.goto(SYS + '/vendors/admin.html'); await O.p.waitForFunction(() => document.querySelector('#tbody tr td:not(.loading)'), null, { timeout: 120000 }); const tA2 = Date.now() - t1;
+  await O.p.click('button[data-tab="offers"]'); await O.p.waitForFunction(() => document.querySelectorAll('#otbody .view').length >= 5, null, { timeout: 120000 }); const tB2 = Date.now() - t1;
+  console.log(`   owner admin (next time): vendor list in ${sec(tA2)}, offers list in ${sec(tB2)}`);
+  check(tA2 < 8000 && tB2 < 8000, 'owner admin loads in under 8s on a slow phone connection');
 
   check(!errors.length, 'no page errors' + (errors.length ? ':\n    ' + errors.join('\n    ') : ''));
   await b.close();
