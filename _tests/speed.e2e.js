@@ -112,9 +112,10 @@ const sec = ms => (ms / 1000).toFixed(1) + 's';
     return tList;
   }
   const before = await dashTime('vendor, PDFs inside the list (old)');
-  // ההעברה החד-פעמית (קורית ברקע בפעם הראשונה שהרשימה נטענת) — מחכים שתסתיים, ואז מודדים שוב
+  // ההעברה החד-פעמית (קורית ברקע כשהבעלים פותח את לוח הניהול) — מחכים שתסתיים, ואז מודדים שוב
   const cdp0 = await I.p.context().newCDPSession(I.p); await cdp0.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
-  await I.p.goto('about:blank'); await I.p.goto(SYS + '/vendors/app.html?t=ilana#dash');
+  // ההעברה רצה רק מלוח הניהול של הבעלים (לא מהטלפון של הספק)
+  await O.p.goto('about:blank'); await O.p.goto(SYS + '/vendors/admin.html');
   let left = 20;
   for (let i = 0; i < 120 && left; i++) { left = 0; for (let k = 0; k < 20; k++) { const j = await (await fetch(REST + 'tenants/ilana/quotes/s' + k, { headers: H })).json(); if (j.fields.pdfData) left++; } if (left) await new Promise(r => setTimeout(r, 1000)); }
   check(left === 0, 'one-time move of all 20 old PDFs finished');
