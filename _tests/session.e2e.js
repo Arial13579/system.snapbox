@@ -25,6 +25,8 @@ async function setup(ctx){
     if (u.endsWith('html2canvas.min.js')) return route.fulfill({ body: fs.readFileSync(NM + 'html2canvas/dist/html2canvas.min.js'), contentType: 'application/javascript' });
     if (u.endsWith('jspdf.umd.min.js')) return route.fulfill({ body: fs.readFileSync(NM + 'jspdf/dist/jspdf.umd.min.js'), contentType: 'application/javascript' });
     if (u.endsWith('chart.umd.min.js')) return route.fulfill({ body: fs.readFileSync(NM + 'chart.js/dist/chart.umd.js'), contentType: 'application/javascript' });
+    // הבדיקה הזו בודקת את המנגנון כשהוא מופעל (במערכת עצמה הוא כבוי: platform.js → singleSession: false)
+    if (u.includes('/vendors/platform.js')) return route.fulfill({ body: fs.readFileSync('/home/user/system.snapbox/vendors/platform.js', 'utf8').replace('singleSession: false', 'singleSession: true'), contentType: 'application/javascript' });
     if (u.includes('/vendors/registry.js')) return route.fulfill({ body: REG, contentType: 'application/javascript' });
     if (u.startsWith('https://arial13579.github.io/hatzaa/')) {
       const rel = decodeURIComponent(new URL(u).pathname.replace('/hatzaa/', '')) || 'index.html';
