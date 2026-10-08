@@ -105,9 +105,14 @@
         }
         await f.fs.updateDoc(f.fs.doc(f.db, path), { hasPdf: true, pdfData: f.fs.deleteField() });
     }
-    async function migratePdf(path, d){
-        if (!d || !d.pdfData) return false;
-        try { await putPdf(path, d.pdfData, true); return true; } catch(e) { return false; }
+    // תור אחד: קובץ אחד בכל פעם, וכל קובץ פעם אחת בלבד — גם אם הרשימה מתעדכנת שוב ושוב בזמן ההעברה
+    // (בלי זה כל עדכון של הרשימה התחיל את כל ההעברות מחדש, והחיבור נחנק)
+    const migrated = new Set(); let migQ = Promise.resolve(true);
+    function migratePdf(path, d){
+        if (!d || !d.pdfData || migrated.has(path)) return Promise.resolve(false);
+        migrated.add(path);
+        const data = d.pdfData;
+        return (migQ = migQ.then(() => putPdf(path, data, true).then(() => true, () => false)));
     }
     async function deletePdf(path){ const f = await fb(); try { await f.fs.deleteDoc(f.fs.doc(f.db, path + '/pdf/file')); } catch(e) {} }
 
