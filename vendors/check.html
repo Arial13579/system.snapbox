@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>בדיקת חיבור | מחולל הצעות מחיר</title>
+<link rel="stylesheet" href="vendor.css?v=20261008i">
+<style>
+  .chk { max-width: 720px; margin: 24px auto; padding: 0 16px; }
+  .chk ol { padding: 0; list-style: none; display: grid; gap: 8px; }
+  .chk li { background: #fff; border: 1px solid #d5e3e0; border-radius: 12px; padding: 10px 14px; font-size: 15px; }
+  .chk li.ok { border-color: #0f766e; } .chk li.bad { border-color: #b91c1c; background: #fef2f2; }
+  .chk .d { color: #3F5A56; font-size: 13px; word-break: break-word; margin-top: 4px; }
+  .chk .row { display: flex; gap: 8px; flex-wrap: wrap; margin: 12px 0; }
+</style>
+</head>
+<body>
+<main class="chk" id="main">
+  <h1>בדיקת חיבור</h1>
+  <p>הדף הזה רק קורא נתונים ולא משנה כלום. בסוף לוחצים "העתקת התוצאה" ושולחים.</p>
+  <div class="row">
+    <button type="button" class="btn primary" id="login" hidden>התחברות עם Google</button>
+    <button type="button" class="btn" id="copy" disabled>העתקת התוצאה</button>
+    <button type="button" class="btn" id="again">בדיקה חוזרת</button>
+  </div>
+  <ol id="steps"></ol>
+</main>
+<script src="platform.js?v=20261008i"></script>
+<script src="core.js?v=20261008i"></script>
+<script>
+/* בדיקת חיבור: כל שלב מוצג עם זמן ושגיאה (אם יש), כדי לדעת בדיוק איפה זה נתקע אצל המשתמש. קריאה בלבד. */
+(async () => {
+    const $ = id => document.getElementById(id), lines = [];
+    const add = (ok, title, detail) => {
+        const li = document.createElement('li'); li.className = ok === null ? '' : ok ? 'ok' : 'bad';
+        li.innerHTML = `<div>${ok === null ? '…' : ok ? '✓' : '✗'} ${Core.esc(title)}</div>` + (detail ? `<div class="d">${Core.esc(detail)}</div>` : '');
+        $('steps').appendChild(li); lines.push(`${ok === null ? '-' : ok ? 'OK ' : 'ERR'} ${title}${detail ? ' — ' + detail : ''}`);
+    };
+    const err = e => (e && (e.code || e.name) ? (e.code || e.name) + ': ' : '') + String((e && e.message) || e).slice(0, 300);
+    const timed = async (title, fn, show) => {
+        const t0 = performance.now();
+        const limit = new Promise((_, rej) => setTimeout(() => rej(new Error('לא הגיבה תשובה תוך 25 שניות')), 25000));
+        try { const r = await Promise.race([fn(), limit]); add(true, title, `${((performance.now() - t0) / 1000).toFixed(1)} שניות` + (show ? ' · ' + show(r) : '')); return r; }
+        catch(e) { add(false, title, `${((performance.now() - t0) / 1000).toFixed(1)} שניות · ${err(e)}`); return undefined; }
+    };
+    $('again').onclick = () => location.reload();
+    $('copy').onclick = async () => { const t = lines.join('\n'); try { await navigator.clipboard.writeText(t); $('copy').textContent = 'הועתק ✓'; } catch(e) { prompt('העתיקו את הטקסט:', t); } };
+
+    add(null, 'גרסת הדף', `${document.querySelector('script[src^="core.js"]').getAttribute('src')} · ${new Date().toLocaleString('he-IL')}`);
+    add(null, 'דפדפן', navigator.userAgent + (Core.inAppBrowser() ? ' · ⚠ דפדפן פנימי של אפליקציה' : '') + (navigator.onLine ? '' : ' · ⚠ אין אינטרנט'));
+    const f = await timed('טעינת Firebase', () => Core.fb());
+    if (!f) { $('copy').disabled = false; return; }
+    const user = await timed('בדיקת התחברות', () => new Promise(res => { const un = f.authMod.onAuthStateChanged(f.auth, u => { un(); res(u); }); }), u => u ? 'מחובר בתור ' + u.email : 'לא מחובר');
+    if (!user) {
+        $('login').hidden = false; $('login').onclick = async () => { try { await Core.signIn(Core.rememberedEmail()); location.reload(); } catch(e) { add(false, 'התחברות עם Google', err(e)); } };
+        $('copy').disabled = false; return;
+    }
+    const { fs, db } = f;
+    if (Core.isOwner(user)) {
+        add(true, 'החשבון הוא חשבון הבעלים');
+        const ts = await timed('רשימת הספקים (tenants)', () => fs.getDocs(fs.collection(db, 'tenants')), s => s.size + ' ספקים: ' + s.docs.map(d => d.id + (d.data().active === false ? '(מושהה)' : '')).join(', '));
+        await timed('אינדקס מיילים (vendorIndex)', () => fs.getDocs(fs.collection(db, 'vendorIndex')), s => s.docs.map(d => d.id + '→' + d.data().tenant).join(', '));
+        await timed('הצעות לספקים (platformQuotes)', () => fs.getDocs(fs.collection(db, 'platformQuotes')), s => s.size + ' הצעות · גודל ' + Math.round(JSON.stringify(s.docs.map(d => d.data())).length / 1024) + 'KB');
+        if (ts) for (const d of ts.docs) await timed(`הצעות של ${d.id}`, () => fs.getDocs(fs.collection(db, 'tenants', d.id, 'quotes')), s => s.size + ' הצעות · גודל ' + Math.round(JSON.stringify(s.docs.map(x => x.data())).length / 1024) + 'KB');
+    } else {
+        const email = (user.email || '').toLowerCase();
+        const idx = await timed('רישום המייל (vendorIndex)', () => fs.getDoc(fs.doc(db, 'vendorIndex', email)), s => s.exists() ? 'משויך לספק ' + s.data().tenant : '⚠ המייל לא רשום כספק');
+        const slug = idx && idx.exists() ? idx.data().tenant : null;
+        if (slug) {
+            await timed('כרטיס הספק', () => fs.getDoc(fs.doc(db, 'tenants', slug)), s => s.exists() ? (s.data().active === false ? '⚠ מושהה' : 'פעיל') : '⚠ לא קיים');
+            await timed('הגדרות העסק (config)', () => Core.loadTenant(slug), T => (T && T.business && T.business.name) || '');
+            await timed('אישור תנאים', () => fs.getDoc(fs.doc(db, 'tenants', slug, 'consents', email + '|' + Core.PF.termsVersion)), s => s.exists() ? 'אושר' : 'עוד לא אושר (יוצג מסך אישור)');
+            await timed('ההצעות של הספק', () => fs.getDocs(fs.collection(db, 'tenants', slug, 'quotes')), s => s.size + ' הצעות · גודל ' + Math.round(JSON.stringify(s.docs.map(x => x.data())).length / 1024) + 'KB');
+        }
+    }
+    add(true, 'הבדיקה הסתיימה');
+    $('copy').disabled = false;
+})();
+</script>
+</body>
+</html>
