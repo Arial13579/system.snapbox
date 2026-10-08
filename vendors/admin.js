@@ -110,6 +110,7 @@
             t.oldConsent = !cur.length && cons.size > 0;
         } catch(e) { console.warn(e); t.total = t.signed = '—'; }
         t.support = Core.supportStatus(t);
+        if (Core.reminderDue(t)) { try { t.reminded = (await fs.getDoc(fs.doc(db, 'tenants', d.id, 'notices', 'support-' + t.supportUntil))).exists(); } catch(e) {} }
         t.state = Core.accountState(t);
         t.inRegistry = (window.REGISTRY || []).some(r => r.slug === d.id);
         return t;
@@ -119,11 +120,21 @@
         return s.state === 'none' ? '<span class="badge mute">לא הוגדרה</span>'
             : s.state === 'cancelled' ? `<span class="badge bad">בוטלה</span>`
             : s.state === 'expired' ? `<span class="badge bad">הסתיימה</span><div class="sub">${Core.fmtDate(s.until)}</div>`
-            : `<span class="badge ${s.state === 'expiring' ? 'warn' : 'ok'}">נותרו ${esc(s.left)}</span><div class="sub">עד ${Core.fmtDate(s.until)}</div>`;
+            : `<span class="badge ${s.state === 'expiring' ? 'warn' : 'ok'}">נותרו ${esc(s.left)}</span><div class="sub">עד ${Core.fmtDate(s.until)}</div>${s.reminded ? '<div class="sub">✉️ נשלחה תזכורת</div>' : ''}`;
+    }
+    // שבוע אחרון של תמיכה → מייל תזכורת אחד לספק (עם עותק אליך). רץ בכל טעינה של הרשימה, כולל מיד אחרי שמירה בחלון "ניהול"
+    async function sendReminders(){
+        let sent = false;
+        for (const v of VENDORS.filter(v => v.inRegistry && !v.reminded && Core.reminderDue(v))) {
+            const biz = await Core.loadTenant(v.id).then(T => T.business || {}).catch(() => ({}));
+            if (await Core.supportReminder(v.id, v, (v.admins || []).concat(biz.email || []), biz.name || v.name)) { v.reminded = true; sent = true; }
+        }
+        return sent;
     }
     async function renderVendors(){
         const snap = await fs.getDocs(fs.collection(db, 'tenants'));
         VENDORS = (await Promise.all(snap.docs.map(loadVendor))).sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'));
+        await sendReminders().catch(() => false);
         const n = k => VENDORS.filter(k).length, sum = k => VENDORS.reduce((s, v) => s + (Number(v[k]) || 0), 0);
         const kpi = (v, l, s, hl) => `<div class="card kpi${hl ? ' hl' : ''}"><div class="l">${l}</div><div class="n">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
         $('kpis').innerHTML =
@@ -143,7 +154,7 @@
             return `<tr>
                 <td class="vend-cell"><b>${esc(t.name)}</b><span>${[esc(t.contactName || ''), t.phone ? '<span class="ltr">' + esc(t.phone) + '</span>' : ''].filter(Boolean).join(' · ')}</span><span>${loginEmails(t).map(e => '<bdi>' + esc(e) + '</bdi>').join(', ') || 'אין עדיין Gmail להתחברות'}</span>${t.inRegistry ? '' : '<span>⚠ ספק ישן שלא בשימוש · אפשר למחוק ב"ניהול"</span>'}</td>
                 <td>${esc(planLabel(t.plan))}<div class="sub">${[t.purchaseDate ? Core.fmtDate(t.purchaseDate) : '', t.pricePaid ? Core.money(t.pricePaid) : ''].filter(Boolean).join(' · ')}</div></td>
-                <td>${supportCell(t.support)}</td>
+                <td>${supportCell({ ...t.support, reminded: t.reminded })}</td>
                 <td>${agr}</td>
                 <td class="num">${t.total}<div class="sub">${t.signed} נחתמו</div></td>
                 <td>${t.lastAt ? t.lastAt.toLocaleDateString('he-IL') : '<span class="sub">—</span>'}</td>
@@ -332,6 +343,7 @@
             await deleteAll(fs.collection(db, 'tenants', id, 'consents'));
             await deleteAll(fs.collection(db, 'tenants', id, 'files'));
             await deleteAll(fs.collection(db, 'tenants', id, 'private')).catch(() => {});
+            await deleteAll(fs.collection(db, 'tenants', id, 'notices')).catch(() => {});
             await deleteAll(fs.query(fs.collection(db, 'vendorIndex'), fs.where('tenant', '==', id)));
             await deleteAll(fs.query(fs.collection(db, 'shortLinks'), fs.where('tenant', '==', id))).catch(() => {});
             await fs.deleteDoc(fs.doc(db, 'tenants', id));

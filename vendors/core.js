@@ -120,7 +120,7 @@
     // הקישור ללקוח — סדר השדות קבוע וזהה ל-quote.js באתר הלקוחות.
     // שדות 13–14 (פריטים והנחה) קיימים רק בהצעות במצב "פריטים": שם^כמות^מחיר ליחידה, מופרדים ב-~
     const cleanItem = s => clean(s).replace(/[~^]/g, '-');
-    const encodeItems = items => (items || []).map(i => [cleanItem(i.label), Number(i.qty) || 1, Number(i.price) || 0].join('^')).join('~');
+    const encodeItems = items => (items || []).map(i => [cleanItem(i.label), Number(i.qty) || 1, Number(i.price) || 0].concat(i.desc ? [cleanItem(i.desc)] : []).join('^')).join('~');   // שם^כמות^מחיר[^מה כלול]
     function shareUrl(slug, q){
         const f = [clean(q.clientName), clean(q.eventType), clean(q.location), clean(q.date), clean(q.startTime), clean(q.endTime),
             q.guests || '', q.price || 0, q.deposit || 0, clean(q.notes), q.id, q.service || ''];
@@ -193,5 +193,31 @@
         return { state: days <= 30 ? 'expiring' : 'active', until, days, months: Math.max(0, months), left, label: 'פעילה עד ' + fmtDate(until) };
     }
 
-    window.Core = { fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
+    /* ---- תזכורת במייל בשבוע האחרון של התמיכה הטכנית ----
+       פעם אחת לכל תאריך סיום: נרשם tenants/{slug}/notices/support-<YYYY-MM-DD> (כשהבעלים מאריך — תאריך חדש, תזכורת חדשה בבוא הזמן).
+       נשלחת מהדף הראשון שנפתח (לוח הניהול או חשבון הספק) — אל הבעלים, עם עותק לספק (FormSubmit _cc, כך שלא צריך הפעלה אצל הספק). */
+    function reminderDue(t){
+        const st = supportStatus(t);
+        return st.state === 'expiring' && st.days <= (PF.supportReminderDays || 7) && t.active !== false ? st : null;
+    }
+    async function supportReminder(slug, t, emails, bizName){
+        const st = reminderDue(t); if (!st || !slug) return false;
+        const until = t.supportUntil, f = await fb(), ref = f.fs.doc(f.db, 'tenants', slug, 'notices', 'support-' + until);
+        try { if ((await f.fs.getDoc(ref)).exists()) return false; } catch(e) { return false; }
+        try { await f.fs.setDoc(ref, { type: 'supportReminder', until, sentAt: f.fs.serverTimestamp(), by: ((f.auth.currentUser || {}).email || '').toLowerCase() }); }
+        catch(e) { return false; }   // כבר נשלחה (מדף אחר) או שאין הרשאה
+        const c = PF.contact || {}, name = bizName || t.name || slug;
+        const cc = [...new Set((emails || []).map(e => String(e || '').trim().toLowerCase()).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) && e !== String(c.email).toLowerCase()))];
+        const wa = 'https://wa.me/' + c.whatsapp + '?text=' + encodeURIComponent(`היי, זה ${name}. אשמח לחדש את התמיכה הטכנית 🙂`);
+        const body = { _subject: `תזכורת: התמיכה הטכנית שלך מסתיימת ב-${fmtDate(until)}`, _template: 'box', _captcha: 'false',
+            'עסק': name,
+            'הודעה': `שלום! התמיכה הטכנית במערכת הצעות המחיר שלך מסתיימת ב-${fmtDate(until)} (נותרו ${st.left}). המערכת ממשיכה לעבוד כרגיל. כדי להמשיך לקבל תמיכה, שינויים ועדכונים — אפשר לחדש בכל רגע מולי בוואטסאפ ${c.phone}.`,
+            'לחידוש בוואטסאפ': wa };
+        if (cc.length) body._cc = cc.join(',');
+        try { await fetch('https://formsubmit.co/ajax/' + c.email, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) }); }
+        catch(e) { console.warn('reminder mail failed', e); }
+        return true;
+    }
+
+    window.Core = { reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();
