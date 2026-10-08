@@ -214,6 +214,31 @@ await no('session with fake time rejected', setDoc(doc(noa, 'sessions/noa@gmail.
 await no('vendor cannot list sessions', getDocs(collection(noa, 'sessions')));
 await ok('owner reads a vendor session', getDoc(doc(owner, 'sessions/noa@gmail.com')));
 
+// PDF חתום במסמך נפרד
+const pdfDoc = { pdfData: 'JVBERi0x', at: serverTimestamp() };
+await ok('vendor creates pending quote (pdf)', setDoc(doc(noa, 'tenants/noa/quotes/pq1'), { status: 'pending', price: 100 }));
+await no('anon cannot add pdf before signing', setDoc(doc(anon, 'tenants/noa/quotes/pq1/pdf/file'), pdfDoc));
+await ok('anon signs (pdf test)', updateDoc(doc(anon, 'tenants/noa/quotes/pq1'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'UA' }));
+await ok('anon adds the signed pdf (separate doc)', setDoc(doc(anon, 'tenants/noa/quotes/pq1/pdf/file'), pdfDoc));
+await no('anon cannot overwrite the pdf', setDoc(doc(anon, 'tenants/noa/quotes/pq1/pdf/file'), { ...pdfDoc, pdfData: 'X' }));
+await no('anon cannot add a pdf with extra fields', setDoc(doc(anon, 'tenants/noa/quotes/pq1/pdf/other'), pdfDoc));
+await ok('anon marks hasPdf', updateDoc(doc(anon, 'tenants/noa/quotes/pq1'), { hasPdf: true }));
+await no('anon cannot mark hasPdf + change price', updateDoc(doc(anon, 'tenants/noa/quotes/pq1'), { hasPdf: true, price: 1 }));
+await no('anon cannot read the pdf', getDoc(doc(anon, 'tenants/noa/quotes/pq1/pdf/file')));
+await no('other vendor cannot read the pdf', getDoc(doc(yossi, 'tenants/noa/quotes/pq1/pdf/file')));
+await ok('vendor reads the pdf', getDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file')));
+await ok('vendor replaces the pdf', setDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0y' }));
+await ok('vendor moves old in-doc pdf (hasPdf + remove pdfData)', updateDoc(doc(noa, 'tenants/noa/quotes/pq1'), { hasPdf: true }));
+await ok('vendor deletes the pdf', deleteDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file')));
+await ok('owner creates platform offer (pdf)', setDoc(doc(owner, 'platformQuotes/pp1'), { status: 'pending', total: 1 }));
+await no('anon cannot add offer pdf before signing', setDoc(doc(anon, 'platformQuotes/pp1/pdf/file'), pdfDoc));
+await ok('anon signs offer (pdf)', updateDoc(doc(anon, 'platformQuotes/pp1'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'UA' }));
+await ok('anon adds offer pdf', setDoc(doc(anon, 'platformQuotes/pp1/pdf/file'), pdfDoc));
+await ok('anon marks offer hasPdf', updateDoc(doc(anon, 'platformQuotes/pp1'), { hasPdf: true }));
+await no('anon cannot read offer pdf', getDoc(doc(anon, 'platformQuotes/pp1/pdf/file')));
+await no('vendor cannot read offer pdf', getDoc(doc(noa, 'platformQuotes/pp1/pdf/file')));
+await ok('owner reads offer pdf', getDoc(doc(owner, 'platformQuotes/pp1/pdf/file')));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);

@@ -61,22 +61,55 @@
     }
 
     // לאיזה ספק שייך המשתמש (לפי vendorIndex/{email})
+    // ניסיון חוזר בתקלת רשת (לא בחסימת הרשאות) — כדי שאינטרנט איטי לא ייראה כמו "לא רשום"
+    async function withRetry(fn, tries){
+        let last;
+        for (let i = 0; i < (tries || 4); i++) {
+            try { return await fn(); }
+            catch(e) { last = e; if (e && e.code === 'permission-denied') throw e; await new Promise(r => setTimeout(r, 700 * (i + 1))); }
+        }
+        throw last;
+    }
+    // null = המייל לא רשום כספק. בבעיית חיבור — זורק שגיאה (ולא מחזיר "לא רשום")
     async function tenantOf(user){
         const f = await fb();
-        try {
-            const snap = await f.fs.getDoc(f.fs.doc(f.db, 'vendorIndex', (user.email || '').toLowerCase()));
-            return snap.exists() ? snap.data().tenant : null;
-        } catch(e){ return null; }
+        const snap = await withRetry(() => f.fs.getDoc(f.fs.doc(f.db, 'vendorIndex', (user.email || '').toLowerCase())));
+        return snap.exists() ? snap.data().tenant : null;
     }
 
     // מצב הגישה של משתמש: { slug, state: 'ok' | 'suspended' | 'none' }. ספק מושהה לא יכול לקרוא את כרטיס הספק (נאכף בשרת).
     async function vendorAccess(user){
-        const slug = await tenantOf(user);
+        let slug;
+        try { slug = await tenantOf(user); } catch(e) { return { slug: null, state: 'error' }; }
         if (!slug) return { slug: null, state: 'none' };
         const f = await fb();
-        try { const snap = await f.fs.getDoc(f.fs.doc(f.db, 'tenants', slug)); return { slug, state: snap.exists() ? 'ok' : 'none', data: snap.exists() ? snap.data() : null }; }
-        catch(e) { return { slug, state: 'suspended' }; }
+        try { const snap = await withRetry(() => f.fs.getDoc(f.fs.doc(f.db, 'tenants', slug))); return { slug, state: snap.exists() ? 'ok' : 'none', data: snap.exists() ? snap.data() : null }; }
+        catch(e) { return { slug, state: e && e.code === 'permission-denied' ? 'suspended' : 'error' }; }
     }
+
+    /* ---- PDF חתום: במסמך נפרד <מסמך>/pdf/file, כדי שהרשימות לא יורידו את כל הקבצים בכל טעינה ----
+       מסמכים ישנים מחזיקים את הקובץ בשדה pdfData של המסמך עצמו — נקראים כרגיל ומועברים (migratePdf) בפעם הבאה שהרשימה נטענת. */
+    const hasPdf = d => !!(d && (d.hasPdf || d.pdfData));
+    async function getPdf(path, d){
+        if (d && d.pdfData) return d.pdfData;
+        const f = await fb(), s = await withRetry(() => f.fs.getDoc(f.fs.doc(f.db, path + '/pdf/file')));
+        return s.exists() ? s.data().pdfData : null;
+    }
+    async function putPdf(path, pdfData, noFallback){
+        const f = await fb();
+        try { await f.fs.setDoc(f.fs.doc(f.db, path + '/pdf/file'), { pdfData, at: f.fs.serverTimestamp() }); }
+        catch(e) {
+            // כללים ישנים (לפני ההדבקה ב-Firebase): שומרים כמו קודם, בתוך המסמך
+            if (noFallback || !(e && e.code === 'permission-denied')) throw e;
+            await f.fs.updateDoc(f.fs.doc(f.db, path), { pdfData }); return;
+        }
+        await f.fs.updateDoc(f.fs.doc(f.db, path), { hasPdf: true, pdfData: f.fs.deleteField() });
+    }
+    async function migratePdf(path, d){
+        if (!d || !d.pdfData) return false;
+        try { await putPdf(path, d.pdfData, true); return true; } catch(e) { return false; }
+    }
+    async function deletePdf(path){ const f = await fb(); try { await f.fs.deleteDoc(f.fs.doc(f.db, path + '/pdf/file')); } catch(e) {} }
 
     function loadScript(src){
         return new Promise((resolve, reject) => {
@@ -252,5 +285,5 @@
         return true;
     }
 
-    window.Core = { singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();

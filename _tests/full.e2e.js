@@ -368,7 +368,7 @@ async function draw(p){
   const fc = I.p.waitForEvent('filechooser'); await I.p.click('#tbody .upload-file');
   await (await fc).setFiles(SHOTS + 'offer-signed.pdf');
   await I.p.waitForTimeout(1500);
-  const replaced = await I.p.evaluate(async () => { const f = await Core.fb(); const s = await f.fs.getDocs(f.fs.collection(f.db, 'tenants', 'ilana', 'quotes')); return s.docs[0].data().pdfData.length; });
+  const replaced = await I.p.evaluate(async () => { const f = await Core.fb(); const s = await f.fs.getDocs(f.fs.collection(f.db, 'tenants', 'ilana', 'quotes')); const d = s.docs[0]; return d.data().pdfData ? d.data().pdfData.length : ((await Core.getPdf(`tenants/ilana/quotes/${d.id}`, d.data())) || '').length; });   // ה-PDF במסמך הנפרד, לא בתוך ההצעה
   check(replaced === Math.ceil(fs_size_offer() / 3) * 4 || replaced > 1000, 'vendor replaced the signed agreement PDF');
   await axe(I.p, 'ilana dashboard');
   await I.p.screenshot({ path: SHOTS + 'ilana-dashboard.png', fullPage: true });

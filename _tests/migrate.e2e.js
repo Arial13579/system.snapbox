@@ -1,4 +1,4 @@
-// One active session per vendor: opening the account elsewhere disconnects the previous place (owner exempt).
+// Old in-doc PDFs move to <doc>/pdf/file when the lists load; lists stay light; viewing still works.
 // Run like full.e2e.js.
 const S = '/tmp/claude-0/-home-user/33274e87-36f1-52fb-a542-54f1e7d0e4b6/scratchpad';
 const NM = S + '/t/node_modules/', FB = NM + 'firebase/', FBV = require(NM + 'firebase/package.json').version;
@@ -6,7 +6,7 @@ const { chromium } = require(NM + 'playwright-core');
 const fs = require('fs'), path = require('path');
 const AXE = fs.readFileSync(NM + 'axe-core/axe.min.js', 'utf8');
 const SITE = 'http://localhost:8791', SYS = SITE + '/system';
-const SHOTS = S + '/shots-session/'; fs.mkdirSync(SHOTS, { recursive: true });
+const SHOTS = S + '/shots-migrate/'; fs.mkdirSync(SHOTS, { recursive: true });
 const ILANA = 'snapboxevent.official@gmail.com';
 const fs_size_offer = () => fs.statSync(SHOTS + 'offer-signed.pdf').size;
 const REG = `window.REGISTRY = [{ slug: 'demo', name: 'עסק לדוגמה', admins: ['noa@gmail.com'] }, { slug: 'ilana', name: 'אילנה עיצוב אירועים', admins: ['${ILANA}'] }];`;
@@ -82,67 +82,47 @@ async function setUntil(slug, v){ const r = await fetch(REST + `tenants/${slug}?
 async function hasNotice(slug, v){ return (await fetch(REST + `tenants/${slug}/notices/support-${v}`, { headers: H })).ok; }
 const reminders = () => sent.filter(s => s.url.includes('formsubmit.co/ajax/') && s.body.includes('תזכורת'));
 
+const big = 'JVBERi0xLjQK' + 'A'.repeat(300000);
+async function put(path, fields){ const r = await fetch(REST + path, { method: 'PATCH', headers: H, body: JSON.stringify({ fields }) }); if (!r.ok) throw new Error(await r.text()); }
+async function getDocRest(path){ const r = await fetch(REST + path, { headers: H }); return r.ok ? r.json() : null; }
 (async () => {
   const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--ignore-certificate-errors'] });
-  const MOB = { width: 390, height: 844 }, DESK = { width: 1280, height: 900 };
-  const open = async (P) => { await P.waitForURL(/app\.html\?t=ilana/, { timeout: 15000 });
-    await P.waitForSelector('#consent:not(.hidden), #main-app:not(.hidden)', { timeout: 15000 });
-    if (await P.isVisible('#consent')) { await P.check('#consent-check'); await P.click('#consent-btn'); }
-    await P.waitForSelector('#main-app:not(.hidden)', { timeout: 15000 }); await P.waitForTimeout(800); };
-  const signedIn = P => P.evaluate(() => Core.fb().then(f => !!f.auth.currentUser));
-
-  console.log('1. Owner syncs, vendor opens the account on the phone');
+  const DESK = { width: 1280, height: 900 }, MOB = { width: 390, height: 844 };
+  console.log('1. Old-format data: PDF inside the offer and inside a client quote');
   const O = await newPage(b, DESK, 'owner'); await login(O.p, 'arielkahalani1@gmail.com');
   await O.p.waitForURL(/admin\.html/, { timeout: 15000 }); await O.p.waitForSelector('#tbody tr td:not(.loading)', { timeout: 20000 });
-  const A = await newPage(b, MOB, 'phone'); await login(A.p, ILANA); await open(A.p);
-  check(await A.p.isVisible('#main-app'), 'phone: account open');
+  await put('platformQuotes/old1', { status: { stringValue: 'signed' }, vendorName: { stringValue: 'ספק ישן' }, plan: { stringValue: 'regular' }, total: { integerValue: 1999 }, createdAt: { timestampValue: new Date().toISOString() }, signedAt: { timestampValue: new Date().toISOString() }, pdfData: { stringValue: big } });
+  await put('tenants/ilana/quotes/oldq', { status: { stringValue: 'signed' }, clientName: { stringValue: 'לקוח ישן' }, price: { integerValue: 1000 }, deposit: { integerValue: 300 }, createdAt: { timestampValue: new Date().toISOString() }, pdfData: { stringValue: big } });
+  check(true, 'seeded 2 old documents with a 300KB PDF inside');
 
-  console.log('2. Same vendor opens the account on the computer → the phone is disconnected');
-  const B = await newPage(b, DESK, 'computer'); await login(B.p, ILANA); await open(B.p);
-  await A.p.waitForSelector('#kicked:not(.hidden)', { timeout: 10000 });
-  check(true, 'phone: "החשבון נפתח במקום אחר" screen');
-  check((await A.p.textContent('#kicked-msg')).includes('מכשיר או בדפדפן אחר') && await A.p.isHidden('#main-app'), 'phone: account hidden, explains it was opened on another device');
-  await A.p.waitForTimeout(500);
-  check(!(await signedIn(A.p)), 'phone: fully signed out');
-  check(await B.p.isVisible('#main-app') && await signedIn(B.p), 'computer: stays connected');
-  await A.p.screenshot({ path: SHOTS + 'kicked-device.png' });
+  console.log('2. Owner opens admin → offer PDF moves out');
+  await O.p.reload(); await O.p.waitForSelector('#tbody tr td:not(.loading)', { timeout: 20000 });
+  await O.p.click('button[data-tab="offers"]');
+  for (let i = 0; i < 30; i++) { const d = await getDocRest('platformQuotes/old1'); if (d && !d.fields.pdfData) break; await O.p.waitForTimeout(300); }
+  const o1 = await getDocRest('platformQuotes/old1'), f1 = await getDocRest('platformQuotes/old1/pdf/file');
+  check(!o1.fields.pdfData && o1.fields.hasPdf && o1.fields.hasPdf.booleanValue === true, 'offer: PDF removed from the list document, hasPdf=true');
+  check(f1 && f1.fields.pdfData.stringValue.length === big.length, 'offer: PDF kept intact in pdf/file');
+  await O.p.waitForTimeout(800); console.log('   otbody:', (await O.p.textContent('#otbody')).slice(0, 300).replace(/\s+/g, ' '), '| visible:', await O.p.isVisible('#otbody'));
+  await O.p.waitForSelector('#otbody .view', { timeout: 10000 });
+  const pop = O.p.waitForEvent('popup', { timeout: 10000 }).catch(() => null);
+  await O.p.click('#otbody .view'); check(!!(await pop), 'offer: "צפייה" still opens the PDF');
 
-  console.log('3. A second tab in the same browser → the first tab closes, the new one stays');
-  const B2 = await B.ctx.newPage(); B2.on('pageerror', e => errors.push('tab2: ' + e.message)); B2.on('dialog', d => d.accept());
-  await B2.goto(SYS + '/vendors/app.html?t=ilana'); await open(B2);
-  await B.p.waitForSelector('#kicked:not(.hidden)', { timeout: 10000 });
-  check((await B.p.textContent('#kicked-msg')).includes('בלשונית אחרת'), 'first tab: "opened in another tab"');
-  await B.p.waitForTimeout(500);
-  check(await B2.isVisible('#main-app') && await signedIn(B2), 'new tab: stays open and signed in (not logged out with the old tab)');
-  await B.p.screenshot({ path: SHOTS + 'kicked-tab.png' });
-
-  console.log('4. Owner opens the vendor account → nobody is disconnected (owner exempt)');
-  const O2 = await O.ctx.newPage(); await O2.goto(SYS + '/vendors/app.html?t=ilana'); await O2.waitForSelector('#main-app:not(.hidden)', { timeout: 15000 });
-  await O2.waitForTimeout(1500);
-  check(await B2.isVisible('#main-app') && await B2.isHidden('#kicked'), 'vendor not disconnected when the owner views the account');
-  const O3 = await O.ctx.newPage(); await O3.goto(SYS + '/vendors/admin.html'); await O3.waitForSelector('#tbody tr td:not(.loading)', { timeout: 20000 });
-  check(await O.p.isVisible('#tbody'), 'owner can be open in several tabs at once');
-
-  console.log('4b. Owner on a second, separate device at the same time → both stay connected');
-  const O4 = await newPage(b, MOB, 'owner-phone'); await login(O4.p, 'arielkahalani1@gmail.com');
-  await O4.p.waitForURL(/admin\.html/, { timeout: 15000 }); await O4.p.waitForSelector('#tbody tr td:not(.loading)', { timeout: 20000 });
-  await O4.p.waitForTimeout(1500);
-  check(await signedIn(O.p) && await signedIn(O4.p) && await O3.isVisible('#tbody'), 'owner: computer + phone connected at the same time');
-
-  console.log('4c. Vendor on a third device (another browser) → the computer tab is disconnected, the new one stays');
-  const C = await newPage(b, DESK, 'other-browser'); await login(C.p, ILANA); await open(C.p);
-  await B2.waitForSelector('#kicked:not(.hidden)', { timeout: 10000 });
-  await B2.waitForTimeout(500);
-  check((await B2.textContent('#kicked-msg')).includes('מכשיר או בדפדפן אחר') && !(await signedIn(B2)), 'computer: disconnected and signed out');
-  check(await C.p.isVisible('#main-app') && await signedIn(C.p), 'other browser: open');
-  await C.p.waitForTimeout(1500);
-  check(await C.p.isHidden('#kicked'), 'other browser: stays open (not kicked back)');
-
-  console.log('5. The phone logs in again → takes over, the computer is disconnected');
-  await A.p.click('#kicked-btn'); await A.p.waitForURL(/vendors\/(\?|$|index)/, { timeout: 10000 });
-  await login(A.p, ILANA); await open(A.p);
-  await C.p.waitForSelector('#kicked:not(.hidden)', { timeout: 10000 });
-  check(await A.p.isVisible('#main-app') && await A.p.isHidden('#kicked'), 'last opened wins: the phone is open, the other browser is disconnected');
+  console.log('3. Vendor opens dashboard → quote PDF moves out');
+  const I = await newPage(b, MOB, 'ilana'); await login(I.p, ILANA);
+  await I.p.waitForURL(/app\.html\?t=ilana/, { timeout: 15000 });
+  await I.p.waitForSelector('#consent:not(.hidden), #main-app:not(.hidden)', { timeout: 15000 });
+  if (await I.p.isVisible('#consent')) { await I.p.check('#consent-check'); await I.p.click('#consent-btn'); }
+  await I.p.waitForSelector('#main-app:not(.hidden)', { timeout: 15000 });
+  await I.p.click('.tabs button[data-tab="dash"]');
+  for (let i = 0; i < 30; i++) { const d = await getDocRest('tenants/ilana/quotes/oldq'); if (d && !d.fields.pdfData) break; await I.p.waitForTimeout(300); }
+  const q1 = await getDocRest('tenants/ilana/quotes/oldq'), qf = await getDocRest('tenants/ilana/quotes/oldq/pdf/file');
+  check(!q1.fields.pdfData && q1.fields.hasPdf.booleanValue === true && qf && qf.fields.pdfData.stringValue.length === big.length, 'quote: PDF moved to pdf/file intact');
+  await I.p.waitForSelector('#tbody .view-file', { timeout: 10000 });
+  const pop2 = I.p.waitForEvent('popup', { timeout: 10000 }).catch(() => null);
+  await I.p.click('#tbody .view-file'); check(!!(await pop2), 'quote: "צפייה" still opens the PDF');
+  await I.p.click('#tbody .delete-row[data-id="oldq"]');
+  for (let i = 0; i < 20; i++) { if (!(await getDocRest('tenants/ilana/quotes/oldq/pdf/file'))) break; await I.p.waitForTimeout(300); }
+  check(!(await getDocRest('tenants/ilana/quotes/oldq/pdf/file')) && !(await getDocRest('tenants/ilana/quotes/oldq')), 'deleting a quote also deletes its PDF');
 
   check(!errors.length, 'no page errors' + (errors.length ? ':\n    ' + errors.join('\n    ') : ''));
   await b.close();
