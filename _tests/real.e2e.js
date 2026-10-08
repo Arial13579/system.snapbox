@@ -1,4 +1,6 @@
-// Load speed on a slow phone connection (3G-like): vendor dashboard + owner admin, before/after moving PDFs out of the list docs.
+// Real-life scenario on a slow phone connection the WHOLE time (no unthrottled warm-up):
+// old-format data (PDFs inside the docs), vendor on phone then computer, owner on two devices.
+// Checks: lists load fast, the old place is disconnected quickly, the one-time PDF move uploads each file once.
 // Run like full.e2e.js.
 const S = '/tmp/claude-0/-home-user/33274e87-36f1-52fb-a542-54f1e7d0e4b6/scratchpad';
 const NM = S + '/t/node_modules/', FB = NM + 'firebase/', FBV = require(NM + 'firebase/package.json').version;
@@ -6,7 +8,7 @@ const { chromium } = require(NM + 'playwright-core');
 const fs = require('fs'), path = require('path');
 const AXE = fs.readFileSync(NM + 'axe-core/axe.min.js', 'utf8');
 const SITE = 'http://localhost:8791', SYS = SITE + '/system';
-const SHOTS = S + '/shots-speed/'; fs.mkdirSync(SHOTS, { recursive: true });
+const SHOTS = S + '/shots-real/'; fs.mkdirSync(SHOTS, { recursive: true });
 const ILANA = 'snapboxevent.official@gmail.com';
 const fs_size_offer = () => fs.statSync(SHOTS + 'offer-signed.pdf').size;
 const REG = `window.REGISTRY = [{ slug: 'demo', name: 'עסק לדוגמה', admins: ['noa@gmail.com'] }, { slug: 'ilana', name: 'אילנה עיצוב אירועים', admins: ['${ILANA}'] }];`;
@@ -86,54 +88,93 @@ const big = 'JVBERi0xLjQK' + 'A'.repeat(300000);
 async function put(path, fields){ const r = await fetch(REST + path, { method: 'PATCH', headers: H, body: JSON.stringify({ fields }) }); if (!r.ok) throw new Error(await r.text()); }
 async function slow(page){ const cdp = await page.context().newCDPSession(page); await cdp.send('Network.enable'); await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 150, downloadThroughput: 400 * 1024, uploadThroughput: 150 * 1024 }); }
 const sec = ms => (ms / 1000).toFixed(1) + 's';
+
+const up = { n: 0 };
+function meter(p){ p.on('request', r => { const d = r.postData(); if (d && r.url().includes('8085')) up.n += d.length; }); }
 (async () => {
   const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--ignore-certificate-errors'] });
   const DESK = { width: 1280, height: 900 }, MOB = { width: 390, height: 844 };
-  const O = await newPage(b, DESK, 'owner'); await login(O.p, 'arielkahalani1@gmail.com');
+  // הבעלים מסנכרן פעם אחת (יוצר את הספקים)
+  const O = await newPage(b, DESK, 'owner-pc'); await login(O.p, 'arielkahalani1@gmail.com');
   await O.p.waitForURL(/admin\.html/, { timeout: 15000 }); await O.p.waitForSelector('#tbody tr td:not(.loading)', { timeout: 20000 });
+  // ההסכמה של אילנה כבר קיימת (כמו בחשבון אמיתי)
+  const PFV = await O.p.evaluate(() => Core.PF.termsVersion);
+  await put(`tenants/ilana/consents/${encodeURIComponent(ILANA + '|' + PFV)}`, { email: { stringValue: ILANA }, version: { stringValue: PFV } });
   const now = new Date().toISOString();
-  for (let i = 0; i < 20; i++) await put(`tenants/ilana/quotes/s${i}`, { status: { stringValue: 'signed' }, clientName: { stringValue: 'לקוח ' + i }, price: { integerValue: 5000 }, deposit: { integerValue: 1500 }, createdAt: { timestampValue: now }, pdfData: { stringValue: big } });
-  for (let i = 0; i < 5; i++) await put(`platformQuotes/so${i}`, { status: { stringValue: 'signed' }, vendorName: { stringValue: 'ספק ' + i }, plan: { stringValue: 'regular' }, total: { integerValue: 1999 }, createdAt: { timestampValue: now }, signedAt: { timestampValue: now }, pdfData: { stringValue: big } });
-  console.log('seeded: 20 signed client quotes + 5 signed vendor offers, 300KB PDF each, old format (≈7.5MB)');
+  const N = Number(process.env.NQ || 12), NO = Number(process.env.NO || 6);
+  for (let i = 0; i < N; i++) await put(`tenants/ilana/quotes/s${i}`, { status: { stringValue: 'signed' }, clientName: { stringValue: 'לקוח ' + i }, price: { integerValue: 5000 }, deposit: { integerValue: 1500 }, createdAt: { timestampValue: now }, pdfData: { stringValue: big } });
+  for (let i = 0; i < NO; i++) await put(`platformQuotes/so${i}`, { status: { stringValue: 'signed' }, vendorName: { stringValue: 'ספק ' + i }, plan: { stringValue: 'regular' }, total: { integerValue: 1999 }, createdAt: { timestampValue: now }, signedAt: { timestampValue: now }, pdfData: { stringValue: big } });
+  const MB = n => (n / 1048576).toFixed(1) + 'MB';
+  console.log(`seeded old format: ${N} signed client quotes + ${NO} signed vendor offers, ${MB(big.length)} PDF each`);
 
-  const I = await newPage(b, MOB, 'ilana'); await login(I.p, ILANA);
-  await I.p.waitForURL(/app\.html\?t=ilana/, { timeout: 15000 });
-  await I.p.waitForSelector('#consent:not(.hidden), #main-app:not(.hidden)', { timeout: 15000 });
-  if (await I.p.isVisible('#consent')) { await I.p.check('#consent-check'); await I.p.click('#consent-btn'); }
-  await I.p.waitForSelector('#main-app:not(.hidden)', { timeout: 15000 });
-  // מדידה לפני ההעברה: חסימת ההעברה (בלי כללים חדשים) מדמה את המצב הישן
-  async function dashTime(label){
-    await slow(I.p);
-    await I.p.goto('about:blank'); const t0 = Date.now(); await I.p.goto(SYS + '/vendors/app.html?t=ilana#dash');
-    await I.p.waitForSelector('#main-app:not(.hidden)', { timeout: 120000 }); const tApp = Date.now() - t0;
-    for (let k = 0; k < 90; k++) { const n = await I.p.evaluate(() => document.querySelectorAll('#tbody tr .pill').length); if (n >= 20) break; if (k % 10 === 0) console.log('     t+' + sec(Date.now() - t0) + ' rows=' + n + ' tab=' + (await I.p.isVisible('#tab-dash')) + ' tbody=' + (await I.p.textContent('#tbody')).slice(0, 60)); await I.p.waitForTimeout(2000); }
-    const tList = Date.now() - t0;
-    console.log(`   ${label}: account opens in ${sec(tApp)}, quote list ready in ${sec(tList)}`);
-    return tList;
-  }
-  const before = await dashTime('vendor, PDFs inside the list (old)');
-  // ההעברה החד-פעמית (קורית ברקע כשהבעלים פותח את לוח הניהול) — מחכים שתסתיים, ואז מודדים שוב
-  const cdp0 = await I.p.context().newCDPSession(I.p); await cdp0.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
-  // ההעברה רצה רק מלוח הניהול של הבעלים (לא מהטלפון של הספק)
-  await O.p.goto('about:blank'); await O.p.goto(SYS + '/vendors/admin.html');
-  let left = 20;
-  for (let i = 0; i < 120 && left; i++) { left = 0; for (let k = 0; k < 20; k++) { const j = await (await fetch(REST + 'tenants/ilana/quotes/s' + k, { headers: H })).json(); if (j.fields.pdfData) left++; } if (left) await new Promise(r => setTimeout(r, 1000)); }
-  check(left === 0, 'one-time move of all 20 old PDFs finished');
-  const after = await dashTime('vendor, PDFs moved out (new)');
-  check(after < before / 2, `vendor dashboard on a slow phone: ${sec(before)} → ${sec(after)}`);
-  check(after < 8000, 'vendor dashboard loads in under 8s on a slow phone connection');
+  // 1) הספק בטלפון, רשת איטית כל הזמן, נכנס ישר ללוח הבקרה
+  const PH = await newPage(b, MOB, 'vendor-phone'); meter(PH.p); await slow(PH.p);
+  await login(PH.p, ILANA);
+  await PH.p.waitForURL(/app\.html\?t=ilana/, { timeout: 60000 });
+  let t0 = Date.now();
+  await PH.p.waitForSelector('#main-app:not(.hidden)', { timeout: 120000 });
+  console.log('   phone: account open in ' + sec(Date.now() - t0));
+  await PH.p.click('button[data-tab="dash"]');
+  await PH.p.waitForFunction(n => document.querySelectorAll('#tbody tr .pill').length >= n, N, { timeout: 180000 });
+  const tPhone = Date.now() - t0; console.log('   phone: quote list ready in ' + sec(tPhone));
+  check(tPhone < 25000, `vendor phone (old data, slow net): account + list in ${sec(tPhone)}`);
 
-  await slow(O.p);
-  await O.p.goto('about:blank'); const t0 = Date.now(); await O.p.goto(SYS + '/vendors/admin.html');
-  await O.p.waitForSelector('#tbody tr td:not(.loading)', { timeout: 120000 }); const tA = Date.now() - t0;
-  await O.p.click('button[data-tab="offers"]'); await O.p.waitForFunction(() => document.querySelectorAll('#otbody .view').length >= 5, null, { timeout: 120000 }); const tB = Date.now() - t0;
-  console.log(`   owner admin (offers migrated on this load): vendor list in ${sec(tA)}, offers list in ${sec(tB)}`);
-  await O.p.goto('about:blank'); const t1 = Date.now(); await O.p.goto(SYS + '/vendors/admin.html'); await O.p.waitForFunction(() => document.querySelector('#tbody tr td:not(.loading)'), null, { timeout: 120000 }); const tA2 = Date.now() - t1;
-  await O.p.click('button[data-tab="offers"]'); await O.p.waitForFunction(() => document.querySelectorAll('#otbody .view').length >= 5, null, { timeout: 120000 }); const tB2 = Date.now() - t1;
-  console.log(`   owner admin (next time): vendor list in ${sec(tA2)}, offers list in ${sec(tB2)}`);
-  check(tA2 < 8000 && tB2 < 8000, 'owner admin loads in under 8s on a slow phone connection');
+  // 2) אותו ספק נכנס מהמחשב (גם ברשת איטית) — הטלפון חייב להתנתק מהר, המחשב נשאר
+  const PC = await newPage(b, DESK, 'vendor-pc'); meter(PC.p); await slow(PC.p);
+  await login(PC.p, ILANA);
+  await PC.p.waitForURL(/app\.html\?t=ilana/, { timeout: 60000 });
+  t0 = Date.now();
+  await PC.p.waitForSelector('#main-app:not(.hidden)', { timeout: 120000 });
+  const tPc = Date.now() - t0;
+  await PH.p.waitForSelector('#kicked:not(.hidden)', { timeout: 60000 }).catch(() => {});
+  const tKick = Date.now() - t0;
+  check(await PH.p.isVisible('#kicked'), `phone disconnected after the computer opened (${sec(tKick)})`);
+  check(tKick < 15000, 'disconnect happens within 15s on a slow connection');
+  await PC.p.waitForTimeout(3000);
+  check(await PC.p.isVisible('#main-app') && !(await PC.p.isVisible('#kicked')), `computer stays connected (opened in ${sec(tPc)})`);
+  await PC.p.click('button[data-tab="dash"]');
+  t0 = Date.now(); await PC.p.waitForFunction(n => document.querySelectorAll('#tbody tr .pill').length >= n, N, { timeout: 180000 });
+  console.log('   computer: list ready in ' + sec(Date.now() - t0));
 
-  check(!errors.length, 'no page errors' + (errors.length ? ':\n    ' + errors.join('\n    ') : ''));
+  // 3) דפדפן שני באותו מחשב
+  const BR = await newPage(b, DESK, 'vendor-browser2'); await slow(BR.p); await login(BR.p, ILANA);
+  await BR.p.waitForSelector('#main-app:not(.hidden)', { timeout: 120000 }); t0 = Date.now();
+  await PC.p.waitForSelector('#kicked:not(.hidden)', { timeout: 60000 }).catch(() => {});
+  check(await PC.p.isVisible('#kicked'), `second browser opened → first browser disconnected (${sec(Date.now() - t0)})`);
+  await BR.p.waitForTimeout(3000);
+  check(await BR.p.isVisible('#main-app') && !(await BR.p.isVisible('#kicked')), 'second browser stays connected');
+
+  // 4) הבעלים בשני מכשירים בו-זמנית, רשת איטית
+  await slow(O.p); meter(O.p);
+  const O2 = await newPage(b, MOB, 'owner-phone'); await slow(O2.p); meter(O2.p);
+  await login(O2.p, 'arielkahalani1@gmail.com');
+  await O2.p.waitForURL(/admin\.html/, { timeout: 60000 }); t0 = Date.now();
+  await O2.p.waitForSelector('#tbody tr td:not(.loading)', { timeout: 120000 }); const tAdm = Date.now() - t0;
+  await O2.p.click('button[data-tab="offers"]'); await O2.p.waitForFunction(n => document.querySelectorAll('#otbody .view').length >= n, NO, { timeout: 180000 }); const tOff = Date.now() - t0;
+  console.log(`   owner phone: vendors in ${sec(tAdm)}, offers in ${sec(tOff)}`);
+  check(tAdm < 15000 && tOff < 25000, 'owner admin on a slow phone loads fast');
+  await O.p.goto('about:blank'); t0 = Date.now(); await O.p.goto(SYS + '/vendors/admin.html');
+  await O.p.waitForSelector('#tbody tr td:not(.loading)', { timeout: 120000 }); console.log('   owner computer (same time): vendors in ' + sec(Date.now() - t0));
+  await O.p.waitForTimeout(3000);
+  check(await O.p.isVisible('#main-app') && await O2.p.isVisible('#main-app'), 'owner open on computer and phone at the same time');
+
+  // 5) ההעברה החד-פעמית הסתיימה, וכל קובץ הועלה בערך פעם אחת
+  let left = -1;
+  for (let i = 0; i < 90 && left; i++) { left = 0; for (let k = 0; k < N; k++) { const j = await (await fetch(REST + 'tenants/ilana/quotes/s' + k, { headers: H })).json(); if (j.fields.pdfData) left++; } for (let k = 0; k < NO; k++) { const j = await (await fetch(REST + 'platformQuotes/so' + k, { headers: H })).json(); if (j.fields.pdfData) left++; } if (left) await new Promise(r => setTimeout(r, 2000)); }
+  check(left === 0, 'all old PDFs moved');
+  const ideal = (N + NO) * big.length;
+  console.log(`   uploaded ${MB(up.n)} in total (files themselves: ${MB(ideal)})`);
+  check(up.n < ideal * 2.2, 'each PDF uploaded about once (no repeated uploads)');
+  // 6) אחרי ההעברה: הספק בטלפון (רשת איטית) — לוח הבקרה נטען מהר
+  await BR.p.close();
+  const PH2 = await newPage(b, MOB, 'vendor-phone-again'); await slow(PH2.p); await login(PH2.p, ILANA);
+  await PH2.p.waitForURL(/app\.html\?t=ilana/, { timeout: 60000 }); t0 = Date.now();
+  await PH2.p.waitForSelector('#main-app:not(.hidden)', { timeout: 120000 }); await PH2.p.click('button[data-tab="dash"]');
+  await PH2.p.waitForFunction(n => document.querySelectorAll('#tbody tr .pill').length >= n, N, { timeout: 180000 });
+  const tAfter = Date.now() - t0; check(tAfter < 6000, `after the move: vendor phone account + list in ${sec(tAfter)}`);
+  // שגיאת הרשאה בלשונית שנותקה (אחרי signOut) היא צפויה
+  const real = errors.filter(e => !/^vendor-(phone|pc)\b.*false for 'list'/s.test(e));
+  check(!real.length, 'no page errors' + (real.length ? ':\n    ' + real.join('\n    ') : ''));
   await b.close();
   console.log(failures ? `\n${failures} FAILED` : '\nALL CHECKS PASSED');
   process.exit(failures ? 1 : 0);

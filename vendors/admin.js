@@ -19,6 +19,7 @@
         await renderVendors();
         // מונה המבצע מתעדכן מיד בכניסה, לא רק כשפותחים את טאב ההצעות
         if (!offersStarted) { offersStarted = true; startOffers(); }
+        migrateVendorPdfs();
     });
 
     /* ================= טאבים ================= */
@@ -427,6 +428,17 @@
         Core.bindWhatsApp($('o_wa'), url, q.phone);
         $('o_result').classList.remove('hidden'); $('o_result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
         btn.disabled = false; btn.textContent = 'יצירת קישור להצעה';
+    }
+
+    /* העברה חד-פעמית של PDF ישנים מתוך ההצעות של כל הספקים למסמך נפרד — רק מכאן (הבעלים), ברקע, קובץ אחד בכל פעם.
+       כך הטלפון של הספק לא מעלה קבצים, ולוח הבקרה שלו נטען מהר. אחרי שהועברו — אין מה להעביר והבדיקה קלה. */
+    async function migrateVendorPdfs(){
+        for (const v of VENDORS) {
+            try {
+                const qs = await fs.getDocs(fs.query(fs.collection(db, 'tenants', v.id, 'quotes'), fs.where('status', '==', 'signed')));
+                qs.docs.forEach(d => { const q = d.data(); if (q.pdfData) Core.migratePdf(`tenants/${v.id}/quotes/${d.id}`, q); });
+            } catch(e) { console.warn(e); }
+        }
     }
 
     /* ================= הצעות שנשלחו ================= */

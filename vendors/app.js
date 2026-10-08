@@ -574,8 +574,6 @@
         loadChartJs().catch(() => {});
         fb.fs.onSnapshot(fb.fs.query(qCol(), fb.fs.orderBy('createdAt', 'desc')), snap => {
             QUOTES = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            // העברה חד-פעמית של PDF ישן מתוך ההצעה למסמך נפרד (הרשימה נטענת מהר יותר)
-            if (!isOwnerView ? Core.accountState(tenantData) !== 'limited' : true) QUOTES.filter(q => q.pdfData).forEach(q => Core.migratePdf(`tenants/${slug}/quotes/${q.id}`, q));
             renderKpis(); renderTable(); loadChartJs().then(renderCharts).catch(() => {});
         }, err => { console.error(err); $('tbody').innerHTML = '<tr><td colspan="9" class="loading">אין הרשאה לנתונים — ייתכן שהחשבון מושהה.</td></tr>'; });
     }
