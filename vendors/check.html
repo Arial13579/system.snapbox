@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <title>בדיקת חיבור | מחולל הצעות מחיר</title>
-<link rel="stylesheet" href="vendor.css?v=20261008i">
+<link rel="stylesheet" href="vendor.css?v=20261008j">
 <style>
   .chk { max-width: 720px; margin: 24px auto; padding: 0 16px; }
   .chk ol { padding: 0; list-style: none; display: grid; gap: 8px; }
@@ -26,8 +26,8 @@
   </div>
   <ol id="steps"></ol>
 </main>
-<script src="platform.js?v=20261008i"></script>
-<script src="core.js?v=20261008i"></script>
+<script src="platform.js?v=20261008j"></script>
+<script src="core.js?v=20261008j"></script>
 <script>
 /* בדיקת חיבור: כל שלב מוצג עם זמן ושגיאה (אם יש), כדי לדעת בדיוק איפה זה נתקע אצל המשתמש. קריאה בלבד. */
 (async () => {
@@ -42,7 +42,7 @@
         const t0 = performance.now();
         const limit = new Promise((_, rej) => setTimeout(() => rej(new Error('לא הגיבה תשובה תוך 25 שניות')), 25000));
         try { const r = await Promise.race([fn(), limit]); add(true, title, `${((performance.now() - t0) / 1000).toFixed(1)} שניות` + (show ? ' · ' + show(r) : '')); return r; }
-        catch(e) { add(false, title, `${((performance.now() - t0) / 1000).toFixed(1)} שניות · ${err(e)}`); return undefined; }
+        catch(e) { add(false, title, `${((performance.now() - t0) / 1000).toFixed(1)} שניות · ${Core.isQuota && Core.isQuota(e) ? Core.QUOTA_MSG + ' · ' : ''}${err(e)}`); return undefined; }
     };
     $('again').onclick = () => location.reload();
     $('copy').onclick = async () => { const t = lines.join('\n'); try { await navigator.clipboard.writeText(t); $('copy').textContent = 'הועתק ✓'; } catch(e) { prompt('העתיקו את הטקסט:', t); } };
@@ -61,8 +61,8 @@
         add(true, 'החשבון הוא חשבון הבעלים');
         const ts = await timed('רשימת הספקים (tenants)', () => fs.getDocs(fs.collection(db, 'tenants')), s => s.size + ' ספקים: ' + s.docs.map(d => d.id + (d.data().active === false ? '(מושהה)' : '')).join(', '));
         await timed('אינדקס מיילים (vendorIndex)', () => fs.getDocs(fs.collection(db, 'vendorIndex')), s => s.docs.map(d => d.id + '→' + d.data().tenant).join(', '));
-        await timed('הצעות לספקים (platformQuotes)', () => fs.getDocs(fs.collection(db, 'platformQuotes')), s => s.size + ' הצעות · גודל ' + Math.round(JSON.stringify(s.docs.map(d => d.data())).length / 1024) + 'KB');
-        if (ts) for (const d of ts.docs) await timed(`הצעות של ${d.id}`, () => fs.getDocs(fs.collection(db, 'tenants', d.id, 'quotes')), s => s.size + ' הצעות · גודל ' + Math.round(JSON.stringify(s.docs.map(x => x.data())).length / 1024) + 'KB');
+        await timed('הצעות לספקים (platformQuotes)', () => fs.getCountFromServer(fs.collection(db, 'platformQuotes')), c => c.data().count + ' הצעות');
+        if (ts) for (const d of ts.docs) await timed(`הצעות של ${d.id}`, () => fs.getCountFromServer(fs.collection(db, 'tenants', d.id, 'quotes')), c => c.data().count + ' הצעות');
     } else {
         const email = (user.email || '').toLowerCase();
         const idx = await timed('רישום המייל (vendorIndex)', () => fs.getDoc(fs.doc(db, 'vendorIndex', email)), s => s.exists() ? 'משויך לספק ' + s.data().tenant : '⚠ המייל לא רשום כספק');
@@ -71,7 +71,7 @@
             await timed('כרטיס הספק', () => fs.getDoc(fs.doc(db, 'tenants', slug)), s => s.exists() ? (s.data().active === false ? '⚠ מושהה' : 'פעיל') : '⚠ לא קיים');
             await timed('הגדרות העסק (config)', () => Core.loadTenant(slug), T => (T && T.business && T.business.name) || '');
             await timed('אישור תנאים', () => fs.getDoc(fs.doc(db, 'tenants', slug, 'consents', email + '|' + Core.PF.termsVersion)), s => s.exists() ? 'אושר' : 'עוד לא אושר (יוצג מסך אישור)');
-            await timed('ההצעות של הספק', () => fs.getDocs(fs.collection(db, 'tenants', slug, 'quotes')), s => s.size + ' הצעות · גודל ' + Math.round(JSON.stringify(s.docs.map(x => x.data())).length / 1024) + 'KB');
+            await timed('ההצעות של הספק', () => fs.getCountFromServer(fs.collection(db, 'tenants', slug, 'quotes')), c => c.data().count + ' הצעות');
         }
     }
     add(true, 'הבדיקה הסתיימה');

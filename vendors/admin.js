@@ -19,6 +19,7 @@
         await renderVendors();
         // מונה המבצע מתעדכן מיד בכניסה, לא רק כשפותחים את טאב ההצעות
         if (!offersStarted) { offersStarted = true; startOffers(); }
+        if (!QUOTA) migrateVendorPdfs();
     });
 
     /* ================= טאבים ================= */
@@ -51,26 +52,26 @@
             DELETED = tomb.docs.map(d => ({ id: d.id, ...d.data() }));
             const gone = new Set(DELETED.map(d => d.id));
             const wanted = {};
-            let offers = null;
-            for (const r of (window.REGISTRY || [])) {
+            let offersP = null;
+            const signedOffers = () => offersP || (offersP = fs.getDocs(fs.query(fs.collection(db, 'platformQuotes'), fs.where('status', '==', 'signed'))).then(q => q.docs.map(d => ({ id: d.id, ...d.data() }))));
+            // כל הספקים במקביל, וכותבים רק מה שהשתנה (כך הסנכרון מהיר)
+            const idxP = fs.getDocs(fs.collection(db, 'vendorIndex'));
+            await Promise.all((window.REGISTRY || []).map(async r => {
                 const slug = String(r.slug || '').toLowerCase();
-                if (!/^[a-z0-9-]{2,40}$/.test(slug) || gone.has(slug)) continue;
+                if (!/^[a-z0-9-]{2,40}$/.test(slug) || gone.has(slug)) return;
                 const admins = (r.admins || []).map(e => String(e).trim().toLowerCase()).filter(Boolean);
-                const ref = fs.doc(db, 'tenants', slug), snap = await fs.getDoc(ref);
-                if (snap.exists()) await fs.updateDoc(ref, { name: r.name || slug, admins });
-                else await fs.setDoc(ref, { slug, name: r.name || slug, admins, active: true, createdAt: fs.serverTimestamp() });
                 admins.forEach(e => { wanted[e] = slug; });
+                const ref = fs.doc(db, 'tenants', slug), snap = await fs.getDoc(ref);
                 const t = snap.exists() ? snap.data() : {};
-                if (!t.pricePaid && !t.purchaseDate && !t.agreement) {
-                    if (!offers) offers = (await fs.getDocs(fs.query(fs.collection(db, 'platformQuotes'), fs.where('status', '==', 'signed')))).docs.map(d => ({ id: d.id, ...d.data() }));
-                    await fillFromOffer(slug, r.offerName || r.name || slug, offers);
-                }
-            }
-            const idx = await fs.getDocs(fs.collection(db, 'vendorIndex'));
-            for (const d of idx.docs) if (wanted[d.id] !== d.data().tenant) await fs.deleteDoc(d.ref);
-            for (const [email, slug] of Object.entries(wanted)) await fs.setDoc(fs.doc(db, 'vendorIndex', email), { tenant: slug });
+                if (!snap.exists()) await fs.setDoc(ref, { slug, name: r.name || slug, admins, active: true, createdAt: fs.serverTimestamp() });
+                else if (t.name !== (r.name || slug) || JSON.stringify(t.admins || []) !== JSON.stringify(admins)) await fs.updateDoc(ref, { name: r.name || slug, admins });
+                if (!t.pricePaid && !t.purchaseDate && !t.agreement) await fillFromOffer(slug, r.offerName || r.name || slug, await signedOffers());
+            }));
+            const idx = await idxP, have = {};
+            await Promise.all(idx.docs.map(d => { have[d.id] = d.data().tenant; return wanted[d.id] !== d.data().tenant ? fs.deleteDoc(d.ref) : null; }));
+            await Promise.all(Object.entries(wanted).filter(([email, slug]) => have[email] !== slug).map(([email, slug]) => fs.setDoc(fs.doc(db, 'vendorIndex', email), { tenant: slug })));
             st.textContent = 'מסונכרן ✓';
-        } catch(e) { console.error(e); st.textContent = 'הסנכרון נכשל: ' + (e.code || e.message); }
+        } catch(e) { console.error(e); st.textContent = Core.isQuota(e) ? '⚠ ' + Core.QUOTA_MSG : 'הסנכרון נכשל: ' + (e.code || e.message); if (Core.isQuota(e)) QUOTA = true; }
     }
 
     // ספק חדש: איש קשר, טלפון, חבילה, סכום, תאריך רכישה, תמיכה וההסכם החתום — מההצעה החתומה האחרונה עם אותו שם עסק
@@ -86,7 +87,7 @@
             contactName: o.contactName || '', phone: o.phone || '', plan: o.plan || '', pricePaid: Number(o.total) || 0,
             purchaseDate: Core.toISO(day), supportUntil: months ? Core.toISO(Core.addMonths(day, months)) : '',
             updatedAt: fs.serverTimestamp() });
-        if (Core.hasPdf(o)) { const pdf = await Core.getPdf('platformQuotes/' + o.id, o); if (pdf) await saveAgreement(slug, pdf, { source: 'offer', offerId: o.id, label: `הצעה חתומה · ${o.vendorName || ''}`, signedAt: o.signedAt || null }); }
+        if (Core.hasPdf(o)) await saveAgreement(slug, await Core.getPdf('platformQuotes/' + o.id, o), { source: 'offer', offerId: o.id, label: `הצעה חתומה · ${o.vendorName || ''}`, signedAt: o.signedAt || null });
     }
 
     // מייל ההתחברות של הספק: מרשימת הספקים (registry.js), ואם אין — מהכרטיס ב-Firebase
@@ -131,10 +132,13 @@
         }
         return sent;
     }
+    let QUOTA = false;
     async function renderVendors(){
-        const snap = await fs.getDocs(fs.collection(db, 'tenants'));
+        let snap;
+        try { snap = await fs.getDocs(fs.collection(db, 'tenants')); }
+        catch(e) { $('tbody').innerHTML = `<tr><td colspan="9" class="loading">${esc(Core.isQuota(e) ? Core.QUOTA_MSG : 'טעינת הספקים נכשלה: ' + (e.code || e.message))}</td></tr>`; if (Core.isQuota(e)) QUOTA = true; return; }
         VENDORS = (await Promise.all(snap.docs.map(loadVendor))).sort((a, b) => String(a.name).localeCompare(String(b.name), 'he'));
-        await sendReminders().catch(() => false);
+        sendReminders().then(sent => { if (sent) renderVendors(); }).catch(() => {});   // ברקע — לא מעכב את הרשימה
         const n = k => VENDORS.filter(k).length, sum = k => VENDORS.reduce((s, v) => s + (Number(v[k]) || 0), 0);
         const kpi = (v, l, s, hl) => `<div class="card kpi${hl ? ' hl' : ''}"><div class="l">${l}</div><div class="n">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
         $('kpis').innerHTML =
@@ -339,6 +343,8 @@
         const btn = $('e_delete'); btn.disabled = true; btn.textContent = 'מוחק…';
         try {
             await fs.setDoc(fs.doc(db, 'deletedTenants', id), { name: t.name || id, admins: t.admins || [], quotes: Number(t.total) || 0, deletedAt: fs.serverTimestamp() });
+            const qs = await fs.getDocs(fs.collection(db, 'tenants', id, 'quotes'));
+            await Promise.all(qs.docs.map(d => Core.deletePdf(`tenants/${id}/quotes/${d.id}`)));
             await deleteAll(fs.collection(db, 'tenants', id, 'quotes'));
             await deleteAll(fs.collection(db, 'tenants', id, 'consents'));
             await deleteAll(fs.collection(db, 'tenants', id, 'files'));
@@ -427,11 +433,24 @@
         btn.disabled = false; btn.textContent = 'יצירת קישור להצעה';
     }
 
+    /* העברה חד-פעמית של PDF ישנים מתוך ההצעות של כל הספקים למסמך נפרד — רק מכאן (הבעלים), ברקע, קובץ אחד בכל פעם.
+       כך הטלפון של הספק לא מעלה קבצים, ולוח הבקרה שלו נטען מהר. אחרי שהועברו — אין מה להעביר והבדיקה קלה. */
+    async function migrateVendorPdfs(){
+        for (const v of VENDORS) {
+            try {
+                const qs = await fs.getDocs(fs.query(fs.collection(db, 'tenants', v.id, 'quotes'), fs.where('status', '==', 'signed')));
+                qs.docs.forEach(d => { const q = d.data(); if (q.pdfData) Core.migratePdf(`tenants/${v.id}/quotes/${d.id}`, q); });
+            } catch(e) { console.warn(e); }
+        }
+    }
+
     /* ================= הצעות שנשלחו ================= */
     let OFFERS = [];
     function startOffers(){
         fs.onSnapshot(fs.query(fs.collection(db, 'platformQuotes'), fs.orderBy('createdAt', 'desc')), snap => {
             OFFERS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            // העברה חד-פעמית של PDF ישן מתוך ההצעה למסמך נפרד (כך הרשימה לא מורידה את כל הקבצים בכל טעינה)
+            OFFERS.filter(o => o.pdfData).forEach(o => Core.migratePdf('platformQuotes/' + o.id, o));
             renderOffers();
         }, err => { console.error(err); $('otbody').innerHTML = '<tr><td colspan="8" class="loading">שגיאת הרשאות</td></tr>'; });
     }
@@ -482,7 +501,7 @@
         } else if (b.classList.contains('del')) {
             if (!confirm(`למחוק את ההצעה ל-${o.vendorName}? לא ניתן לשחזר.`)) return;
             b.disabled = true;
-            try { await fs.deleteDoc(fs.doc(db, 'platformQuotes', o.id)); Core.deleteShortLink(o.shortId); } catch(err) { alert('המחיקה נכשלה.'); b.disabled = false; }
+            try { await Core.deletePdf('platformQuotes/' + o.id); await fs.deleteDoc(fs.doc(db, 'platformQuotes', o.id)); Core.deleteShortLink(o.shortId); } catch(err) { alert('המחיקה נכשלה.'); b.disabled = false; }
         } else if (b.classList.contains('view')) {
             Core.openPdf('platformQuotes/' + o.id, o);
         }
