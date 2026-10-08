@@ -94,7 +94,7 @@
           <div class="span2 sum-strip" id="sum-strip" aria-live="polite"></div>
           <div class="span2"><label class="lbl" for="in_notes">הערות / סיכומים <small>· יופיעו בהצעה</small></label><textarea id="in_notes" rows="2" class="field"></textarea></div>
           <details class="span2 more-box" id="more-box" open>
-            <summary>✨ מה שהופך הצעה לסגירה <small>· תוקף, תשלום, הטבות ותוספות</small></summary>
+            <summary>מה שהופך הצעה לסגירה <small>· תוקף, תשלום, הטבות ותוספות</small></summary>
             <div class="more-grid">
               <div><label class="lbl" for="in_valid">תוקף ההצעה</label><select id="in_valid" class="field"><option value="7">7 ימים</option><option value="14">14 ימים</option><option value="30">30 ימים</option><option value="0">ללא הגבלה</option></select><p class="hint" id="valid-hint"></p></div>
               <div><label class="lbl" for="in_due">מתי משלמים את היתרה</label><input id="in_due" class="field" list="due-opts" maxlength="60"><datalist id="due-opts"><option value="ביום האירוע"><option value="עד שבוע לפני האירוע"><option value="בסיום האירוע"><option value="עד 3 ימים אחרי האירוע"></datalist></div>
@@ -102,19 +102,6 @@
               <div class="span2"><span class="lbl">🎁 הטבות ללקוח <small>· מה מקבלים בחינם (עם השווי) — מגדיל סגירות</small></span><div class="rows" id="perks"></div><button type="button" class="btn sm" id="add-perk">+ הוספת הטבה</button></div>
               <div class="span2"><span class="lbl">➕ תוספות אפשריות <small>· לא נכנסות למחיר, הלקוח יכול לבקש להוסיף</small></span><div class="rows" id="extras"></div><button type="button" class="btn sm" id="add-extra">+ הוספת תוספת</button></div>
             </div>
-          </details>
-          <details class="span2 tips-box">
-            <summary>💡 טיפים להצעה שסוגרת עסקה</summary>
-            <ul>
-              <li><b>דברו עם הלקוח לפני</b> ורשמו את הנקודות שעלו — ההצעה תהיה מדויקת.</li>
-              <li><b>פרטו מה כלול</b> בכל חבילה/פריט, בקצרה: כמות, שעות, ציוד. זה חוסך אי-הבנות.</li>
-              <li><b>מחיר לכל סעיף</b> — המערכת מציגה ללקוח את פירוט המחיר אוטומטית.</li>
-              <li><b>הטבות בחינם — עם השווי.</b> "מגנטים בשווי ₪300 — מתנה" שווה יותר מ"הנחה".</li>
-              <li><b>תוספות אפשריות</b> — הלקוח רואה מה עוד אפשר להזמין, ולא מרגיש שמנסים למכור לו בכוח.</li>
-              <li><b>תוקף להצעה</b> (7–14 יום) יוצר החלטה מהירה ומגן עליכם משינויי מחירים.</li>
-              <li><b>תנאי תשלום ברורים:</b> כמה, מתי ואיך משלמים.</li>
-              <li><b>שפה פשוטה וקצרה.</b> הלקוח קורא מהטלפון.</li>
-            </ul>
           </details>
           <button type="submit" class="btn primary lg block span2" id="gen-btn">יצירת הצעה ללקוח</button>
          </fieldset>
