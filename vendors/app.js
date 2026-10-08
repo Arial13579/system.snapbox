@@ -33,8 +33,18 @@
         CFG_SERVICES = { ...(P.SERVICES || {}) }; CFG_CATALOG = (P.CATALOG || []).slice();
         await loadPackages();
         if (!isOwnerView && !(await hasConsent())) { askConsent(); return; }
-        render(); remindSupport();
+        render(); remindSupport(); oneSession();
     });
+    // חיבור אחד בלבד: פתיחה במקום אחר מנתקת כאן (הבעלים פטור)
+    const oneSession = () => { if (!isOwnerView) Core.singleSession(sameBrowser => {
+        leaving = true;
+        $('main-app').classList.add('hidden'); $('consent').classList.add('hidden'); $('loading').classList.add('hidden');
+        $('kicked').classList.remove('hidden');
+        $('kicked-msg').textContent = sameBrowser ? 'החשבון נפתח בלשונית אחרת בדפדפן הזה, ולכן הלשונית הזו נסגרה. אפשר להמשיך לעבוד בלשונית החדשה.'
+            : 'החשבון נפתח במכשיר או בדפדפן אחר, ולכן נותקת כאן. אפשר להיות מחוברים רק ממקום אחד בכל פעם.';
+        $('kicked-btn').textContent = sameBrowser ? 'להמשיך לעבוד כאן' : 'להתחבר שוב כאן';
+        $('kicked-btn').onclick = () => { location.href = sameBrowser ? location.href : './'; };
+    }).catch(() => {}); };
     // שבוע אחרון של התמיכה → מייל תזכורת אחד (אם עוד לא נשלח לתאריך הזה)
     const remindSupport = () => Core.supportReminder(slug, tenantData, (tenantData.admins || []).concat(T.business.email || []), T.business.name).catch(() => {});
 
@@ -55,7 +65,7 @@
                 await fb.fs.setDoc(fb.fs.doc(fb.db, 'tenants', slug, 'consents', consentId()), {
                     email: (user.email || '').toLowerCase(), version: Core.PF.termsVersion, acceptedAt: fb.fs.serverTimestamp(), userAgent: navigator.userAgent.slice(0, 300) });
                 $('consent').classList.add('hidden');
-                render(); remindSupport();
+                render(); remindSupport(); oneSession();
             } catch(e) { $('consent-err').textContent = 'השמירה נכשלה, נסו שוב.'; btn.disabled = false; btn.textContent = 'אישור וכניסה לחשבון'; }
         });
     }
