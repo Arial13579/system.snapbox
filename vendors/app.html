@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230d9488'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial'%3E%E2%82%AA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="vendor.css?v=20261008a">
+<link rel="stylesheet" href="vendor.css?v=20261008b">
 <title>החשבון שלי | מחולל הצעות מחיר</title>
 </head>
 <body>
@@ -68,7 +68,7 @@
           <div class="span2"><label class="lbl" for="in_location">מיקום האירוע *</label><input type="text" id="in_location" required class="field" placeholder="שם המקום, עיר"></div>
 
           <!-- מצב מחירון אוטומטי (DJ, להקות וכו') -->
-          <div class="span2 m-classic"><label class="lbl" for="in_service" id="lbl-service">חבילה *</label><select id="in_service" class="field" required></select></div>
+          <div class="span2 m-classic"><div class="lbl-row"><label class="lbl" for="in_service" id="lbl-service">חבילה *</label><button type="button" class="link pkg-new">+ חבילה חדשה</button></div><select id="in_service" class="field" required></select><p class="hint" id="svc-inc"></p></div>
           <div class="m-classic"><label class="lbl" for="in_startTime">שעת התחלה *</label><input type="text" id="in_startTime" required class="field ltr" style="text-align:left" inputmode="numeric" maxlength="5" placeholder="HH:MM"></div>
           <div class="m-classic"><label class="lbl" for="in_endTime">שעת סיום *</label><input type="text" id="in_endTime" required class="field ltr" style="text-align:left" inputmode="numeric" maxlength="5" placeholder="HH:MM"></div>
           <div class="m-classic"><label class="lbl" for="in_guests">כמות מוזמנים (משוער) *</label><input type="number" id="in_guests" required min="1" class="field" placeholder="למשל 250"></div>
@@ -84,7 +84,9 @@
             <div class="items" id="items" aria-live="polite"></div>
             <button type="button" class="btn add-pkg" id="add-item">+ הוספת חבילה</button>
           </div>
-          <div class="m-items"><label class="lbl" for="in_discount">הנחה (₪) <small>· אופציונלי</small></label><input type="number" id="in_discount" min="0" class="field" placeholder="0"></div>
+          <div class="span2 disc-box"><label class="lbl" for="in_discount">הנחה ללקוח (₪) <small id="disc-pct">· אופציונלי</small></label>
+            <div class="disc-row"><input type="number" id="in_discount" min="0" class="field" placeholder="0" inputmode="numeric">
+            <div class="quick" id="disc-quick" role="group" aria-label="הנחה מהירה"><button type="button" class="btn sm" data-p="10">10%</button><button type="button" class="btn sm" data-p="20">20%</button><button type="button" class="btn sm" data-p="0">ללא</button></div></div></div>
 
           <div><label class="lbl" for="in_price">מחיר כולל (₪) * <small id="price-hint">· מחושב, ניתן לעריכה</small></label><input type="number" id="in_price" required min="0" class="field"></div>
           <div><label class="lbl" for="in_deposit">מקדמה (₪) *</label><input type="number" id="in_deposit" required min="0" class="field">
@@ -112,6 +114,10 @@
     <!-- ===== לוח בקרה ===== -->
     <section id="tab-dash" class="hidden">
       <div class="kpis" id="kpis"></div>
+      <div class="card" id="pkg-card">
+        <div class="card-h"><h2 id="pkg-h">החבילות שלי</h2><button type="button" class="btn sm primary pkg-new">+ הוספת חבילה</button></div>
+        <div class="card-b"><p class="hint" id="pkg-hint">החבילות מופיעות ברשימה "חבילה" במחולל ההצעות. שינוי כאן לא משנה הצעות שכבר נשלחו.</p><div class="pkg-list" id="pkg-list"></div></div>
+      </div>
       <div class="charts">
         <div class="card"><div class="card-h"><h2>סטטוס הצעות</h2></div><div class="card-b"><div class="chart-box"><canvas id="statusChart"></canvas></div></div></div>
         <div class="card"><div class="card-h"><h2>הכנסות לפי חודש האירוע (חתומות)</h2></div><div class="card-b"><div class="chart-box"><canvas id="revenueChart"></canvas></div></div></div>
@@ -133,11 +139,25 @@
   <nav aria-label="מסמכים"><a href="../legal/terms.html">תנאי שימוש והסכם שירות</a><a href="../legal/privacy.html">מדיניות פרטיות</a><a href="../legal/accessibility.html">הצהרת נגישות</a><a href="#" id="wa-support">תמיכה בוואטסאפ</a></nav>
   <p>Snap Box · מחולל הצעות מחיר וחוזים</p>
 </footer>
+<dialog class="modal" id="pkg-dlg" aria-labelledby="pkg-title">
+  <form method="dialog" id="pkg-form">
+    <div class="card-h"><h2 id="pkg-title">חבילה חדשה</h2><button type="button" class="btn sm" id="pkg-close" aria-label="סגירה">✕</button></div>
+    <div class="card-b pkg-grid">
+      <div class="span2"><label class="lbl" for="pk_label">שם החבילה *</label><input id="pk_label" class="field" required maxlength="80" placeholder="למשל: עמדת צילום פרימיום"></div>
+      <div class="span2"><label class="lbl" for="pk_price">מחיר (₪) *</label><input id="pk_price" type="number" min="0" max="1000000" class="field" required inputmode="numeric"></div>
+      <div class="pk-classic"><label class="lbl" for="pk_hours">שעות כלולות</label><input id="pk_hours" type="number" min="0" max="48" step="0.5" class="field" inputmode="decimal" placeholder="3"></div>
+      <div class="pk-classic"><label class="lbl" for="pk_extra">מחיר לשעה נוספת (₪)</label><input id="pk_extra" type="number" min="0" max="100000" class="field" inputmode="numeric" placeholder="400"></div>
+      <div class="span2"><label class="lbl" for="pk_inc">מה כלול <small id="pk_inc_hint">· כל שורה = פריט</small></label><textarea id="pk_inc" rows="4" class="field" maxlength="1200" placeholder="צילום והדפסות ללא הגבלה&#10;מגנטים לכל אורח&#10;מפעיל צמוד"></textarea></div>
+      <p class="hint span2" id="pk_status" role="status"></p>
+      <button type="submit" class="btn primary block span2" id="pk_save">שמירת החבילה</button>
+    </div>
+  </form>
+</dialog>
 <input type="file" id="fileUploadInput" accept="application/pdf" style="display:none">
 
-<script src="platform.js?v=20261008a"></script>
-<script src="core.js?v=20261008a"></script>
-<script src="app.js?v=20261008a"></script>
+<script src="platform.js?v=20261008b"></script>
+<script src="core.js?v=20261008b"></script>
+<script src="app.js?v=20261008b"></script>
 <script>window.PRIVACY_URL = '../legal/privacy.html';</script>
 <script src="../common/cookie.js"></script>
 <script src="../common/a11y.js"></script>

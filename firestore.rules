@@ -8,6 +8,7 @@ rules_version = '2';
 //   tenants/{ספק}                 — פרטי ספק: admins (רשימת מיילים), active (פעיל/מושהה)
 //   tenants/{ספק}/quotes/{הצעה}   — ההצעות של הספק
 //   tenants/{ספק}/consents/{…}    — אישורי תנאי השימוש של הספק
+//   tenants/{ספק}/packages/{…}    — החבילות / המחירון שהספק מנהל בעצמו
 //   tenants/{ספק}/notices/{…}     — תזכורות שנשלחו לספק (סוף תמיכה), פעם אחת לכל תאריך
 //   tenants/{ספק}/private/meta    — הערות פנימיות של הבעלים (הספק לא רואה)
 //   tenants/{ספק}/files/{קובץ}    — ההסכם החתום של הספק מול Snap Box (רק הבעלים מעלה/מחליף)
@@ -83,6 +84,20 @@ service cloud.firestore {
                 || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pdfData'])))
           || isClientSigning() || isClientAttachingPdf();
       }
+    }
+
+    // ---- החבילות / המחירון של הספק (מוצגים במחולל ההצעות). הספק מנהל רק את שלו, ספק מוגבל — צפייה בלבד ----
+    match /tenants/{t}/packages/{p} {
+      allow read: if isOwner() || isVendorOf(t);
+      allow delete: if isOwner() || canCreateFor(t);
+      allow create, update: if isOwner() || (canCreateFor(t)
+        && p.size() <= 40
+        && request.resource.data.keys().hasOnly(['label', 'base', 'hours', 'extraHour', 'items', 'desc', 'deleted', 'updatedAt'])
+        && (request.resource.data.get('deleted', false) == true
+            || (request.resource.data.label is string && request.resource.data.label.size() > 0 && request.resource.data.label.size() <= 80
+                && request.resource.data.base is number && request.resource.data.base >= 0 && request.resource.data.base <= 1000000
+                && (!('items' in request.resource.data) || (request.resource.data.items is list && request.resource.data.items.size() <= 20))
+                && (!('desc' in request.resource.data) || (request.resource.data.desc is string && request.resource.data.desc.size() <= 300)))));
     }
 
     // ---- תזכורות שנשלחו לספק (מייל בשבוע האחרון של התמיכה): נרשמת פעם אחת לכל תאריך סיום ----

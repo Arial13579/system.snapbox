@@ -30,6 +30,8 @@
         try { T = await Core.loadTenant(slug); } catch(e) { block('לא נמצאו הגדרות העסק. פנו ל-Snap Box.'); return; }
         P = T.pricing || {};
         MODE = P.MODE === 'items' ? 'items' : 'classic';
+        CFG_SERVICES = { ...(P.SERVICES || {}) }; CFG_CATALOG = (P.CATALOG || []).slice();
+        await loadPackages();
         if (!isOwnerView && !(await hasConsent())) { askConsent(); return; }
         render(); remindSupport();
     });
@@ -101,8 +103,8 @@
         $('lbl-service').textContent = L.service + ' *';
         $('th-service').textContent = L.service;
         $('event-types').innerHTML = (L.eventTypes || []).map(x => `<option value="${esc(x)}">`).join('');
-        $('in_service').innerHTML = Object.entries(P.SERVICES || {}).map(([k, s]) => `<option value="${esc(k)}">${esc(s.label)} · מ-₪${Number(s.base).toLocaleString()}</option>`).join('');
-        if (P.DEFAULT_SERVICE) $('in_service').value = P.DEFAULT_SERVICE;
+        renderServiceSelect(P.DEFAULT_SERVICE);
+        renderPackages();
         $('in_deposit').value = P.DEPOSIT != null ? P.DEPOSIT : 0;
         depositTouched = false;
         renderSums();
@@ -181,10 +183,12 @@
         if (q.sound) h += row(`תוספת לפי גודל האירוע · ${esc(q.soundLabel)}`, q.sound);
         if (q.travel) h += row(`נסיעה · ${esc(q.travelLabel)}`, q.travel);
         if (q.extraCost) h += row(`זמן נוסף · ${fmtDur(q.extraMin)} שעות`, q.extraCost);
-        h += `<div class="row sum"><span>סה"כ מחיר מוצע</span><span>₪${q.total.toLocaleString()}</span></div><div><button type="button" class="link" id="recalc">⟳ עדכן את שדה המחיר לסכום זה</button></div>`;
+        const disc = Math.min(discountNow(), q.total), fin = q.total - disc;
+        if (disc) h += `<div class="row disc"><span>הנחה${discLabel(q.total)}</span><span>−₪${disc.toLocaleString()}</span></div>`;
+        h += `<div class="row sum"><span>סה"כ מחיר מוצע</span><span>₪${fin.toLocaleString()}</span></div><div><button type="button" class="link" id="recalc">⟳ עדכן את שדה המחיר לסכום זה</button></div>`;
         box.innerHTML = h; box.classList.remove('hidden');
         $('recalc').addEventListener('click', () => { priceTouched = false; onCalc(); });
-        if (!priceTouched) $('in_price').value = q.total;
+        if (!priceTouched) $('in_price').value = fin;
         renderSums();
     }
 
@@ -221,7 +225,7 @@
     $('in_date').addEventListener('input', e => formatDate(e.target, e));
     ['in_startTime', 'in_endTime'].forEach(id => $(id).addEventListener('input', e => { formatTime(e.target, e); onCalc(); }));
     $('in_guests').addEventListener('input', onCalc);
-    $('in_service').addEventListener('change', onCalc);
+    $('in_service').addEventListener('change', () => { showServiceIncludes(); onCalc(); });
     $('in_location').addEventListener('blur', autoDistance);
     $('in_distance').addEventListener('input', () => { distanceTouched = true; onCalc(); });
     $('in_price').addEventListener('input', () => { priceTouched = true; renderSums(); });
@@ -233,6 +237,121 @@
         $('in_deposit').value = Math.round(price * (+b.dataset.p) / 100 / 10) * 10;
         depositTouched = true; renderSums();
     });
+
+    /* ---- הנחה ללקוח: סכום חופשי או 10% / 20% ---- */
+    const discountNow = () => Math.max(0, Number($('in_discount').value) || 0);
+    function subtotalNow(){
+        if (MODE === 'items') return itemsSubtotal();
+        const q = computeQuote(); return q ? q.total : (Number($('in_price').value) || 0) + discountNow();
+    }
+    const discLabel = sub => { const d = discountNow(); return d && sub ? ` (${Math.round(d / sub * 100)}%)` : ''; };
+    function discountChanged(){
+        const sub = subtotalNow();
+        $('disc-pct').textContent = discountNow() ? '·' + (discLabel(sub) || ' ').trim() + ' מהמחיר' : '· אופציונלי';
+        if (MODE === 'items') return itemsChanged();
+        if (computeQuote()) return onCalc();
+        if (!priceTouched || discountNow() === 0) { $('in_price').value = Math.max(0, sub - discountNow()) || ''; }
+        renderSums();
+    }
+    $('in_discount').addEventListener('input', () => { priceTouched = false; discountChanged(); });
+    $('disc-quick').addEventListener('click', e => {
+        const b = e.target.closest('button'); if (!b) return;
+        const sub = subtotalNow();
+        if (!sub && +b.dataset.p) { (MODE === 'items' ? $('add-item') : $('in_guests')).focus(); return; }
+        $('in_discount').value = +b.dataset.p ? Math.round(sub * (+b.dataset.p) / 100) : '';
+        priceTouched = false; discountChanged();
+    });
+
+    /* ---- החבילות של הספק: tenants/{slug}/packages/{id} ----
+       מזהה = מפתח החבילה. חבילה מההגדרות (config) שנערכה נשמרת באותו מזהה; deleted:true מסתיר אותה. חבילה חדשה = p<אקראי>.
+       במצב פריטים — אותו דבר על פריטי המחירון (מזהה cat<מספר> לפריטים מההגדרות). */
+    let CFG_SERVICES = {}, CFG_CATALOG = [], PKG_DOCS = [], editingPkg = null;
+    async function loadPackages(){
+        try { PKG_DOCS = (await fb.fs.getDocs(fb.fs.collection(fb.db, 'tenants', slug, 'packages'))).docs.map(d => ({ id: d.id, ...d.data() })); }
+        catch(e) { PKG_DOCS = []; }
+        const S = {}; Object.entries(CFG_SERVICES).forEach(([k, v]) => { S[k] = { ...v }; });
+        const C = CFG_CATALOG.map((c, i) => ({ ...c, id: 'cat' + i }));
+        PKG_DOCS.forEach(x => {
+            if (MODE === 'items') {
+                const i = C.findIndex(c => c.id === x.id);
+                if (x.deleted) { if (i >= 0) C.splice(i, 1); return; }
+                const v = { id: x.id, label: x.label, price: Number(x.base) || 0, desc: x.desc || '' };
+                if (i >= 0) C[i] = { ...C[i], ...v }; else C.push(v);
+            } else {
+                if (x.deleted) { delete S[x.id]; return; }
+                S[x.id] = { ...(S[x.id] || { lead: '' }), label: x.label, base: Number(x.base) || 0, hours: Number(x.hours) || 0, extraHour: Number(x.extraHour) || 0, items: x.items || [] };
+            }
+        });
+        P.SERVICES = S; P.CATALOG = C;
+    }
+    function pkgList(){
+        return MODE === 'items' ? (P.CATALOG || []).map(c => ({ id: c.id, label: c.label, base: c.price, inc: c.desc ? [c.desc] : [] }))
+            : Object.entries(P.SERVICES || {}).map(([k, s]) => ({ id: k, label: s.label, base: s.base, hours: s.hours, extraHour: s.extraHour, inc: s.items || [] }));
+    }
+    function renderServiceSelect(keep){
+        if (MODE === 'items') return;
+        const sel = $('in_service'), cur = keep || sel.value;
+        sel.innerHTML = Object.entries(P.SERVICES || {}).map(([k, s]) => `<option value="${esc(k)}">${esc(s.label)} · מ-₪${Number(s.base).toLocaleString()}</option>`).join('');
+        if (cur && (P.SERVICES || {})[cur]) sel.value = cur;
+        showServiceIncludes();
+    }
+    function showServiceIncludes(){
+        const s = (P.SERVICES || {})[$('in_service').value];
+        $('svc-inc').textContent = s ? [s.hours ? `עד ${hoursPlain(s.hours)}` : '', s.extraHour ? `שעה נוספת ₪${Number(s.extraHour).toLocaleString()}` : '', (s.items || []).join(' · ')].filter(Boolean).join(' · ') : '';
+    }
+    function renderPackages(){
+        const L = pkgList(), items = MODE === 'items';
+        $('pkg-h').textContent = items ? 'המחירון שלי' : 'החבילות שלי';
+        $('pkg-hint').textContent = items ? 'הפריטים מופיעים כלחצנים במחולל ההצעות. שינוי כאן לא משנה הצעות שכבר נשלחו.' : 'החבילות מופיעות ברשימה "חבילה" במחולל ההצעות. שינוי כאן לא משנה הצעות שכבר נשלחו.';
+        $('pkg-list').innerHTML = L.length ? L.map(p => `<div class="pkg-row" data-id="${esc(p.id)}"><div><b>${esc(p.label)}</b>
+            <span class="m">₪${Number(p.base || 0).toLocaleString()}${p.hours ? ` · עד ${esc(hoursPlain(p.hours))}` : ''}${p.extraHour ? ` · שעה נוספת ₪${Number(p.extraHour).toLocaleString()}` : ''}</span>
+            ${p.inc.length ? `<small>${p.inc.map(esc).join(' · ')}</small>` : ''}</div>
+            <div class="acts"><button type="button" class="btn sm pkg-edit" data-id="${esc(p.id)}">עריכה</button><button type="button" class="btn sm danger pkg-del" data-id="${esc(p.id)}" aria-label="מחיקה: ${esc(p.label)}">מחיקה</button></div></div>`).join('')
+            : '<p class="hint">עדיין אין חבילות. לחצו "+ הוספת חבילה".</p>';
+    }
+    function openPkg(id){
+        const items = MODE === 'items', p = id ? pkgList().find(x => x.id === id) : null;
+        editingPkg = id || null;
+        $('pkg-title').textContent = p ? 'עריכת ' + (items ? 'פריט' : 'חבילה') : (items ? 'פריט חדש במחירון' : 'חבילה חדשה');
+        document.querySelectorAll('.pk-classic').forEach(el => { el.hidden = items; });
+        $('pk_inc_hint').textContent = items ? '· תיאור קצר' : '· כל שורה = פריט';
+        $('pk_label').value = p ? p.label : ''; $('pk_price').value = p ? (p.base || 0) : '';
+        $('pk_hours').value = p && p.hours ? p.hours : ''; $('pk_extra').value = p && p.extraHour ? p.extraHour : '';
+        $('pk_inc').value = p ? p.inc.join('\n') : ''; $('pk_status').textContent = '';
+        $('pkg-dlg').showModal(); $('pk_label').focus();
+    }
+    document.addEventListener('click', e => { if (e.target.closest('.pkg-new')) openPkg(null); });
+    $('pkg-close').addEventListener('click', () => $('pkg-dlg').close());
+    $('pkg-list').addEventListener('click', async e => {
+        const ed = e.target.closest('.pkg-edit'); if (ed) return openPkg(ed.dataset.id);
+        const del = e.target.closest('.pkg-del'); if (!del) return;
+        const p = pkgList().find(x => x.id === del.dataset.id); if (!p) return;
+        if (MODE !== 'items' && pkgList().length <= 1) { alert('חייבת להישאר לפחות חבילה אחת.'); return; }
+        if (!confirm(`למחוק את "${p.label}"? הצעות שכבר נשלחו לא ישתנו.`)) return;
+        del.disabled = true;
+        try { await fb.fs.setDoc(fb.fs.doc(fb.db, 'tenants', slug, 'packages', p.id), { deleted: true, updatedAt: fb.fs.serverTimestamp() }); await refreshPackages(); }
+        catch(err) { alert(err.code === 'permission-denied' ? 'אין הרשאה (ייתכן שהחשבון מוגבל).' : 'המחיקה נכשלה.'); del.disabled = false; }
+    });
+    $('pkg-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        const items = MODE === 'items', label = Core.clean($('pk_label').value.trim()).slice(0, 80), base = Math.max(0, Number($('pk_price').value) || 0);
+        if (!label) { $('pk_label').focus(); return; }
+        const inc = $('pk_inc').value.split('\n').map(x => Core.clean(x.trim())).filter(Boolean);
+        const data = { label, base, deleted: false, updatedAt: fb.fs.serverTimestamp() };
+        if (items) data.desc = inc.join(' ').slice(0, 300);
+        else Object.assign(data, { hours: Math.max(0, Number($('pk_hours').value) || 0), extraHour: Math.max(0, Number($('pk_extra').value) || 0), items: inc.slice(0, 20).map(x => x.slice(0, 120)) });
+        const id = editingPkg || ('p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
+        const btn = $('pk_save'); btn.disabled = true; $('pk_status').textContent = 'שומר…';
+        try {
+            await fb.fs.setDoc(fb.fs.doc(fb.db, 'tenants', slug, 'packages', id), data);
+            $('pkg-dlg').close(); await refreshPackages(items ? null : id);
+        } catch(err) { $('pk_status').textContent = err.code === 'permission-denied' ? 'אין הרשאה לשמור (ייתכן שהחשבון מוגבל).' : 'השמירה נכשלה, נסו שוב.'; }
+        btn.disabled = false;
+    });
+    async function refreshPackages(select){
+        await loadPackages(); renderPackages();
+        if (MODE === 'items') renderCatalog(); else { renderServiceSelect(select); onCalc(); }
+    }
 
     /* ---- סיכום: מחיר, מקדמה, יתרה ---- */
     let depositTouched = false;
@@ -248,7 +367,7 @@
     function initItems(L){
         $('items-title').textContent = (L.included || 'מה כלול בהצעה') + ' *';
         $('price-hint').textContent = '· סכום הפריטים, ניתן לעריכה';
-        $('catalog').innerHTML = (P.CATALOG || []).map((c, i) => `<button type="button" data-i="${i}">+ ${esc(c.label)}${c.price ? `<small>${Core.money(c.price)}</small>` : ''}</button>`).join('');
+        renderCatalog();
         $('catalog').addEventListener('click', e => {
             const b = e.target.closest('button'); if (!b) return;
             const c = (P.CATALOG || [])[+b.dataset.i]; if (!c) return;
@@ -276,10 +395,12 @@
             const b = e.target.closest('.rm'); if (!b) return;
             ITEMS.splice(+b.closest('.it-row').dataset.i, 1); renderItems(); itemsChanged();
         });
-        $('in_discount').addEventListener('input', itemsChanged);
         $('in_itStart').addEventListener('input', e => formatTime(e.target, e));
         (P.DEFAULT_ITEMS || []).forEach(l => { const c = (P.CATALOG || []).find(x => x.label === l); if (c) ITEMS.push({ label: c.label, qty: 1, price: Number(c.price) || 0, desc: c.desc || '' }); });
         renderItems(); if (ITEMS.length) itemsChanged();
+    }
+    function renderCatalog(){
+        $('catalog').innerHTML = (P.CATALOG || []).map((c, i) => `<button type="button" data-i="${i}">+ ${esc(c.label)}${c.price ? `<small>${Core.money(c.price)}</small>` : ''}</button>`).join('');
     }
     function renderItems(){
         // כל חבילה/פריט = כרטיס: שם, מה כלול, כמות ומחיר (נוח גם בטלפון)
@@ -293,7 +414,8 @@
               <span class="tot" aria-label="סה&quot;כ לפריט">${Core.money((Number(it.qty) || 1) * (Number(it.price) || 0))}</span>
             </div></div>`).join('');
     }
-    function itemsTotal(){ return Math.max(0, ITEMS.reduce((s, i) => s + (Number(i.qty) || 1) * (Number(i.price) || 0), 0) - (Number($('in_discount').value) || 0)); }
+    const itemsSubtotal = () => ITEMS.reduce((s, i) => s + (Number(i.qty) || 1) * (Number(i.price) || 0), 0);
+    function itemsTotal(){ return Math.max(0, itemsSubtotal() - discountNow()); }
     function itemsChanged(){
         if (!priceTouched) $('in_price').value = itemsTotal() || '';
         if (!depositTouched) {
@@ -313,9 +435,12 @@
         if (MODE === 'items') {
             const items = ITEMS.filter(i => String(i.label).trim()).map(i => ({ label: Core.clean(String(i.label).trim()).slice(0, 120), qty: Number(i.qty) || 1, price: Number(i.price) || 0, desc: Core.clean(String(i.desc || '').trim()).slice(0, 300) }));
             if (!items.length) { alert('הוסיפו לפחות פריט אחד להצעה.'); return; }
-            q = { ...base, mode: 'items', items, discount: Number($('in_discount').value) || 0, service: '', startTime: g('in_itStart'), endTime: '', guests: Number($('in_itGuests').value) || 0 };
+            q = { ...base, mode: 'items', items, discount: discountNow(), service: '', startTime: g('in_itStart'), endTime: '', guests: Number($('in_itGuests').value) || 0 };
         } else {
-            q = { ...base, service: $('in_service').value, startTime: g('in_startTime'), endTime: g('in_endTime'), guests: Number($('in_guests').value) || 0 };
+            const sv = (P.SERVICES || {})[$('in_service').value] || {};
+            // תמונת מצב של החבילה (כך הלקוח רואה בדיוק מה הוצע, גם אם החבילה תשתנה אחר כך)
+            const pkg = { label: Core.clean(sv.label || ''), hours: Number(sv.hours) || 0, lead: Core.clean(sv.lead || ''), items: (sv.items || []).map(x => Core.clean(x)).slice(0, 20) };
+            q = { ...base, service: $('in_service').value, pkg, discount: discountNow(), startTime: g('in_startTime'), endTime: g('in_endTime'), guests: Number($('in_guests').value) || 0 };
         }
         if (q.deposit > q.price) { alert('המקדמה גדולה מהמחיר הכולל.'); return; }
         const btn = $('gen-btn'); btn.disabled = true; btn.textContent = 'שומר…';
@@ -367,7 +492,7 @@
 
     /* ================= לוח בקרה ================= */
     let QUOTES = [], statusChart, revenueChart, statusFilter = 'all', searchTerm = '', pendingUploadId = null;
-    const serviceLabel = q => q && q.items && q.items.length ? q.items[0].label + (q.items.length > 1 ? ` +${q.items.length - 1}` : '') : (((P.SERVICES || {})[q && q.service] || {}).label || '');
+    const serviceLabel = q => q && q.items && q.items.length ? q.items[0].label + (q.items.length > 1 ? ` +${q.items.length - 1}` : '') : ((q && q.pkg && q.pkg.label) || ((P.SERVICES || {})[q && q.service] || {}).label || '');
     const fmtTs = ts => ts && ts.toDate ? ts.toDate().toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }) : null;
     const qCol = () => fb.fs.collection(fb.db, 'tenants', slug, 'quotes');
 
