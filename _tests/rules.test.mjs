@@ -169,6 +169,18 @@ await no('vendor cannot read private notes', getDoc(doc(noa, 'tenants/noa/privat
 await no('vendor cannot write private notes', setDoc(doc(noa, 'tenants/noa/private/meta'), { notes: 'x' }));
 await no('anon cannot read private notes', getDoc(doc(anon, 'tenants/noa/private/meta')));
 
+// תזכורת סוף תמיכה: פעם אחת לכל תאריך סיום
+await ok('owner sets noa support date', updateDoc(doc(owner, 'tenants/noa'), { supportUntil: '2026-10-12' }));
+await ok('vendor records reminder for current date', setDoc(doc(noa, 'tenants/noa/notices/support-2026-10-12'), { type: 'supportReminder', until: '2026-10-12', sentAt: serverTimestamp(), by: 'noa@gmail.com' }));
+await no('vendor cannot record it twice', setDoc(doc(noa, 'tenants/noa/notices/support-2026-10-12'), { type: 'supportReminder', until: '2026-10-12', sentAt: serverTimestamp(), by: 'x' }));
+await no('vendor cannot record a different date', setDoc(doc(noa, 'tenants/noa/notices/support-2027-01-01'), { type: 'supportReminder', until: '2027-01-01', sentAt: serverTimestamp(), by: 'x' }));
+await no('vendor cannot write other fields', setDoc(doc(noa, 'tenants/noa/notices/x'), { type: 'other' }));
+await no('vendor cannot delete reminder', deleteDoc(doc(noa, 'tenants/noa/notices/support-2026-10-12')));
+await ok('vendor reads reminder', getDoc(doc(noa, 'tenants/noa/notices/support-2026-10-12')));
+await no('other vendor cannot read reminder', getDoc(doc(yossi, 'tenants/noa/notices/support-2026-10-12')));
+await no('anon cannot read reminder', getDoc(doc(anon, 'tenants/noa/notices/support-2026-10-12')));
+await ok('owner deletes reminder', deleteDoc(doc(owner, 'tenants/noa/notices/support-2026-10-12')));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);

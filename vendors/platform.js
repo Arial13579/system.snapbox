@@ -14,6 +14,7 @@ window.PLATFORM = {
     firestoreDatabaseId: 'default',
 
     // פרטי קשר של Snap Box (מוצגים לספקים ובהצעות המחיר לספקים)
+    supportReminderDays: 7,   // מייל תזכורת אחד בשבוע האחרון של התמיכה הטכנית
     contact: { phone: '051-2440252', whatsapp: '972512440252', email: 'arielkahalani1@gmail.com' },
 
     // גרסת תנאי השימוש לספקים. שינוי הגרסה מחייב כל ספק לאשר מחדש בכניסה הבאה

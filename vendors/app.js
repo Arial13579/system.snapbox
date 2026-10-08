@@ -31,8 +31,10 @@
         P = T.pricing || {};
         MODE = P.MODE === 'items' ? 'items' : 'classic';
         if (!isOwnerView && !(await hasConsent())) { askConsent(); return; }
-        render();
+        render(); remindSupport();
     });
+    // שבוע אחרון של התמיכה → מייל תזכורת אחד (אם עוד לא נשלח לתאריך הזה)
+    const remindSupport = () => Core.supportReminder(slug, tenantData, (tenantData.admins || []).concat(T.business.email || []), T.business.name).catch(() => {});
 
     /* ================= אישור תנאי שימוש ================= */
     const consentId = () => (user.email || '').toLowerCase() + '|' + Core.PF.termsVersion;
@@ -51,7 +53,7 @@
                 await fb.fs.setDoc(fb.fs.doc(fb.db, 'tenants', slug, 'consents', consentId()), {
                     email: (user.email || '').toLowerCase(), version: Core.PF.termsVersion, acceptedAt: fb.fs.serverTimestamp(), userAgent: navigator.userAgent.slice(0, 300) });
                 $('consent').classList.add('hidden');
-                render();
+                render(); remindSupport();
             } catch(e) { $('consent-err').textContent = 'השמירה נכשלה, נסו שוב.'; btn.disabled = false; btn.textContent = 'אישור וכניסה לחשבון'; }
         });
     }
@@ -251,14 +253,20 @@
             const b = e.target.closest('button'); if (!b) return;
             const c = (P.CATALOG || [])[+b.dataset.i]; if (!c) return;
             const ex = ITEMS.find(x => x.label === c.label);
-            if (ex) ex.qty = (Number(ex.qty) || 1) + 1; else ITEMS.push({ label: c.label, qty: 1, price: Number(c.price) || 0 });
+            if (ex) ex.qty = (Number(ex.qty) || 1) + 1; else ITEMS.push({ label: c.label, qty: 1, price: Number(c.price) || 0, desc: c.desc || '' });
             renderItems(); itemsChanged();
         });
-        $('add-item').addEventListener('click', () => { ITEMS.push({ label: '', qty: 1, price: 0 }); renderItems(); const r = $('items').lastElementChild; if (r) r.querySelector('.it-label').focus(); });
+        $('add-item').addEventListener('click', () => {
+            ITEMS.push({ label: '', qty: 1, price: 0, desc: '' }); renderItems();
+            const r = $('items').lastElementChild; if (!r) return;
+            r.classList.add('new'); r.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            setTimeout(() => r.querySelector('.it-label').focus({ preventScroll: true }), 350);
+        });
         $('items').addEventListener('input', e => {
             const row = e.target.closest('.it-row'); if (!row) return;
             const it = ITEMS[+row.dataset.i]; if (!it) return;
             if (e.target.classList.contains('it-label')) it.label = e.target.value;
+            if (e.target.classList.contains('it-desc')) it.desc = e.target.value;
             if (e.target.classList.contains('it-qty')) it.qty = Math.max(1, Number(e.target.value) || 1);
             if (e.target.classList.contains('it-price')) it.price = Math.max(0, Number(e.target.value) || 0);
             row.querySelector('.tot').textContent = Core.money((Number(it.qty) || 1) * (Number(it.price) || 0));
@@ -270,16 +278,20 @@
         });
         $('in_discount').addEventListener('input', itemsChanged);
         $('in_itStart').addEventListener('input', e => formatTime(e.target, e));
-        (P.DEFAULT_ITEMS || []).forEach(l => { const c = (P.CATALOG || []).find(x => x.label === l); if (c) ITEMS.push({ label: c.label, qty: 1, price: Number(c.price) || 0 }); });
+        (P.DEFAULT_ITEMS || []).forEach(l => { const c = (P.CATALOG || []).find(x => x.label === l); if (c) ITEMS.push({ label: c.label, qty: 1, price: Number(c.price) || 0, desc: c.desc || '' }); });
         renderItems(); if (ITEMS.length) itemsChanged();
     }
     function renderItems(){
+        // כל חבילה/פריט = כרטיס: שם, מה כלול, כמות ומחיר (נוח גם בטלפון)
         $('items').innerHTML = ITEMS.map((it, i) => `<div class="it-row" data-i="${i}">
-            <input class="field it-label" value="${esc(it.label)}" placeholder="שם הפריט" aria-label="שם הפריט" required>
-            <input class="field it-qty" type="number" min="1" value="${Number(it.qty) || 1}" aria-label="כמות">
-            <input class="field it-price" type="number" min="0" value="${Number(it.price) || 0}" aria-label="מחיר ליחידה בש&quot;ח">
-            <span class="tot">${Core.money((Number(it.qty) || 1) * (Number(it.price) || 0))}</span>
-            <button type="button" class="rm" aria-label="הסרת ${esc(it.label || 'הפריט')}">✕</button></div>`).join('');
+            <div class="it-top"><input class="field it-label" value="${esc(it.label)}" placeholder="שם החבילה / הפריט" aria-label="שם החבילה או הפריט" maxlength="120" required>
+              <button type="button" class="rm" aria-label="הסרת ${esc(it.label || 'החבילה')}">✕</button></div>
+            <textarea class="field it-desc" rows="2" maxlength="300" placeholder="מה כלול? למשל: 4 שעות צילום, 300 תמונות ערוכות, אלבום דיגיטלי" aria-label="מה כלול ב${esc(it.label || 'חבילה')}">${esc(it.desc || '')}</textarea>
+            <div class="it-nums">
+              <label>כמות<input class="field it-qty" type="number" min="1" inputmode="numeric" value="${Number(it.qty) || 1}"></label>
+              <label>מחיר (₪)<input class="field it-price" type="number" min="0" inputmode="numeric" value="${Number(it.price) || 0}"></label>
+              <span class="tot" aria-label="סה&quot;כ לפריט">${Core.money((Number(it.qty) || 1) * (Number(it.price) || 0))}</span>
+            </div></div>`).join('');
     }
     function itemsTotal(){ return Math.max(0, ITEMS.reduce((s, i) => s + (Number(i.qty) || 1) * (Number(i.price) || 0), 0) - (Number($('in_discount').value) || 0)); }
     function itemsChanged(){
@@ -299,7 +311,7 @@
             date: g('in_date'), price: Number($('in_price').value) || 0, deposit: Number($('in_deposit').value) || 0, notes: Core.clean($('in_notes').value || '') };
         let q;
         if (MODE === 'items') {
-            const items = ITEMS.filter(i => String(i.label).trim()).map(i => ({ label: Core.clean(String(i.label).trim()).slice(0, 120), qty: Number(i.qty) || 1, price: Number(i.price) || 0 }));
+            const items = ITEMS.filter(i => String(i.label).trim()).map(i => ({ label: Core.clean(String(i.label).trim()).slice(0, 120), qty: Number(i.qty) || 1, price: Number(i.price) || 0, desc: Core.clean(String(i.desc || '').trim()).slice(0, 300) }));
             if (!items.length) { alert('הוסיפו לפחות פריט אחד להצעה.'); return; }
             q = { ...base, mode: 'items', items, discount: Number($('in_discount').value) || 0, service: '', startTime: g('in_itStart'), endTime: '', guests: Number($('in_itGuests').value) || 0 };
         } else {

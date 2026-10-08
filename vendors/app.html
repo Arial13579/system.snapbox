@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230d9488'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial'%3E%E2%82%AA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="vendor.css?v=20261007n">
+<link rel="stylesheet" href="vendor.css?v=20261008a">
 <title>החשבון שלי | מחולל הצעות מחיר</title>
 </head>
 <body>
@@ -79,10 +79,10 @@
           <div class="m-items"><label class="lbl" for="in_itStart">שעת התחלת האירוע <small>· אופציונלי</small></label><input type="text" id="in_itStart" class="field ltr" style="text-align:left" inputmode="numeric" maxlength="5" placeholder="HH:MM"></div>
           <div class="m-items"><label class="lbl" for="in_itGuests">כמות מוזמנים <small>· אופציונלי</small></label><input type="number" id="in_itGuests" min="0" class="field" placeholder="למשל 200"></div>
           <div class="span2 m-items items-box">
-            <div class="items-h"><span class="lbl" id="items-title">מה כלול בהצעה *</span><span class="hint">לחצו על פריט מהמחירון כדי להוסיף, ואפשר לשנות שם, כמות ומחיר</span></div>
+            <div class="items-h"><span class="lbl" id="items-title">מה כלול בהצעה *</span><span class="hint">לחצו על פריט מהמחירון, או הוסיפו חבילה משלכם: שם, מה כלול ומחיר</span></div>
             <div class="catalog" id="catalog" role="group" aria-label="מחירון — לחיצה מוסיפה פריט"></div>
             <div class="items" id="items" aria-live="polite"></div>
-            <button type="button" class="btn sm" id="add-item">+ פריט חופשי</button>
+            <button type="button" class="btn add-pkg" id="add-item">+ הוספת חבילה</button>
           </div>
           <div class="m-items"><label class="lbl" for="in_discount">הנחה (₪) <small>· אופציונלי</small></label><input type="number" id="in_discount" min="0" class="field" placeholder="0"></div>
 
@@ -135,9 +135,9 @@
 </footer>
 <input type="file" id="fileUploadInput" accept="application/pdf" style="display:none">
 
-<script src="platform.js?v=20261007n"></script>
-<script src="core.js?v=20261007n"></script>
-<script src="app.js?v=20261007n"></script>
+<script src="platform.js?v=20261008a"></script>
+<script src="core.js?v=20261008a"></script>
+<script src="app.js?v=20261008a"></script>
 <script>window.PRIVACY_URL = '../legal/privacy.html';</script>
 <script src="../common/cookie.js"></script>
 <script src="../common/a11y.js"></script>
