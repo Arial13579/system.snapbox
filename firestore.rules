@@ -15,6 +15,7 @@ rules_version = '2';
 //   deletedTenants/{ספק}          — ספקים שנמחקו לצמיתות (כדי שהסנכרון לא ייצור אותם מחדש)
 //   platformQuotes/{הצעה}         — הצעות מחיר של Snap Box לספקים
 //   shortLinks/{מזהה}             — קישורים קצרים להצעות (פתוחים לקריאה לפי מזהה בלבד)
+//   sessions/{מייל}               — החיבור הפעיל של הספק (חיבור אחד בלבד; פתיחה במקום אחר מנתקת את הקודם)
 //   vendorIndex/{מייל}            — לאיזה ספק שייך כל מייל (לכניסת ספקים)
 //   check_quotes/{הצעה}           — המערכת הקיימת של CHECK (נשארת עובדת כרגיל)
 //
@@ -158,6 +159,18 @@ service cloud.firestore {
     match /platformQuotes/{q} {
       allow read, create, delete: if isOwner();
       allow update: if isOwner() || isClientSigning() || isClientAttachingPdf();
+    }
+
+    // ---- חיבור פעיל אחד לכל ספק: כל משתמש קורא/כותב רק את הרשומה של המייל שלו ----
+    match /sessions/{email} {
+      allow get: if isOwner() || (signedIn() && request.auth.token.email.lower() == email);
+      allow list, delete: if isOwner();
+      allow create, update: if signedIn() && request.auth.token.email.lower() == email
+        && request.resource.data.keys().hasOnly(['sid', 'bid', 'at', 'ua'])
+        && request.resource.data.sid is string && request.resource.data.sid.size() <= 64
+        && request.resource.data.bid is string && request.resource.data.bid.size() <= 64
+        && request.resource.data.at == request.time
+        && request.resource.data.ua is string && request.resource.data.ua.size() <= 200;
     }
 
     // ---- אינדקס כניסת ספקים: כל מחובר קורא רק את הרשומה של המייל שלו ----

@@ -200,6 +200,20 @@ await ok('limited vendor still reads packages', getDocs(collection(noa, 'tenants
 await ok('owner edits vendor package', setDoc(doc(owner, 'tenants/noa/packages/pabc'), { ...pk, base: 5000 }));
 await ok('owner lifts limit (packages)', updateDoc(doc(owner, 'tenants/noa'), { limited: false }));
 
+// חיבור אחד בלבד
+const ses = { sid: 'a1', bid: 'b1', at: serverTimestamp(), ua: 'UA' };
+await ok('vendor claims own session', setDoc(doc(noa, 'sessions/noa@gmail.com'), ses));
+await ok('vendor re-claims (another device)', setDoc(doc(noa, 'sessions/noa@gmail.com'), { ...ses, sid: 'a2', bid: 'b2' }));
+await ok('vendor reads own session', getDoc(doc(noa, 'sessions/noa@gmail.com')));
+await no('vendor cannot claim another vendor session', setDoc(doc(noa, 'sessions/yossi@gmail.com'), ses));
+await no('vendor cannot read another vendor session', getDoc(doc(yossi, 'sessions/noa@gmail.com')));
+await no('anon cannot read sessions', getDoc(doc(anon, 'sessions/noa@gmail.com')));
+await no('anon cannot write sessions', setDoc(doc(anon, 'sessions/noa@gmail.com'), ses));
+await no('session with extra fields rejected', setDoc(doc(noa, 'sessions/noa@gmail.com'), { ...ses, admin: true }));
+await no('session with fake time rejected', setDoc(doc(noa, 'sessions/noa@gmail.com'), { ...ses, at: new Date('2020-01-01') }));
+await no('vendor cannot list sessions', getDocs(collection(noa, 'sessions')));
+await ok('owner reads a vendor session', getDoc(doc(owner, 'sessions/noa@gmail.com')));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);

@@ -228,5 +228,29 @@
         return true;
     }
 
-    window.Core = { reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
+    /* ---- חיבור אחד בלבד לכל ספק (הבעלים פטור) ----
+       כל פתיחה של חשבון הספק רושמת sessions/{email} = { sid, bid } (sid חדש בכל טעינת דף, bid קבוע לדפדפן).
+       כל דף פתוח מאזין למסמך: אם נרשם sid אחר — החשבון נפתח במקום אחר, והדף הזה מתנתק.
+       בדפדפן/מכשיר אחר — התנתקות מלאה. באותו דפדפן (לשונית אחרת) — רק חסימת הלשונית, כדי לא לנתק גם את הלשונית החדשה. */
+    const rid = () => Array.from(crypto.getRandomValues(new Uint8Array(12)), b => b.toString(16).padStart(2, '0')).join('');
+    async function singleSession(onKicked){
+        const f = await fb(), u = f.auth.currentUser;
+        if (!u || isOwner(u)) return false;
+        let bid = ''; try { bid = localStorage.getItem('sb.bid') || ''; if (!bid) { bid = rid(); localStorage.setItem('sb.bid', bid); } } catch(e) { bid = rid(); }
+        const sid = rid(), ref = f.fs.doc(f.db, 'sessions', String(u.email || '').toLowerCase());
+        try { await f.fs.setDoc(ref, { sid, bid, at: f.fs.serverTimestamp(), ua: navigator.userAgent.slice(0, 200) }); }
+        catch(e) { console.warn('session claim failed', e); return false; }   // לפני עדכון הכללים — לא חוסמים
+        let done = false;
+        const unsub = f.fs.onSnapshot(ref, s => {
+            const d = s.data();
+            if (done || !d || !d.sid || d.sid === sid) return;
+            done = true; unsub();
+            const sameBrowser = d.bid === bid;
+            if (!sameBrowser) f.authMod.signOut(f.auth).catch(() => {});
+            onKicked(sameBrowser);
+        }, () => {});
+        return true;
+    }
+
+    window.Core = { singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();
