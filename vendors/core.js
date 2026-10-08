@@ -121,6 +121,7 @@
     // שדות 13–14 (פריטים והנחה) קיימים רק בהצעות במצב "פריטים": שם^כמות^מחיר ליחידה, מופרדים ב-~
     const cleanItem = s => clean(s).replace(/[~^]/g, '-');
     const encodeItems = items => (items || []).map(i => [cleanItem(i.label), Number(i.qty) || 1, Number(i.price) || 0].concat(i.desc ? [cleanItem(i.desc)] : []).join('^')).join('~');   // שם^כמות^מחיר[^מה כלול]
+    const lines = (arr, pick) => (arr || []).map(x => pick(x).map(v => typeof v === 'number' ? v : cleanItem(v)).join('^')).join('~');
     // חבילה: שם^שעות^שורת פתיחה^מה כלול (מופרד ב-~)
     const encodePkg = p => p ? [cleanItem(p.label), Number(p.hours) || 0, cleanItem(p.lead || ''), (p.items || []).map(cleanItem).join('~')].join('^') : '';
     function shareUrl(slug, q){
@@ -128,6 +129,11 @@
             q.guests || '', q.price || 0, q.deposit || 0, clean(q.notes), q.id, q.service || ''];
         if (q.items && q.items.length) f.push(encodeItems(q.items), Number(q.discount) || 0);
         else if (q.pkg || q.discount) f.push('', Number(q.discount) || 0, encodePkg(q.pkg));   // 13: הנחה, 14: תמונת מצב של החבילה
+        // 15–19: פירוט מחיר, תוספות אפשריות, הטבות, תוקף, תנאי תשלום
+        const pay = q.payment && (q.payment.methods || []).length + (q.payment.due ? 1 : 0) ? [(q.payment.methods || []).map(cleanItem).join(','), cleanItem(q.payment.due || '')].join('^') : '';
+        const more = [lines(q.breakdown, x => [x.label, Number(x.amount) || 0]), lines(q.extras, x => [x.label, Number(x.price) || 0, x.desc || '']),
+            lines(q.perks, x => [x.label, Number(x.worth) || 0]), q.validUntil || '', pay];
+        if (more.some(Boolean)) { while (f.length < 15) f.push(f.length === 13 ? (Number(q.discount) || 0) : ''); f.push(...more); }
         return `${PF.customerBase}/${slug}/?q=${b64UrlEncode(f.join('|'))}`;
     }
 

@@ -295,3 +295,22 @@ fieldset.plain:disabled{ opacity:.55; }
 .disc-row .quick{ margin:0; }
 .price-was{ font-size:13px; color:var(--muted); font-weight:700; }
 @media(max-width:560px){ .pkg-row{ flex-direction:column; align-items:stretch; } .pkg-row .acts{ justify-content:flex-start; } }
+
+/* מה שהופך הצעה לסגירה + טיפים */
+.more-box, .tips-box{ border:1px solid var(--line); border-radius:16px; background:var(--surface-2); padding:12px 14px; }
+.more-box summary, .tips-box summary{ cursor:pointer; font-weight:800; font-size:15px; }
+.more-box summary small{ font-weight:600; color:var(--muted); }
+.more-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:12px; }
+.more-grid .span2{ grid-column:1 / -1; }
+@media(max-width:560px){ .more-grid{ grid-template-columns:1fr; } }
+.pay-box{ border:0; padding:0; margin:0; }
+.pay-box legend{ padding:0; margin-bottom:6px; }
+.chips{ display:flex; flex-wrap:wrap; gap:6px; }
+.chip{ display:inline-flex; align-items:center; gap:6px; border:1px solid var(--line); background:var(--surface); border-radius:999px; padding:6px 12px; font-size:14px; font-weight:700; cursor:pointer; }
+.chip input{ accent-color:var(--accent); }
+.rows{ display:flex; flex-direction:column; gap:6px; margin:6px 0 8px; }
+.mrow{ display:flex; gap:6px; align-items:center; flex-wrap:wrap; background:var(--surface); border:1px solid var(--line); border-radius:12px; padding:6px; }
+.mrow .field{ flex:1 1 140px; padding:8px 10px; font-size:14px; }
+.mrow .field[type=number]{ flex:0 1 100px; }
+.mrow .rm{ border:0; background:none; font-size:18px; color:var(--bad); cursor:pointer; width:36px; height:36px; border-radius:8px; }
+.tips-box ul{ margin:10px 0 0; padding-inline-start:20px; display:grid; gap:6px; font-size:14px; line-height:1.55; }
