@@ -435,13 +435,21 @@
 
     /* העברה חד-פעמית של PDF ישנים מתוך ההצעות של כל הספקים למסמך נפרד — רק מכאן (הבעלים), ברקע, קובץ אחד בכל פעם.
        כך הטלפון של הספק לא מעלה קבצים, ולוח הבקרה שלו נטען מהר. אחרי שהועברו — אין מה להעביר והבדיקה קלה. */
+    // אחרי שבדיקה מלאה לא מצאה אף קובץ ישן — לא בודקים שוב במכשיר הזה (חוסך קריאות ממכסת Firebase בכל כניסה).
+    // חתימות חדשות כבר נשמרות במסמך הנפרד, כך שקבצים ישנים לא נוצרים מחדש.
+    const MIGRATED_KEY = 'sb.pdfMigrated.v1';
     async function migrateVendorPdfs(){
+        try { if (localStorage.getItem(MIGRATED_KEY)) return; } catch(e) {}
+        let found = 0, failed = false;
         for (const v of VENDORS) {
             try {
                 const qs = await fs.getDocs(fs.query(fs.collection(db, 'tenants', v.id, 'quotes'), fs.where('status', '==', 'signed')));
-                qs.docs.forEach(d => { const q = d.data(); if (q.pdfData) Core.migratePdf(`tenants/${v.id}/quotes/${d.id}`, q); });
-            } catch(e) { console.warn(e); }
+                const jobs = qs.docs.filter(d => d.data().pdfData).map(d => Core.migratePdf(`tenants/${v.id}/quotes/${d.id}`, d.data()));
+                found += jobs.length;
+                if (jobs.length && (await Promise.all(jobs)).some(ok => !ok)) failed = true;
+            } catch(e) { console.warn(e); failed = true; }
         }
+        if (!found && !failed) { try { localStorage.setItem(MIGRATED_KEY, new Date().toISOString()); } catch(e) {} }
     }
 
     /* ================= הצעות שנשלחו ================= */
