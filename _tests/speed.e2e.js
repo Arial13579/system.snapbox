@@ -15,7 +15,7 @@ let failures = 0;
 const check = (cond, msg) => { console.log((cond ? '  ✓ ' : '  ✗ ') + msg); if (!cond) failures++; };
 
 async function setup(ctx){
-  await ctx.addInitScript(() => { window.__EMU__ = { firestore: 8085, auth: 9099 }; });
+  await ctx.addInitScript(() => { window.__EMU__ = { firestore: 8085, auth: 9099 }; try { localStorage.removeItem('sb.pdfMigrated.v1'); } catch(e) {} });   // הבדיקה מוסיפה קבצים ישנים אחרי הכניסה הראשונה
   await ctx.route('**/*', async route => {
     const u = route.request().url();
     const m = u.match(/gstatic\.com\/firebasejs\/([\d.]+)\/(firebase-(app|auth|firestore)\.js)$/);
