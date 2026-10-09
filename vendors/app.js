@@ -570,25 +570,56 @@
         if (window.Chart) return Promise.resolve();
         return new Promise((res, rej) => { const s = document.createElement('script'); s.src = 'https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js'; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
     }
+    /* חיסכון במכסה של Firebase: הרשימה טוענת רק את ההצעות האחרונות (PAGE בכל פעם, "טעינת הצעות קודמות" מוסיף),
+       והמדדים (סה"כ, נחתמו, הכנסה) מחושבים בשרת (count/sum) — עולים יחידות בודדות במקום לקרוא את כל ההצעות. */
+    const PAGE = 50;
+    let qLimit = PAGE, unsubQuotes = null, STATS = null, statsTimer = null;
     function startDashboard(){
         loadChartJs().catch(() => {});
-        fb.fs.onSnapshot(fb.fs.query(qCol(), fb.fs.orderBy('createdAt', 'desc')), snap => {
+        $('more-quotes').addEventListener('click', () => { qLimit += PAGE; $('more-quotes').disabled = true; subscribeQuotes(); });
+        subscribeQuotes();
+    }
+    function subscribeQuotes(){
+        if (unsubQuotes) unsubQuotes();
+        unsubQuotes = fb.fs.onSnapshot(fb.fs.query(qCol(), fb.fs.orderBy('createdAt', 'desc'), fb.fs.limit(qLimit)), snap => {
             QUOTES = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            renderKpis(); renderTable(); loadChartJs().then(renderCharts).catch(() => {});
-        }, err => { console.error(err); $('tbody').innerHTML = '<tr><td colspan="9" class="loading">אין הרשאה לנתונים — ייתכן שהחשבון מושהה.</td></tr>'; });
+            $('more-quotes').disabled = false;
+            renderAll(); clearTimeout(statsTimer); statsTimer = setTimeout(refreshStats, 300);
+        }, err => { console.error(err); $('tbody').innerHTML = `<tr><td colspan="9" class="loading">${Core.isQuota(err) ? esc(Core.QUOTA_MSG) : 'אין הרשאה לנתונים — ייתכן שהחשבון מושהה.'}</td></tr>`; });
+    }
+    async function refreshStats(){
+        try {
+            const fs = fb.fs, col = qCol();
+            const [all, sig] = await Promise.all([
+                fs.getAggregateFromServer(col, { n: fs.count() }),
+                fs.getAggregateFromServer(fs.query(col, fs.where('status', '==', 'signed')), { n: fs.count(), rev: fs.sum('price') })
+            ]);
+            STATS = { total: all.data().n, signed: sig.data().n, revenue: Number(sig.data().rev) || 0 };
+        } catch(e) { console.warn('stats', e); STATS = null; }   // אם נכשל — מחשבים מההצעות שנטענו
+        renderAll();
+    }
+    function renderAll(){
+        renderKpis(); renderTable(); loadChartJs().then(renderCharts).catch(() => {});
+        const total = STATS ? STATS.total : QUOTES.length, more = total > QUOTES.length || (!STATS && QUOTES.length >= qLimit);
+        $('load-more').hidden = !more;
+        $('more-note').textContent = more ? `מוצגות ${QUOTES.length} ההצעות האחרונות מתוך ${total}. החיפוש והגרף "הכנסות לפי חודש" לפי ההצעות המוצגות.` : '';
+    }
+    function counts(){
+        if (STATS) return STATS;
+        const signedL = QUOTES.filter(q => q.status === 'signed');
+        return { total: QUOTES.length, signed: signedL.length, revenue: signedL.reduce((s, q) => s + (Number(q.price) || 0), 0) };
     }
     function renderKpis(){
-        const total = QUOTES.length, signedL = QUOTES.filter(q => q.status === 'signed'), signed = signedL.length;
-        const revenue = signedL.reduce((s, q) => s + (Number(q.price) || 0), 0), rate = total ? Math.round(signed / total * 100) : 0;
+        const { total, signed, revenue } = counts(), rate = total ? Math.round(signed / total * 100) : 0;
         const k = (n, l, hl) => `<div class="card kpi${hl ? ' hl' : ''}"><div class="l">${l}</div><div class="n">${n}</div></div>`;
         $('kpis').innerHTML = k(total, 'הצעות שנשלחו') + k(signed, 'נחתמו') + k(total - signed, 'ממתינות') + k(rate + '%', 'אחוז סגירה') + k(Core.money(revenue), 'הכנסה מחתומות', true);
     }
     function renderCharts(){
         if (!window.Chart) return;
-        const font = { family: 'Assistant', weight: 700 }, signed = QUOTES.filter(q => q.status === 'signed').length;
+        const font = { family: 'Assistant', weight: 700 }, { total, signed } = counts();
         if (statusChart) statusChart.destroy();
         statusChart = new Chart($('statusChart'), { type: 'doughnut',
-            data: { labels: ['נחתמו', 'ממתינות'], datasets: [{ data: [signed, QUOTES.length - signed], backgroundColor: ['#0D9488', '#F2C46D'], borderWidth: 0 }] },
+            data: { labels: ['נחתמו', 'ממתינות'], datasets: [{ data: [signed, total - signed], backgroundColor: ['#0D9488', '#F2C46D'], borderWidth: 0 }] },
             options: { responsive: true, maintainAspectRatio: false, cutout: '64%', plugins: { legend: { position: 'bottom', labels: { font, usePointStyle: true } } } } });
         const by = {};
         QUOTES.filter(q => q.status === 'signed').forEach(q => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(q.date || '')); if (!m) return;

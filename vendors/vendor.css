@@ -314,3 +314,7 @@ fieldset.plain:disabled{ opacity:.55; }
 .mrow .field[type=number]{ flex:0 1 100px; }
 .mrow .rm{ border:0; background:none; font-size:18px; color:var(--bad); cursor:pointer; width:36px; height:36px; border-radius:8px; }
 .tips-box ul{ margin:10px 0 0; padding-inline-start:20px; display:grid; gap:6px; font-size:14px; line-height:1.55; }
+
+/* טעינת הצעות קודמות בלוח הבקרה */
+.load-more{display:flex;flex-direction:column;align-items:center;gap:8px;margin:14px 0 4px;text-align:center}
+.load-more .hint{margin:0}
