@@ -176,7 +176,7 @@ service cloud.firestore {
     }
 
     // ---- מונה כניסות ופעולות באתר הראשי (אנונימי): מסמך ליום, stats/d<מספר היום מאז 1970, לפי UTC> ----
-    // כל אחד יכול רק להוסיף 1 לשדה אחד מתוך v/t/w/l, ורק במסמך של היום. רק הבעלים קורא ומוחק.
+    // כל אחד יכול רק להוסיף 1 לשדה אחד מתוך v/t/w/l/f/d, ורק במסמך של היום. רק הבעלים קורא ומוחק.
     function isTodayStats(day) {
       return day == 'd' + string(int(request.time.toMillis() / 86400000));
     }
@@ -186,13 +186,13 @@ service cloud.firestore {
     match /stats/{day} {
       allow read, delete: if isOwner();
       allow create: if isTodayStats(day)
-        && request.resource.data.keys().hasOnly(['v', 't', 'w', 'l'])
+        && request.resource.data.keys().hasOnly(['v', 't', 'w', 'l', 'f', 'd'])
         && request.resource.data.size() == 1
         && request.resource.data[request.resource.data.keys()[0]] == 1;
       allow update: if isTodayStats(day)
-        && request.resource.data.keys().hasOnly(['v', 't', 'w', 'l'])
+        && request.resource.data.keys().hasOnly(['v', 't', 'w', 'l', 'f', 'd'])
         && request.resource.data.diff(resource.data).affectedKeys().size() == 1
-        && (statBump('v') || statBump('t') || statBump('w') || statBump('l'));
+        && (statBump('v') || statBump('t') || statBump('w') || statBump('l') || statBump('f') || statBump('d'));
     }
 
     // ---- מצב מבצע ההשקה (כמה נחתמו מתוך 5). כולם קוראים, רק הבעלים כותב ----

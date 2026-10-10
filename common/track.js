@@ -1,6 +1,7 @@
 /* מדידה באתר המכירה.
-   1) מונה כניסות ופעולות אנונימי — בלי עוגיות ובלי מידע אישי. מסמך אחד ליום ב-Firestore: stats/d<יום> = { v, t, w, l }
-      v = כניסות (מכשיר אחד נספר פעם אחת ביום) · t = כניסות מטיקטוק (?utm_source=tiktok) · w = לחיצות על וואטסאפ · l = לחיצות על "כניסת ספקים".
+   1) מונה כניסות ופעולות אנונימי — בלי עוגיות ובלי מידע אישי. מסמך אחד ליום ב-Firestore: stats/d<יום> = { v, t, w, l, f, d }
+      v = כניסות (מכשיר אחד נספר פעם אחת ביום) · t = כניסות מטיקטוק · w = לחיצות על וואטסאפ · l = לחיצות על "כניסת ספקים"
+      f = השאירו טלפון בטופס "חזרו אליי" · d = פתחו את ההצעה לדוגמה.
       הכללים מאפשרים רק +1 לשדה אחד בכל פעם, ורק במסמך של היום. בעלים בלבד קורא (לוח הניהול).
    2) הפיקסל של טיקטוק — נטען רק אם הוגדר מזהה (window.MARKETING.tiktokPixel) ורק אחרי שהגולש אישר בהודעת העוגיות. */
 (function(){
@@ -47,6 +48,7 @@
     }
     function pixel(ev){ if (pixelOn && window.ttq) try { window.ttq.track(ev); } catch(e) {} }
 
+    window.SBTrack = { event: function(field, ev){ bump(field); if (ev) pixel(ev); } };
     window.SBMarketing = {
         configured: function(){ return /^[A-Z0-9]{10,40}$/i.test(PIXEL); },
         on: loadPixel
@@ -62,6 +64,7 @@
             var h = a.getAttribute('href') || '';
             if (/wa\.me\//.test(h)) { bump('w'); pixel('Contact'); }
             else if (/(^|\/)vendors\/?$/.test(h)) { bump('l', true); pixel('ClickButton'); }
+            else if (a.hasAttribute('data-demo')) { bump('d'); pixel('ViewContent'); }
         }, true);
         var c = null; try { c = localStorage.getItem('sb_mkt_v1'); } catch(e) {}
         if (c === 'yes') loadPixel();

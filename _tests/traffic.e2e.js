@@ -98,7 +98,7 @@ async function salesCtx(b, withPixel){
   await ctx.addInitScript(id => { Object.defineProperty(window, 'MARKETING', { get: () => ({ tiktokPixel: id }), set: () => {} }); }, withPixel ? PIXEL_ID : '');
   return { ctx, p };
 }
-const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.floor(Date.now() / 86400000), { headers: H })).json(); const f = j.fields || {}; const n = k => Number((f[k] || {}).integerValue || 0); return { v: n('v'), t: n('t'), w: n('w'), l: n('l') }; };
+const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.floor(Date.now() / 86400000), { headers: H })).json(); const f = j.fields || {}; const n = k => Number((f[k] || {}).integerValue || 0); return { v: n('v'), t: n('t'), w: n('w'), l: n('l'), f: n('f'), d: n('d') }; };
 (async () => {
   const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium', args: ['--ignore-certificate-errors'] });
   // 1) גולש רגיל — נספר פעם אחת ביום, באנר הרגיל (בלי פיקסל מוגדר)
@@ -138,6 +138,45 @@ const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.
   const D = await salesCtx(b, false);
   await D.p.goto(SYS + '/?ttclid=E.C.P.abc123'); await D.p.waitForTimeout(1500);
   s = await stat(); check(s.v === 4 && s.t === 2, `TikTok ad click (ttclid) counted as TikTok (v=${s.v}, t=${s.t})`);
+  // 3ג) ראש הדף, פס תחתון, טופס "חזרו אליי" והצעה לדוגמה
+  await D.p.click('#cookie-ok, #cookie-no').catch(() => {});
+  check(await D.p.isVisible('#hero-offer') && /1,499/.test(await D.p.textContent('#hero-offer')), 'hero shows the launch price');
+  const heroWa = await D.p.locator('.hero .btn.wa').boundingBox();
+  check(heroWa && heroWa.y + heroWa.height <= 844, `WhatsApp button visible in the first screen on a phone (bottom=${heroWa && Math.round(heroWa.y + heroWa.height)})`);
+  check(!(await D.p.isVisible('#mbar.show')), 'bottom bar hidden at the top of the page');
+  await D.p.evaluate(() => window.scrollTo(0, 2500)); await D.p.waitForTimeout(600);
+  check(await D.p.isVisible('#mbar.show'), 'bottom bar shows after scrolling past the hero');
+  await D.p.evaluate(() => document.getElementById('contact').scrollIntoView()); await D.p.waitForTimeout(600);
+  check(!(await D.p.isVisible('#mbar.show')), 'bottom bar hides at the contact section');
+  const leads = [];
+  let leadOk = true;
+  await D.ctx.route('**/formsubmit.co/ajax/**', r => { leads.push(r.request().postData() || ''); r.fulfill(leadOk ? { body: '{"success":"true"}', contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' } } : { body: '{"success":"false","message":"activate"}', contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' } }); });
+  await D.p.click('#lf-send');
+  check(/שם/.test(await D.p.textContent('#lf-msg')) && leads.length === 0, 'lead form: empty name → error, nothing sent');
+  await D.p.fill('#lf-name', 'דני'); await D.p.fill('#lf-phone', '050-1234567'); await D.p.selectOption('#lf-field', 'DJ'); await D.p.click('#lf-send');
+  await D.p.waitForFunction(() => /תודה/.test(document.getElementById('lf-msg').textContent), null, { timeout: 8000 });
+  check(leads.length === 1 && /דני/.test(leads[0]) && /050-1234567/.test(leads[0]) && /DJ/.test(leads[0]), 'lead form sent (name, phone, field)');
+  leadOk = false;
+  await D.p.fill('#lf-name', 'רוני'); await D.p.fill('#lf-phone', '0521234567'); await D.p.click('#lf-send');
+  await D.p.waitForSelector('#lf-msg.bad a[href*="wa.me"]', { timeout: 8000 });
+  check(/%D7%A8%D7%95%D7%A0%D7%99|רוני/.test(await D.p.getAttribute('#lf-msg a', 'href')), 'lead form failure → WhatsApp link with the details');
+  const sentBefore = sent.length;
+  const [demo] = await Promise.all([D.ctx.waitForEvent('page'), D.p.click('#demo-link')]);
+  await demo.waitForSelector('.demo-note', { timeout: 20000 });
+  check(/לדוגמה/.test(await demo.textContent('.demo-note')) && /משפחת כהן/.test(await demo.textContent('body')), 'demo quote opens with the "הצעה לדוגמה" note');
+  check(!/Snap ?Box/i.test(await demo.textContent('body')), 'demo quote has no Snap Box');
+  demo.on('dialog', d => { console.log('   dialog:', d.message()); d.dismiss(); });
+  demo.on('pageerror', e => console.log('   demo error:', e.message));
+  await demo.locator('#sig-canvas').scrollIntoViewIfNeeded();
+  const cv = await demo.locator('#sig-canvas').boundingBox();
+  await demo.mouse.move(cv.x + 40, cv.y + 60); await demo.mouse.down();
+  for (let i = 0; i < 24; i++) await demo.mouse.move(cv.x + 40 + i * 9, cv.y + 60 - Math.sin(i / 3) * 30);
+  await demo.mouse.up();
+  await demo.check('#agree-terms'); await demo.click('#submit-btn');
+  await demo.waitForFunction(() => /הדגמה/.test((document.getElementById('pdf-hide-controls') || {}).textContent || ''), null, { timeout: 30000 }).catch(async e => { console.log('   demo state:', (await demo.textContent('#pdf-hide-controls')).slice(0, 200), await demo.evaluate(() => getComputedStyle(document.getElementById('pdf-overlay')).display)); await demo.screenshot({ path: '/tmp/claude-0/-home-user/33274e87-36f1-52fb-a542-54f1e7d0e4b6/scratchpad/demo-fail.png' }); throw e; });
+  check(sent.length === sentBefore, 'demo signing sends nothing to the business');
+  await demo.close();
+  s = await stat(); check(s.f === 1 && s.d === 1, `lead form and demo open counted (f=${s.f}, d=${s.d})`);
   await D.ctx.close();
   // 4) לוח הניהול
   const O = await newPage(b, { width: 1280, height: 900 }, 'owner');
@@ -148,7 +187,7 @@ const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.
   await O.p.waitForFunction(() => !document.querySelector('#traffic .loading'), null, { timeout: 15000 });
   const today = (await O.p.textContent('#traffic tr:first-child')).replace(/\s+/g, ' ');
   console.log('   traffic today:', today);
-  check(/היום\s*4\s*2\s*2\s*1/.test(today), 'admin traffic: today 4 visits (4 devices), 2 from TikTok, 2 WhatsApp, 1 vendor login');
+  check(/היום\s*4\s*2\s*2\s*1\s*1\s*1/.test(today), 'admin traffic: today 4 visits, 2 from TikTok, 2 WhatsApp, 1 lead, 1 demo, 1 vendor login');
   await O.p.click('#quota-btn'); await O.p.waitForSelector('#quota-bars:not([hidden]) .qbar', { timeout: 15000 });
   const qt = (await O.p.textContent('#quota-card')).replace(/\s+/g, ' ');
   console.log('   quota:', qt.slice(0, 200));

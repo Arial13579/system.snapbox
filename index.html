@@ -31,7 +31,7 @@
 :root{
   --bg:#071312; --surface:#0d1f1d; --surface-2:#12302c; --line:#1f4540;
   --fg:#e8f3f1; --muted:#93b3ae; --accent:#2dd4bf; --accent-strong:#5eead4; --accent-ink:#04211d;
-  --gold:#fbbf24; --paper:#ffffff; --paper-ink:#1b2b29; --paper-muted:#4f6461; --paper-line:#e1ebe9;
+  --gold:#fbbf24; --paper:#ffffff; --paper-ink:#1b2b29; --paper-muted:#4f6461; --paper-line:#e1ebe9; --bad:#fca5a5;
   --f-display:'Secular One','Assistant',system-ui,sans-serif;
   --f-body:'Assistant','Segoe UI',system-ui,sans-serif;
   --f-num:'IBM Plex Mono',ui-monospace,Menlo,monospace;
@@ -40,13 +40,13 @@
 @media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
   --bg:#f3f8f7; --surface:#ffffff; --surface-2:#e3f2ef; --line:#cfe2de;
   --fg:#0f2321; --muted:#4f6b67; --accent:#0f766e; --accent-strong:#0b5f58; --accent-ink:#ffffff;
-  --gold:#8a5a0f; --paper:#ffffff; --paper-ink:#1b2b29; --paper-muted:#4f6461; --paper-line:#e1ebe9;
+  --gold:#8a5a0f; --paper:#ffffff; --paper-ink:#1b2b29; --paper-muted:#4f6461; --paper-line:#e1ebe9; --bad:#b91c1c;
   color-scheme:light;
 }}
 :root[data-theme="light"]{
   --bg:#f3f8f7; --surface:#ffffff; --surface-2:#e3f2ef; --line:#cfe2de;
   --fg:#0f2321; --muted:#4f6b67; --accent:#0f766e; --accent-strong:#0b5f58; --accent-ink:#ffffff;
-  --gold:#8a5a0f; --paper:#ffffff; --paper-ink:#1b2b29; --paper-muted:#4f6461; --paper-line:#e1ebe9;
+  --gold:#8a5a0f; --paper:#ffffff; --paper-ink:#1b2b29; --paper-muted:#4f6461; --paper-line:#e1ebe9; --bad:#b91c1c;
   color-scheme:light;
 }
 *{box-sizing:border-box}
@@ -71,8 +71,15 @@ a{color:var(--accent)}
 .top nav{display:flex;gap:20px;flex-wrap:wrap}
 .top nav a{color:var(--muted);text-decoration:none;font-weight:600}
 .top nav a:hover{color:var(--fg)}
-@media (max-width:720px){.top nav{display:none}}
-.vendor-login{padding:8px 16px;font-size:.92rem;border-color:var(--accent);color:var(--accent)}
+@media (max-width:1000px){.top nav{display:none}}
+.brand{white-space:nowrap}
+@media (max-width:350px){.brand{font-size:.95rem;white-space:normal}.vendor-login{font-size:.85rem}}
+.top-actions{display:flex;align-items:center;gap:16px;flex:none}
+.vendor-login{color:var(--muted);font-weight:600;font-size:.92rem;text-decoration:none;white-space:nowrap}
+.vendor-login:hover{color:var(--fg);text-decoration:underline}
+.btn.sm{padding:8px 16px;font-size:.92rem}
+.btn.wa.sm svg{width:18px;height:18px}
+@media (max-width:420px){.top .wrap{gap:10px}.brand{font-size:1.02rem;gap:8px}.top-actions{gap:12px}.btn.wa.sm{padding:9px}.btn.wa.sm span{display:none}}
 
 /* hero */
 .hero{padding-block:64px 40px}
@@ -85,7 +92,17 @@ a{color:var(--accent)}
 .btn:hover{transform:translateY(-1px)}
 .proof{display:flex;gap:28px;flex-wrap:wrap;color:var(--muted);font-size:.95rem}
 .proof b{display:block;color:var(--fg);font-family:var(--f-num);font-size:1.5rem;font-weight:600}
-@media (max-width:860px){.hero .wrap{grid-template-columns:1fr}}
+@media (max-width:860px){.hero .wrap{grid-template-columns:1fr}.hero{padding-block:28px 36px}.hero-copy{gap:18px}}
+.hero-offer{display:inline-flex;align-items:center;gap:6px 10px;flex-wrap:wrap;justify-self:start;padding:6px 6px 6px 16px;border-radius:20px;background:var(--surface);border:1px solid var(--accent);color:var(--fg);text-decoration:none;font-weight:600;max-width:100%}
+.hero-offer .tag{background:#fbbf24;color:#1a1300;font-weight:800;border-radius:999px;padding:3px 12px;font-size:.85rem}
+.hero-offer .num{font-size:1.15rem;font-weight:600}
+.hero-offer s{color:var(--muted);font-weight:500;font-size:.95rem}
+.btn.big{padding:14px 24px;font-size:1.05rem}
+.micro{color:var(--muted);font-size:.92rem}
+.micro a{font-weight:700}
+@media (max-width:540px){.cta-row .btn{flex:1 1 100%;justify-content:center}.hero .lead{font-size:1.02rem}
+  /* בטלפון: מחיר וכפתורים לפני הפסקה הארוכה, כדי שיופיעו במסך הראשון */
+  .hero-copy>.eyebrow{order:1}.hero-copy>h1{order:2}.hero-offer{order:3}.hero-copy>.cta-row{order:4}.hero-copy>.micro{order:5}.hero-copy>.lead{order:6}.hero-copy>.proof{order:7}}
 
 /* WhatsApp-like chat mock (hero image) */
 .chat{background:var(--surface);border:1px solid var(--line);border-radius:28px;padding:18px;display:grid;gap:12px;max-width:380px;justify-self:center;width:100%;box-shadow:0 30px 60px -30px rgba(0,0,0,.6)}
@@ -257,6 +274,34 @@ a.c-card:hover{border-color:var(--accent)}
 .wa-float svg{width:32px;height:32px}
 .wa-float:hover{transform:scale(1.07)}
 @media (prefers-reduced-motion:no-preference){.wa-float{transition:transform .2s ease}}
+/* "חזרו אליי" */
+.lead-form{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;display:grid;gap:14px;min-width:0}
+.lf-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.lf-grid .full{grid-column:1/-1}
+@media (max-width:480px){.lf-grid{grid-template-columns:1fr}}
+.lead-form label{display:grid;gap:6px;font-weight:700;font-size:.92rem;min-width:0}
+.lead-form input,.lead-form select{font:inherit;font-size:16px;font-weight:400;padding:11px 12px;border-radius:12px;border:1px solid var(--muted);background:var(--bg);color:var(--fg);width:100%;min-width:0}
+.lead-form input[dir=ltr]{text-align:right}
+.lead-form .btn{justify-self:start}
+@media (max-width:480px){.lead-form .btn{justify-self:stretch;justify-content:center}}
+.lead-form .hp{position:absolute!important;width:1px;height:1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;opacity:0}
+.lf-msg:empty{display:none}
+.lf-msg.ok{color:var(--accent);font-weight:700}
+.lf-msg.bad{color:var(--bad);font-weight:700}
+/* פס תחתון בטלפון/טאבלט (במקום הכפתור הצף) */
+.mbar{display:none}
+@media (max-width:860px){
+  .wa-float{display:none}
+  .mbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -10px 30px -18px rgba(0,0,0,.5);transform:translateY(110%);visibility:hidden}
+  .mbar.show{transform:none;visibility:visible}
+  html.has-cookie-bar .mbar{display:none}
+  .mbar-price{display:grid;line-height:1.25;text-decoration:none;color:var(--fg);min-width:0}
+  .mbar-price b{font-size:1.25rem;font-weight:600}
+  .mbar-price span{font-size:.8rem;color:var(--muted)}
+  .mbar .btn{flex:none}
+  html.has-mbar #a11y-wrap{bottom:calc(env(safe-area-inset-bottom,0px) + 84px)}
+}
+@media (max-width:860px) and (prefers-reduced-motion:no-preference){.mbar{transition:transform .25s ease,visibility .25s}}
 footer{border-top:1px solid var(--line);padding-block:28px 100px;color:var(--muted);font-size:.9rem}
 footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .foot-links{display:flex;gap:6px 16px;flex-wrap:wrap}.foot-links a{color:var(--muted);font-weight:600}.foot-links a:hover{color:var(--fg)}
@@ -302,7 +347,10 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
       <a href="#pricing">מחיר</a>
       <a href="#contact">יצירת קשר</a>
     </nav>
-    <a class="btn vendor-login" href="vendors/">כניסת ספקים</a>
+    <div class="top-actions">
+      <a class="vendor-login" href="vendors/">כניסת ספקים</a>
+      <a class="btn wa sm" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%A8%D7%90%D7%99%D7%AA%D7%99%20%D7%90%D7%AA%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%D7%95%D7%94%D7%97%D7%95%D7%96%D7%99%D7%9D%20%D7%95%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ: שלחו לנו הודעה"><svg aria-hidden="true"><use href="#i-wa"/></svg><span>וואטסאפ</span></a>
+    </div>
   </div>
 </header>
 
@@ -313,10 +361,12 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
         <span class="eyebrow">מערכת הצעות מחיר וחוזים לספקי אירועים</span>
         <h1>מהצעת מחיר לחוזה חתום, <em>בקישור אחד בוואטסאפ</em></h1>
         <p class="lead">ממלאים את פרטי האירוע, המחיר מחושב לבד, והלקוח מקבל קישור לדף מעוצב. הוא קורא, חותם בצ׳יק, וההסכם החתום יורד לו ישר למכשיר. את/ה מקבל/ת עותק במייל ובלוח הבקרה.</p>
+        <a class="hero-offer" href="#pricing" id="hero-offer"><span class="tag" id="hero-tag">מבצע השקה</span><span class="txt"><b class="num" id="hero-price">₪1,499</b> <s class="num" id="hero-was">₪1,999</s> <span id="hero-left">· ל-5 העסקים הראשונים</span></span></a>
         <div class="cta-row">
-          <a class="btn primary" href="#pricing">למחיר ולמבצע ההשקה</a>
-          <a class="btn" href="#built">איך זה עובד</a>
+          <a class="btn wa big" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A7%D7%91%D7%9C%20%D7%94%D7%A6%D7%A2%D7%AA%20%D7%9E%D7%97%D7%99%D7%A8%20%D7%9C%D7%93%D7%95%D7%92%D7%9E%D7%94%20%D7%9B%D7%9E%D7%95%20%D7%A9%D7%94%D7%9C%D7%A7%D7%95%D7%97%D7%95%D7%AA%20%D7%A9%D7%9C%D7%99%20%D7%99%D7%A7%D7%91%D7%9C%D7%95%20%F0%9F%99%82%20%D7%94%D7%AA%D7%97%D7%95%D7%9D%20%D7%A9%D7%9C%D7%99%3A%20" target="_blank" rel="noopener noreferrer"><svg aria-hidden="true"><use href="#i-wa"/></svg>שלחו לי הצעה לדוגמה בוואטסאפ</a>
+          <a class="btn" id="demo-link" data-demo href="https://arial13579.github.io/hatzaa/demo/?demo=1" target="_blank" rel="noopener">לנסות לחתום בעצמי ←</a>
         </div>
+        <p class="micro">בלי התחייבות · תשלום חד-פעמי, בלי מנוי · <a href="#lead">או השאירו טלפון ונחזור אליכם</a></p>
         <div class="proof">
           <div><b>~3 דק׳</b>להכנת הצעה</div>
           <div><b>0</b>הדפסות וסריקות</div>
@@ -560,8 +610,19 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
       </div>
       <div class="c-cards">
         <a class="btn wa" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%A8%D7%90%D7%99%D7%AA%D7%99%20%D7%90%D7%AA%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%D7%95%D7%94%D7%97%D7%95%D7%96%D7%99%D7%9D%20%D7%95%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" style="justify-content:center"><svg aria-hidden="true"><use href="#i-wa"/></svg>שלחו הודעה בוואטסאפ</a>
+        <form class="lead-form" id="lead" novalidate>
+          <h3>מעדיפים שנחזור אליכם?</h3>
+          <div class="lf-grid">
+            <label>שם<input name="name" id="lf-name" autocomplete="name" required maxlength="60"></label>
+            <label>טלפון<input name="phone" id="lf-phone" type="tel" inputmode="tel" autocomplete="tel" required maxlength="20" dir="ltr"></label>
+            <label class="full">התחום שלכם<select name="field" id="lf-field"><option value="">בחרו…</option><option>DJ</option><option>צלם/ת</option><option>צילום וידאו</option><option>עמדת צילום / מגנטים</option><option>מפיק/ת אירועים</option><option>עיצוב, בלונים ופרחים</option><option>להקה / נגנים</option><option>קייטרינג ובר</option><option>איפור ושיער</option><option>הפעלות ומנחים</option><option>השכרת ציוד</option><option>אחר</option></select></label>
+          </div>
+          <input type="text" name="_honey" tabindex="-1" autocomplete="off" class="hp" aria-hidden="true">
+          <button type="submit" class="btn primary" id="lf-send">חזרו אליי</button>
+          <p class="lf-msg" id="lf-msg" role="status" aria-live="polite"></p>
+          <p class="note">הפרטים נשלחים אלינו רק כדי לחזור אליכם. <a href="legal/privacy.html">פרטיות</a></p>
+        </form>
         <a class="c-card" href="tel:+972512440252"><svg><use href="#i-phone"/></svg><div><small>טלפון</small><span class="val">051-2440252</span></div></a>
-        <p class="note">מוזמנים לשלוח הודעה בוואטסאפ לכל שאלה.</p>
       </div>
     </div>
   </section>
@@ -649,6 +710,10 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 })();
 </script>
 <a class="wa-float" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%A8%D7%90%D7%99%D7%AA%D7%99%20%D7%90%D7%AA%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%D7%95%D7%94%D7%97%D7%95%D7%96%D7%99%D7%9D%20%D7%95%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" aria-label="שלחו הודעה בוואטסאפ"><svg aria-hidden="true"><use href="#i-wa"/></svg></a>
+<div class="mbar" id="mbar" aria-hidden="true">
+  <a class="mbar-price" href="#pricing" tabindex="-1"><b class="num" id="mbar-price">₪1,499</b><span id="mbar-sub">מבצע השקה · תשלום חד-פעמי</span></a>
+  <a class="btn wa" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%A8%D7%90%D7%99%D7%AA%D7%99%20%D7%90%D7%AA%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%D7%95%D7%94%D7%97%D7%95%D7%96%D7%99%D7%9D%20%D7%95%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" tabindex="-1"><svg aria-hidden="true"><use href="#i-wa"/></svg>וואטסאפ</a>
+</div>
 <script>
 /* מבצע ההשקה: כמה מקומות נשארו (public/promo, מתעדכן מלוח הניהול אחרי כל חתימה) */
 (async function(){
@@ -667,17 +732,86 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
       const btn = document.getElementById('launch-btn');
       btn.textContent = 'דברו איתנו בוואטסאפ';
       btn.href = 'https://wa.me/972512440252?text=' + encodeURIComponent('היי! אשמח לשמוע על מחולל הצעות המחיר 🙂');
+      // למעלה ובפס התחתון: המחיר הרגיל
+      document.getElementById('hero-tag').textContent = 'מחיר';
+      document.getElementById('hero-price').textContent = '₪1,999';
+      document.getElementById('hero-was').remove();
+      document.getElementById('hero-left').textContent = '· תשלום חד-פעמי, בלי מנוי';
+      document.getElementById('mbar-price').textContent = '₪1,999';
+      document.getElementById('mbar-sub').textContent = 'תשלום חד-פעמי, בלי מנוי';
     } else if (used) {
       document.getElementById('launch-left').textContent = `נשארו ${limit - used} מתוך ${limit} מקומות במחיר ההשקה`;
+      document.getElementById('hero-left').textContent = `· נשארו ${limit - used} מתוך ${limit} מקומות`;
+      document.getElementById('mbar-sub').textContent = `מבצע השקה · נשארו ${limit - used} מקומות`;
     }
   } catch(e) {}
+})();
+</script>
+<script>
+/* הצעה לדוגמה: קישור לדף הלקוח של "עסק לדוגמה" עם תאריכים עדכניים (אירוע בעוד חודשיים, תוקף 14 יום). ?demo=1 = שום דבר לא נשלח */
+(function(){
+  var d = function(n){ var x = new Date(); x.setDate(x.getDate() + n); return x; };
+  var p2 = function(n){ return String(n).padStart(2, '0'); };
+  var ev = d(60), valid = d(14);
+  var f = ['משפחת כהן', 'חתונה', 'גני התערוכה, תל אביב', p2(ev.getDate()) + '/' + p2(ev.getMonth() + 1) + '/' + ev.getFullYear(),
+    '19:30', '01:30', '280', '4600', '1000', 'שיר הכניסה לחופה לבחירת הזוג', '', 'dj', '', '', '',
+    'חבילת DJ · 5 שעות^3500~שעה נוספת^500~עד 300 מוזמנים^600',
+    'סקסופון חי בקבלת הפנים^1200^45 דקות של נגינה חיה~עשן כבד לריקוד הראשון^450^',
+    'תאורת אווירה לחופה^600',
+    valid.getFullYear() + '-' + p2(valid.getMonth() + 1) + '-' + p2(valid.getDate()),
+    'העברה בנקאית,ביט,מזומן^ביום האירוע'];
+  var bytes = new TextEncoder().encode(f.join('|')), bin = '';
+  for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  var q = btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  var a = document.getElementById('demo-link');
+  a.href = a.getAttribute('href').split('?')[0] + '?demo=1&q=' + q;
+})();
+
+/* פס תחתון בטלפון ובטאבלט: מופיע אחרי שגוללים מעבר לכפתורים שבראש הדף */
+(function(){
+  var bar = document.getElementById('mbar'), cta = document.querySelector('.hero .cta-row'), contact = document.getElementById('contact');
+  if (!bar || !cta || !('IntersectionObserver' in window)) return;
+  var pastHero = false, atContact = false;
+  function upd(){ var on = pastHero && !atContact; bar.classList.toggle('show', on); document.documentElement.classList.toggle('has-mbar', on); }
+  new IntersectionObserver(function(e){ pastHero = !e[0].isIntersecting && e[0].boundingClientRect.top < 0; upd(); }).observe(cta);
+  new IntersectionObserver(function(e){ atContact = e[0].isIntersecting; upd(); }).observe(contact);
+})();
+
+/* טופס "חזרו אליי": נשלח במייל לבעלים (FormSubmit). אם נכשל — מציעים לשלוח את אותם פרטים בוואטסאפ */
+(function(){
+  var form = document.getElementById('lead'); if (!form) return;
+  var msg = document.getElementById('lf-msg'), btn = document.getElementById('lf-send');
+  function say(t, bad){ msg.textContent = ''; msg.className = 'lf-msg' + (bad ? ' bad' : ' ok'); if (typeof t === 'string') msg.textContent = t; else msg.appendChild(t); }
+  form.addEventListener('submit', function(e){
+    e.preventDefault();
+    var $ = function(id){ return document.getElementById(id); };
+    var name = $('lf-name').value.trim(), phone = $('lf-phone').value.trim(), field = $('lf-field').value;
+    if (form.querySelector('.hp').value) return;
+    if (!name) { say('נא לכתוב שם', true); $('lf-name').focus(); return; }
+    if (phone.replace(/\D/g, '').length < 9) { say('נא לכתוב מספר טלפון תקין', true); $('lf-phone').focus(); return; }
+    btn.disabled = true; btn.textContent = 'שולח…';
+    var body = { 'שם': name, 'טלפון': phone, 'תחום': field || '—', _subject: 'פנייה חדשה מהאתר: ' + name + (field ? ' (' + field + ')' : ''), _template: 'table', _captcha: 'false' };
+    var done = function(ok){
+      btn.disabled = false; btn.textContent = 'חזרו אליי';
+      if (ok) { form.reset(); say('תודה! קיבלנו ונחזור אליכם בהקדם 🙂'); if (window.SBTrack) SBTrack.event('f', 'SubmitForm'); return; }
+      var a = document.createElement('a');
+      a.href = 'https://wa.me/972512440252?text=' + encodeURIComponent('היי! אשמח שתחזרו אליי. ' + name + ', ' + phone + (field ? ', ' + field : ''));
+      a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'לשלוח את הפרטים בוואטסאפ';
+      var s = document.createElement('span'); s.append('השליחה לא הצליחה. ', a); say(s, true);
+    };
+    var ctl = 'AbortController' in window ? new AbortController() : null, t = setTimeout(function(){ if (ctl) ctl.abort(); }, 12000);
+    fetch(window.LEAD_URL || 'https://formsubmit.co/ajax/arielkahalani1@gmail.com', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(body), signal: ctl && ctl.signal })
+      .then(function(r){ return r.ok ? r.json() : null; })
+      .then(function(j){ clearTimeout(t); done(!!(j && String(j.success) === 'true')); })
+      .catch(function(){ clearTimeout(t); done(false); });
+  });
 })();
 </script>
 <script>window.PRIVACY_URL = 'legal/privacy.html';
 /* מזהה הפיקסל של טיקטוק (TikTok Ads Manager ← Assets ← Events ← Web events). ריק = כבוי. */
 window.MARKETING = { tiktokPixel: 'DB57MPRC77U074LG2QFG' };</script>
-<script src="common/track.js?v=5"></script>
-<script src="common/cookie.js?v=2"></script>
+<script src="common/track.js?v=6"></script>
+<script src="common/cookie.js?v=3"></script>
 <script src="common/a11y.js"></script>
 </body>
 </html>

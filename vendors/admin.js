@@ -31,10 +31,10 @@
             // 30 הימים האחרונים (טווח עולה לפי המזהה — לא צריך אינדקס מיוחד)
             const snap = await fs.getDocs(fs.query(fs.collection(db, 'stats'), fs.where(fs.documentId(), '>=', 'd' + (today - 30))));
             const by = {}; snap.docs.forEach(d => { by[d.id] = d.data(); });
-            const sum = (from, to) => { const r = { v: 0, t: 0, w: 0, l: 0 }; for (let i = from; i <= to; i++) { const d = by['d' + (today - i)]; if (d) for (const k in r) r[k] += Number(d[k]) || 0; } return r; };
+            const sum = (from, to) => { const r = { v: 0, t: 0, w: 0, f: 0, d: 0, l: 0 }; for (let i = from; i <= to; i++) { const d = by['d' + (today - i)]; if (d) for (const k in r) r[k] += Number(d[k]) || 0; } return r; };
             const rows = [['היום', 0, 0], ['אתמול', 1, 1], ['7 ימים', 0, 6], ['30 ימים', 0, 29]];
-            box.innerHTML = rows.map(([l, a, b]) => { const r = sum(a, b); return `<tr><td>${l}</td><td><b>${r.v}</b></td><td>${r.t}</td><td>${r.w}</td><td>${r.l}</td></tr>`; }).join('');
-        } catch(e) { box.innerHTML = `<tr><td colspan="5" class="loading">${esc(Core.isQuota(e) ? Core.QUOTA_MSG : 'טעינת הנתונים נכשלה (' + (e.code || e.message) + ')')}</td></tr>`; }
+            box.innerHTML = rows.map(([l, a, b]) => { const r = sum(a, b); return `<tr><td>${l}</td><td><b>${r.v}</b></td><td>${r.t}</td><td>${r.w}</td><td>${r.f}</td><td>${r.d}</td><td>${r.l}</td></tr>`; }).join('');
+        } catch(e) { box.innerHTML = `<tr><td colspan="7" class="loading">${esc(Core.isQuota(e) ? Core.QUOTA_MSG : 'טעינת הנתונים נכשלה (' + (e.code || e.message) + ')')}</td></tr>`; }
     }
 
     /* ================= מכסת Firebase היום (Google Cloud Monitoring) ================= */
