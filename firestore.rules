@@ -175,6 +175,26 @@ service cloud.firestore {
       allow delete: if isOwner() || (resource.data.kind == 'quote' && isVendorOf(resource.data.tenant));
     }
 
+    // ---- מונה כניסות ופעולות באתר הראשי (אנונימי): מסמך ליום, stats/d<מספר היום מאז 1970, לפי UTC> ----
+    // כל אחד יכול רק להוסיף 1 לשדה אחד מתוך v/t/w/l, ורק במסמך של היום. רק הבעלים קורא ומוחק.
+    function isTodayStats(day) {
+      return day == 'd' + string(int(request.time.toMillis() / 86400000));
+    }
+    function statBump(f) {
+      return request.resource.data.get(f, 0) == resource.data.get(f, 0) + 1;
+    }
+    match /stats/{day} {
+      allow read, delete: if isOwner();
+      allow create: if isTodayStats(day)
+        && request.resource.data.keys().hasOnly(['v', 't', 'w', 'l'])
+        && request.resource.data.size() == 1
+        && request.resource.data[request.resource.data.keys()[0]] == 1;
+      allow update: if isTodayStats(day)
+        && request.resource.data.keys().hasOnly(['v', 't', 'w', 'l'])
+        && request.resource.data.diff(resource.data).affectedKeys().size() == 1
+        && (statBump('v') || statBump('t') || statBump('w') || statBump('l'));
+    }
+
     // ---- מצב מבצע ההשקה (כמה נחתמו מתוך 5). כולם קוראים, רק הבעלים כותב ----
     match /public/{doc} {
       allow get: if true;

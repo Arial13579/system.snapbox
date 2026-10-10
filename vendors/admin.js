@@ -15,12 +15,73 @@
         if (!Core.isOwner(user)) { $('loading').classList.add('hidden'); $('blocked').classList.remove('hidden'); return; }
         $('loading').classList.add('hidden'); $('main-app').classList.remove('hidden');
         initTabs(); initOfferForm(); initEdit();
+        loadTraffic(); initQuota();
         await sync();
         await renderVendors();
         // מונה המבצע מתעדכן מיד בכניסה, לא רק כשפותחים את טאב ההצעות
         if (!offersStarted) { offersStarted = true; startOffers(); }
         if (!QUOTA) migrateVendorPdfs();
     });
+
+    /* ================= תנועה באתר הראשי (common/track.js → stats/d<יום>) ================= */
+    async function loadTraffic(){
+        const box = $('traffic');
+        try {
+            const today = Math.floor(Date.now() / 86400000);
+            // 30 הימים האחרונים (טווח עולה לפי המזהה — לא צריך אינדקס מיוחד)
+            const snap = await fs.getDocs(fs.query(fs.collection(db, 'stats'), fs.where(fs.documentId(), '>=', 'd' + (today - 30))));
+            const by = {}; snap.docs.forEach(d => { by[d.id] = d.data(); });
+            const sum = (from, to) => { const r = { v: 0, t: 0, w: 0, l: 0 }; for (let i = from; i <= to; i++) { const d = by['d' + (today - i)]; if (d) for (const k in r) r[k] += Number(d[k]) || 0; } return r; };
+            const rows = [['היום', 0, 0], ['אתמול', 1, 1], ['7 ימים', 0, 6], ['30 ימים', 0, 29]];
+            box.innerHTML = rows.map(([l, a, b]) => { const r = sum(a, b); return `<tr><td>${l}</td><td><b>${r.v}</b></td><td>${r.t}</td><td>${r.w}</td><td>${r.l}</td></tr>`; }).join('');
+        } catch(e) { box.innerHTML = `<tr><td colspan="5" class="loading">${esc(Core.isQuota(e) ? Core.QUOTA_MSG : 'טעינת הנתונים נכשלה (' + (e.code || e.message) + ')')}</td></tr>`; }
+    }
+
+    /* ================= מכסת Firebase היום (Google Cloud Monitoring) ================= */
+    const LIMITS = { reads: 50000, writes: 40000 };   // המכסה החינמית היומית
+    function laMidnight(now){
+        const p = {}; new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' })
+            .formatToParts(now).forEach(x => { p[x.type] = x.value; });
+        return new Date(now.getTime() - ((Number(p.hour) % 24) * 3600 + Number(p.minute) * 60 + Number(p.second)) * 1000 - now.getMilliseconds());
+    }
+    async function fetchUsage(tok){
+        const now = new Date(), start = laMidnight(now), secs = Math.max(60, Math.ceil((now - start) / 1000));
+        const url = m => 'https://monitoring.googleapis.com/v3/projects/' + PF.firebase.projectId + '/timeSeries?' + new URLSearchParams({
+            filter: `metric.type="firestore.googleapis.com/${m}"`, 'interval.startTime': start.toISOString(), 'interval.endTime': now.toISOString(),
+            'aggregation.alignmentPeriod': secs + 's', 'aggregation.perSeriesAligner': 'ALIGN_SUM', 'aggregation.crossSeriesReducer': 'REDUCE_SUM' });
+        const total = async m => {
+            const r = await fetch(url(m), { headers: { Authorization: 'Bearer ' + tok } });
+            if (!r.ok) { const e = new Error((await r.text()).slice(0, 300)); e.status = r.status; throw e; }
+            const j = await r.json(), ts = j.timeSeries || [];
+            return { n: ts.reduce((s, x) => s + (x.points || []).reduce((a, p) => a + Number(p.value.int64Value != null ? p.value.int64Value : (p.value.doubleValue || 0)), 0), 0), any: ts.length > 0 };
+        };
+        const [r1, r2, w] = await Promise.all([total('api/billable_read_units'), total('api/billable_realtime_read_units').catch(() => ({ n: 0, any: false })), total('api/billable_write_units').catch(() => null)]);
+        return { reads: r1.n + r2.n, writes: w ? w.n : null, any: r1.any || r2.any || !!(w && w.any), reset: new Date(start.getTime() + 86400000) };
+    }
+    function bar(label, used, limit){
+        const pct = Math.min(100, Math.round(used / limit * 100)), cls = pct >= 90 ? ' bad' : pct >= 70 ? ' warn' : '';
+        return `<div class="qbar${cls}"><div class="t"><span>${label}</span><span>${used.toLocaleString('he-IL')} מתוך ${limit.toLocaleString('he-IL')} (${pct}%)</span></div><div class="track"><div class="fill" style="width:${pct}%"></div></div></div>`;
+    }
+    function initQuota(){
+        const btn = $('quota-btn'), msg = $('quota-msg'), bars = $('quota-bars');
+        btn.addEventListener('click', async () => {
+            btn.disabled = true; msg.textContent = 'בודק…';
+            try {
+                const tok = await Core.usageToken(), u = await fetchUsage(tok);
+                bars.hidden = false;
+                bars.innerHTML = bar('קריאה', u.reads, LIMITS.reads) + (u.writes == null ? '' : bar('כתיבה', u.writes, LIMITS.writes));
+                $('quota-reset').textContent = 'מתאפס ב-' + u.reset.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+                msg.textContent = u.any ? 'עודכן עכשיו (הנתונים של Google מגיעים בעיכוב של כמה דקות).' : 'עדיין אין נתונים להיום, או שהם עוד לא הגיעו. נסו שוב בעוד כמה דקות.';
+            } catch(e) {
+                console.warn(e);
+                if (e && e.status === 401) Core.clearUsageToken();
+                msg.textContent = e && /popup-closed|cancelled-popup|user-cancelled/.test(e.code || '') ? 'החלון נסגר לפני האישור. לחצו שוב ואשרו את ההרשאה.'
+                    : e && e.code === 'auth/user-mismatch' ? 'יש לבחור בחלון של Google את אותו חשבון שמחובר כאן.'
+                    : e && (e.status === 403 || e.status === 401) ? 'Google לא אישר גישה לנתוני השימוש. לחצו שוב ואשרו את ההרשאה, או פתחו את הנתונים ישירות ב-Firebase.'
+                    : 'לא הצלחנו לקבל את הנתונים כרגע. אפשר לפתוח אותם ישירות ב-Firebase.';
+            } finally { btn.disabled = false; }
+        });
+    }
 
     /* ================= טאבים ================= */
     let offersStarted = false;

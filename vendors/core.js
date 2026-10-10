@@ -305,5 +305,22 @@
         return true;
     }
 
-    window.Core = { isQuota, QUOTA_MSG, openPdf, withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
+    /* אסימון צפייה בנתוני השימוש של Google Cloud (לוח הניהול → "מכסת Firebase היום"). רק לבעלים.
+       מבקש מ-Google הרשאת קריאה בלבד (monitoring.read) לאותו חשבון, ושומר אותה ל-50 דקות בלשונית הזו. */
+    async function usageToken(){
+        if (window.__EMU__) return 'test-token';   // בדיקות מקומיות בלבד
+        try { const c = JSON.parse(sessionStorage.getItem('sb.mon') || 'null'); if (c && c.exp > Date.now()) return c.t; } catch(e) {}
+        const f = await fb(), u = f.auth.currentUser;
+        const p = new f.authMod.GoogleAuthProvider();
+        p.addScope('https://www.googleapis.com/auth/monitoring.read');
+        p.setCustomParameters({ login_hint: u.email });
+        const res = await f.authMod.reauthenticateWithPopup(u, p);
+        const cred = f.authMod.GoogleAuthProvider.credentialFromResult(res), t = cred && cred.accessToken;
+        if (!t) throw new Error('no token');
+        try { sessionStorage.setItem('sb.mon', JSON.stringify({ t, exp: Date.now() + 50 * 60000 })); } catch(e) {}
+        return t;
+    }
+    const clearUsageToken = () => { try { sessionStorage.removeItem('sb.mon'); } catch(e) {} };
+
+    window.Core = { usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();
