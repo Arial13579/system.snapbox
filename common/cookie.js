@@ -13,12 +13,12 @@
     function injectStyles(){
         var css =
             '#cookie-bar{ position:fixed; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:980;' +
-                'max-width:640px; margin:0 auto; background:#1B1B1F; color:#F5F5F5; border:0; border-radius:16px;' +
-                'box-shadow:0 12px 30px -10px rgba(0,0,0,.5); display:flex; flex-wrap:wrap; gap:12px; align-items:center; justify-content:space-between;' +
-                'padding:13px 16px; font-family:Assistant,system-ui,sans-serif; font-size:13px; }' +
-            '#cookie-bar p{ margin:0; flex:1 1 260px; line-height:1.6; }' +
+                'max-width:560px; margin:0 auto; background:#1B1B1F; color:#F5F5F5; border:0; border-radius:16px;' +
+                'box-shadow:0 12px 30px -10px rgba(0,0,0,.5); display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; justify-content:space-between;' +
+                'padding:9px 12px; font-family:Assistant,system-ui,sans-serif; font-size:12.5px; }' +
+            '#cookie-bar p{ margin:0; flex:1 1 220px; line-height:1.5; }' +
             '#cookie-bar a{ color:#fff; font-weight:700; text-decoration:underline; }' +
-            '#cookie-bar button{ flex:none; border:2px solid #F3EEE4; border-radius:999px; padding:8px 18px; font-weight:800;' +
+            '#cookie-bar button{ flex:none; border:2px solid #F3EEE4; border-radius:999px; padding:6px 14px; font-weight:800;' +
                 'font-family:Assistant,sans-serif; font-size:13px; cursor:pointer; color:#16120E; background:#fff; }';
         var style = document.createElement('style');
         style.textContent = css;
@@ -41,9 +41,9 @@
         bar.setAttribute('role', 'region');
         bar.setAttribute('aria-label', 'הודעת עוגיות');
         bar.innerHTML =
-            '<p>האתר שומר במכשיר מידע טכני הכרחי. באישורך נפעיל גם כלי מדידה של פלטפורמות פרסום, כדי לדעת אילו מודעות עוזרות לנו. ' +
-            'פרטים ב<a href="' + (window.PRIVACY_URL || 'privacy.html') + '">מדיניות הפרטיות</a>.</p>' +
-            '<span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" id="cookie-yes">אישור</button>' +
+            '<p>האתר שומר מידע טכני הכרחי. באישורך נפעיל גם מדידת מודעות של פלטפורמות פרסום. ' +
+            '<a href="' + (window.PRIVACY_URL || 'privacy.html') + '">פרטים</a></p>' +
+            '<span style="display:flex;gap:8px;flex:none"><button type="button" id="cookie-yes">אישור</button>' +
             '<button type="button" id="cookie-no" style="background:transparent;color:#fff;border-color:#fff">רק הכרחיות</button></span>';
         document.body.appendChild(bar);
         document.documentElement.classList.add('has-cookie-bar');

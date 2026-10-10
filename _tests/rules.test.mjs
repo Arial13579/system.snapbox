@@ -244,6 +244,8 @@ const today = 'stats/d' + Math.floor(Date.now() / 86400000), yday = 'stats/d' + 
 await ok('anon counts a visit (creates today)', setDoc(doc(anon, today), { v: increment(1) }, { merge: true }));
 await ok('anon counts another visit', setDoc(doc(anon, today), { v: increment(1) }, { merge: true }));
 await ok('anon counts a WhatsApp click', setDoc(doc(anon, today), { w: increment(1) }, { merge: true }));
+await ok('anon counts a lead form', setDoc(doc(anon, today), { f: increment(1) }, { merge: true }));
+await ok('anon counts a demo open', setDoc(doc(anon, today), { d: increment(1) }, { merge: true }));
 await no('anon cannot add more than 1', setDoc(doc(anon, today), { v: increment(5) }, { merge: true }));
 await no('anon cannot set a number', setDoc(doc(anon, today), { v: 1000 }, { merge: true }));
 await no('anon cannot bump two fields at once', setDoc(doc(anon, today), { v: increment(1), l: increment(1) }, { merge: true }));
