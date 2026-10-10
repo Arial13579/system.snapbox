@@ -407,4 +407,5 @@
 - **לוח הניהול (`admin.html`):** כרטיס "תנועה באתר הראשי" (היום/אתמול/7/30 ימים, שאילתת טווח `documentId() >= 'd<היום-30>'` — orderBy desc על המזהה דורש אינדקס). כרטיס "מכסת Firebase היום": כפתור → `Core.usageToken()` (`reauthenticateWithPopup` עם scope `monitoring.read`, נשמר 50 דק' ב-sessionStorage) → Cloud Monitoring `firestore.googleapis.com/api/billable_read_units` (+ `billable_realtime_read_units`) ו-`billable_write_units` מחצות שעון פסיפיק, מול 50,000/40,000. **לא נבדק מול Google האמיתי** (רק עם תשובה מדומה) — אם נכשל, יש קישור "פתיחה ב-Firebase". ייתכן מסך "Google hasn't verified this app" → Advanced → להמשיך.
 - **פרטיות:** סעיף 4 עודכן (מונה אנונימי + כלי מדידה של פלטפורמות פרסום רק באישור, בלי שמות שירותים).
 - בדיקות: rules 199/199, `_tests/traffic.e2e.js` (חדש), full (+ סגירת הודעת העוגיות לפני axe), check, dash, snapiiii, promo, session, onboard, pkg, real, speed, migrate — עברו.
-- גרסאות: vendors `?v=20261010a`, `cookie.js?v=2`, `track.js?v=3`.
+- גרסאות: vendors `?v=20261010a`, `cookie.js?v=2`, `track.js?v=4`.
+- **הפיקסל הותקן (2026-10-10):** `tiktokPixel: '7694590520689213441'` (המזהה שהבעלים שלח מ-Business Center, "snap box system"). ⚠️ אם ב-Events Manager השורה `ttq.load('…')` מציגה קוד אחר (בדרך כלל אותיות+מספרים, מתחיל ב-C/D) — להחליף בו. הבדיקות (`traffic`, `full`) קובעות את המזהה בעצמן ולא תלויות במה שבדף.

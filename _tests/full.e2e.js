@@ -92,7 +92,7 @@ async function draw(p){
   await GD.p.goto(SYS + '/'); await axe(GD.p, 'sales page (dark)');
   await GD.p.screenshot({ path: SHOTS + 'sales-dark.png' });
   check(await G.p.locator('#cookie-bar').count() === 1, 'cookie notice shown on first visit');
-  await G.p.click('#cookie-ok'); await G.p.reload();
+  await G.p.click('#cookie-ok, #cookie-no'); await G.p.reload();
   check(await G.p.locator('#cookie-bar').count() === 0, 'cookie notice remembered');
   await G.p.click('#a11y-fab'); await G.p.click('[data-act="contrast"]');
   check(await G.p.evaluate(() => document.documentElement.classList.contains('a11y-contrast')), 'high-contrast toggles on');
@@ -429,7 +429,7 @@ async function draw(p){
   const left = await O.p.evaluate(async () => { const f = await Core.fb(); const q = await f.fs.getDocs(f.fs.collection(f.db, 'tenants', 'demo', 'quotes')); const i = await f.fs.getDoc(f.fs.doc(f.db, 'vendorIndex', 'noa@gmail.com')); const t = await f.fs.getDoc(f.fs.doc(f.db, 'tenants', 'demo')); return q.size + (i.exists() ? 100 : 0) + (t.exists() ? 1000 : 0); });
   check(left === 0, 'all vendor data deleted (quotes, access, card)');
   // הודעת העוגיות (קבועה בתחתית) מסתירה שורות בטבלה שנדחפה למטה בגלל כרטיסי התנועה והמכסה — סוגרים אותה כמו משתמש
-  if (await O.p.isVisible('#cookie-ok')) await O.p.click('#cookie-ok');
+  if (await O.p.isVisible('#cookie-ok, #cookie-no')) await O.p.click('#cookie-ok, #cookie-no');
   await axe(O.p, 'admin with deleted vendors');
   await O.p.screenshot({ path: SHOTS + 'admin-deleted.png', fullPage: true });
   await V.p.goto(SYS + '/vendors/'); await V.p.waitForSelector('#err:not(.hidden)', { timeout: 15000 });

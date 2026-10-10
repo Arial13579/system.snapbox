@@ -94,8 +94,8 @@ const pixelHits = [];
 async function salesCtx(b, withPixel){
   const { ctx, p } = await newPage(b, { width: 390, height: 844 }, withPixel ? 'sales-pixel' : 'sales');
   await ctx.route('**/analytics.tiktok.com/**', r => { pixelHits.push(r.request().url()); r.fulfill({ body: 'window.__pixelLoaded=1;', contentType: 'application/javascript' }); });
-  // מזהה פיקסל לבדיקה: הדף מנסה להגדיר MARKETING ריק, וכאן הוא נשאר עם המזהה
-  if (withPixel) await ctx.addInitScript(id => { Object.defineProperty(window, 'MARKETING', { get: () => ({ tiktokPixel: id }), set: () => {} }); }, PIXEL_ID);
+  // מזהה פיקסל לבדיקה (או ריק = כבוי), במקום המזהה האמיתי שבדף
+  await ctx.addInitScript(id => { Object.defineProperty(window, 'MARKETING', { get: () => ({ tiktokPixel: id }), set: () => {} }); }, withPixel ? PIXEL_ID : '');
   return { ctx, p };
 }
 const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.floor(Date.now() / 86400000), { headers: H })).json(); const f = j.fields || {}; const n = k => Number((f[k] || {}).integerValue || 0); return { v: n('v'), t: n('t'), w: n('w'), l: n('l') }; };
