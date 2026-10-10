@@ -100,7 +100,7 @@
         document.title = `${B.name} | החשבון שלי`;
         const logo = $('t-logo');
         logo.style.background = (T.theme && T.theme.brand) || '#0D9488';
-        logo.innerHTML = B.logo ? `<img src="${esc(Core.PF.customerBase + '/' + slug + '/' + B.logo)}" alt="">` : esc((B.name || '?').charAt(0));
+        logo.innerHTML = B.logo ? `<img src="${esc(/^data:image\//.test(B.logo) ? B.logo : Core.PF.customerBase + '/' + slug + '/' + B.logo)}" alt="">` : esc((B.name || '?').charAt(0));
         $('t-name').textContent = B.name;
         $('t-tag').textContent = B.tagline || '';
         if (isOwnerView) { $('owner-banner').classList.remove('hidden'); $('ob-name').textContent = B.name; }
@@ -547,7 +547,7 @@
         $('preview-btn').href = url; $('wa-preview').href = url; $('wa-preview-url').textContent = url;
         const img = $('wa-preview-img');
         img.onerror = () => { img.onerror = null; img.src = Core.PF.customerBase + '/assets/og-default.jpg'; };
-        img.src = `${Core.PF.customerBase}/${slug}/og.jpg?v=${encodeURIComponent(T.ogVersion || '1')}`;
+        img.src = T.dynamic ? Core.PF.customerBase + '/assets/og-default.jpg' : `${Core.PF.customerBase}/${slug}/og.jpg?v=${encodeURIComponent(T.ogVersion || '1')}`;   // ספק מלוח הניהול: תמונה כללית
         $('wa-preview-title').textContent = `${B.name} · הצעת המחיר שלך מוכנה`;
         $('link-result').classList.remove('hidden');
         $('link-result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });

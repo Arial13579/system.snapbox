@@ -145,6 +145,16 @@ await ok('owner limits noa', updateDoc(doc(owner, 'tenants/noa'), { limited: tru
 await no('limited vendor cannot create link', sl(noa, 'k7'));
 await ok('owner deletes offer link', deleteDoc(doc(owner, 'shortLinks/o1')));
 
+// הגדרות ספק מלוח הניהול: כולם קוראים לפי מזהה, רק הבעלים כותב
+await ok('owner writes vendor config', setDoc(doc(owner, 'vendorConfigs/newv'), { config: '{"slug":"newv"}', updatedAt: serverTimestamp() }));
+await ok('anon reads vendor config', getDoc(doc(anon, 'vendorConfigs/newv')));
+await no('anon cannot list vendor configs', getDocs(collection(anon, 'vendorConfigs')));
+await no('anon cannot write vendor config', setDoc(doc(anon, 'vendorConfigs/newv'), { config: '{}' }));
+await no('vendor cannot write vendor config', setDoc(doc(noa, 'vendorConfigs/newv'), { config: '{}' }));
+await no('owner: config must be text', setDoc(doc(owner, 'vendorConfigs/newv'), { config: { a: 1 } }));
+await no('owner: no extra fields', setDoc(doc(owner, 'vendorConfigs/newv'), { config: '{}', x: 1 }));
+await ok('owner deletes vendor config', deleteDoc(doc(owner, 'vendorConfigs/newv')));
+
 // מבצע ההשקה: public/promo — כולם קוראים, רק הבעלים כותב
 await ok('owner writes promo', setDoc(doc(owner, 'public/promo'), { launchLimit: 5, launchSigned: 2, soldOut: false }));
 await ok('anon reads promo', getDoc(doc(anon, 'public/promo')));

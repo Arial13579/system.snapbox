@@ -195,6 +195,17 @@ service cloud.firestore {
         && (statBump('v') || statBump('t') || statBump('w') || statBump('l') || statBump('f') || statBump('d'));
     }
 
+    // ---- הגדרות של ספק שנוצר מלוח הניהול (במקום config.js באתר הלקוחות) ----
+    // דף ההצעה ללקוח קורא אותן בלי התחברות (כמו config.js שהוא ציבורי). רק הבעלים כותב. בלי list.
+    match /vendorConfigs/{slug} {
+      allow get: if true;
+      allow list, delete: if isOwner();
+      allow create, update: if isOwner()
+        && request.resource.data.keys().hasOnly(['config', 'updatedAt'])
+        && request.resource.data.config is string
+        && request.resource.data.config.size() < 300000;
+    }
+
     // ---- מצב מבצע ההשקה (כמה נחתמו מתוך 5). כולם קוראים, רק הבעלים כותב ----
     match /public/{doc} {
       allow get: if true;

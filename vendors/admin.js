@@ -15,6 +15,7 @@
         if (!Core.isOwner(user)) { $('loading').classList.add('hidden'); $('blocked').classList.remove('hidden'); return; }
         $('loading').classList.add('hidden'); $('main-app').classList.remove('hidden');
         initTabs(); initOfferForm(); initEdit();
+        VendorEditor.init({ fs, db, fillFromOffer, onSaved: () => renderVendors() });
         loadTraffic(); initQuota();
         await sync();
         await renderVendors();
@@ -126,6 +127,9 @@
             const signedOffers = () => offersP || (offersP = fs.getDocs(fs.query(fs.collection(db, 'platformQuotes'), fs.where('status', '==', 'signed'))).then(q => q.docs.map(d => ({ id: d.id, ...d.data() }))));
             // כל הספקים במקביל, וכותבים רק מה שהשתנה (כך הסנכרון מהיר)
             const idxP = fs.getDocs(fs.collection(db, 'vendorIndex'));
+            // ספקים שנוצרו מלוח הניהול (לא ב-registry.js): הגישה שלהם נשמרת לפי הכרטיס
+            const managed = await fs.getDocs(fs.query(fs.collection(db, 'tenants'), fs.where('managed', '==', 'admin')));
+            managed.docs.forEach(d => { if (!gone.has(d.id)) (d.data().admins || []).forEach(e => { wanted[String(e).toLowerCase()] = d.id; }); });
             await Promise.all((window.REGISTRY || []).map(async r => {
                 const slug = String(r.slug || '').toLowerCase();
                 if (!/^[a-z0-9-]{2,40}$/.test(slug) || gone.has(slug)) return;
@@ -183,7 +187,7 @@
         t.support = Core.supportStatus(t);
         if (Core.reminderDue(t)) { try { t.reminded = (await fs.getDoc(fs.doc(db, 'tenants', d.id, 'notices', 'support-' + t.supportUntil))).exists(); } catch(e) {} }
         t.state = Core.accountState(t);
-        t.inRegistry = (window.REGISTRY || []).some(r => r.slug === d.id);
+        t.inRegistry = t.managed === 'admin' || (window.REGISTRY || []).some(r => r.slug === d.id);
         return t;
     }
     const STATE_BADGE = { active: '<span class="badge ok">פעיל</span>', limited: '<span class="badge lim">מוגבל</span>', suspended: '<span class="badge bad">מושהה</span>' };
@@ -252,7 +256,7 @@
         try {
             await fs.deleteDoc(fs.doc(db, 'deletedTenants', b.dataset.id));
             await sync(); await renderVendors();
-            if (!(window.REGISTRY || []).some(r => r.slug === b.dataset.id)) alert('הספק כבר לא ברשימת הספקים, ולכן לא נוצר מחדש. בקשו מ-Claude להחזיר אותו.');
+            if (!(window.REGISTRY || []).some(r => r.slug === b.dataset.id)) alert('הספק כבר לא ברשימת הספקים, ולכן לא נוצר מחדש. ספק שנוצר מלוח הניהול — אפשר ליצור מחדש מ"הצעות שנשלחו" ← "יצירת משתמש".');
         } catch(err) { alert('השחזור נכשל: ' + (err.code || err.message)); b.disabled = false; }
     });
     $('tbody').addEventListener('click', e => {
@@ -355,6 +359,13 @@
             catch(err) { $('e_agr_status').textContent = 'השיוך נכשל: ' + (err.code || err.message); }
         });
 
+        // הגדרות של ספק שנוצר מלוח הניהול (מחירון, חבילות, מיתוג, תנאים)
+        $('e_cfg').addEventListener('click', () => {
+            const t = VENDORS.find(v => v.id === editing); if (!t) return;
+            $('edit-dlg').close();
+            VendorEditor.open({ slug: editing, refOffer: (OFFERS || []).find(o => o.id === t.offerId) });
+        });
+
         // מחיקה לצמיתות
         $('e_del_confirm').addEventListener('input', () => { $('e_delete').disabled = $('e_del_confirm').value.trim().toLowerCase() !== editing; });
         $('e_delete').addEventListener('click', () => deleteVendor(editing));
@@ -391,6 +402,7 @@
         $('e_notes').value = t.notes || ''; $('e_status').textContent = '';
         fs.getDoc(privRef(id)).then(s => { if (editing === id && s.exists() && s.data().notes != null) $('e_notes').value = s.data().notes; }).catch(() => {});
         $('e_del_slug').textContent = id; $('e_del_confirm').value = ''; $('e_delete').disabled = true;
+        $('e_cfg_box').classList.toggle('hidden', t.managed !== 'admin');
         $('e_agr_view').classList.add('hidden'); $('e_agr_status').textContent = 'טוען…';
         supNow();
         $('edit-dlg').showModal();
@@ -423,6 +435,10 @@
             await deleteAll(fs.collection(db, 'tenants', id, 'packages')).catch(() => {});
             await deleteAll(fs.query(fs.collection(db, 'vendorIndex'), fs.where('tenant', '==', id)));
             await deleteAll(fs.query(fs.collection(db, 'shortLinks'), fs.where('tenant', '==', id))).catch(() => {});
+            if (t.managed === 'admin') {
+                await fs.deleteDoc(fs.doc(db, 'vendorConfigs', id)).catch(() => {});
+                if (t.offerId) await fs.updateDoc(fs.doc(db, 'platformQuotes', t.offerId), { tenant: fs.deleteField() }).catch(() => {});
+            }
             await fs.deleteDoc(fs.doc(db, 'tenants', id));
             $('edit-dlg').close();
             await sync(); await renderVendors();
@@ -566,13 +582,19 @@
             <td>${o.status === 'signed' ? `<span class="badge ok">נחתמה</span><div class="sub">${fmtTs(o.signedAt)}${o.signerName ? ' · ' + esc(o.signerName) : ''}</div>${Core.signedMismatch(o, 'offer') ? '<div class="sub" style="color:#B91C1C;font-weight:700">⚠ נחתמה על פרטים שונים מההצעה ששלחת</div>' : ''}` : '<span class="badge warn">ממתינה</span>'}</td>
             <td>${Core.hasPdf(o) ? `<button type="button" class="btn sm view" data-id="${o.id}">צפייה</button>` : '<span class="sub">—</span>'}</td>
             <td><div class="acts"><button type="button" class="btn sm copy" data-id="${o.id}">העתק קישור</button>
-                ${o.status === 'signed' ? `<button type="button" class="btn sm setup" data-id="${o.id}">סיכום להקמה</button>` : ''}
+                ${o.status === 'signed' ? (o.tenant ? `<button type="button" class="btn sm vc-edit" data-id="${o.id}">הגדרות הספק</button><span class="badge ok">המשתמש נוצר</span>`
+                    : `<button type="button" class="btn sm primary vc-new" data-id="${o.id}">יצירת משתמש</button>`) + `<button type="button" class="btn sm setup" data-id="${o.id}">סיכום להקמה</button>` : ''}
                 <button type="button" class="btn sm danger del" data-id="${o.id}">מחיקה</button></div></td></tr>`).join('');
     }
     $('otbody').addEventListener('click', async e => {
         const b = e.target.closest('button'); if (!b) return;
         const o = OFFERS.find(x => x.id === b.dataset.id); if (!o) return;
         if (b.classList.contains('copy')) copyText(Core.shortUrl(offerUrl(o), o.shortId), b);
+        else if (b.classList.contains('vc-new')) {
+            if (Core.signedMismatch(o, 'offer') && !confirm('ההצעה נחתמה על פרטים שונים ממה ששלחת. ליצור משתמש בכל זאת?')) return;
+            VendorEditor.open({ offer: o });
+        }
+        else if (b.classList.contains('vc-edit')) VendorEditor.open({ slug: o.tenant, refOffer: o });
         else if (b.classList.contains('setup')) {
             const s = (o.freeMonths || 0) + (o.extraMonths || 0);
             copyText(`ספק חדש להקמה:\nעסק: ${o.vendorName}\nאיש קשר: ${o.contactName}${o.phone ? ' · ' + o.phone : ''}\nGmail להתחברות: ${o.email || '—'}\nתחום: ${o.businessType || '—'}\nחבילה: ${o.planLabel || o.plan} · סה"כ: ${o.total} ₪${o.deposit ? ` · מקדמה: ${o.deposit} ₪` : ''}\nתמיכה: ${s} חודשים\nנחתם: ${fmtTs(o.signedAt)}${o.signerName ? ' · על ידי ' + o.signerName : ''}${Core.signedMismatch(o, 'offer') ? '\n⚠ נחתמה על פרטים שונים מההצעה שנשלחה — לבדוק לפני הקמה' : ''}${o.pricingInfo ? `\nמה משפיע על המחיר ללקוחות:\n${o.pricingInfo}` : ''}`, b);
