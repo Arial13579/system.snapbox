@@ -55,7 +55,8 @@
     /* ---- מה נספר ---- */
     function init(){
         once('v');
-        if (/[?&]utm_source=tiktok\b/i.test(location.search)) once('t');
+        // מטיקטוק: utm_source=tiktok, או ttclid שטיקטוק מוסיף לבד לקישור של מודעה, או הגעה מ-tiktok.com
+        if (/[?&](utm_source=tiktok\b|ttclid=)/i.test(location.search) || /(^|\.)tiktok\.com/i.test((document.referrer.split('/')[2] || ''))) once('t');
         document.addEventListener('click', function(e){
             var a = e.target.closest && e.target.closest('a[href]'); if (!a) return;
             var h = a.getAttribute('href') || '';

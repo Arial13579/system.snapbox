@@ -105,7 +105,8 @@ const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.
   const A = await salesCtx(b, false);
   await A.p.goto(SYS + '/'); await A.p.waitForTimeout(1500);
   await A.p.reload(); await A.p.waitForTimeout(1500);
-  let s = await stat(); check(s.v === 1, `visit counted once per device per day (v=${s.v})`);
+  let s; for (let i = 0; i < 20 && !(s = await stat()).v; i++) await A.p.waitForTimeout(500);   // הכתיבה הראשונה לאמולטור איטית
+  check(s.v === 1, `visit counted once per device per day (v=${s.v})`);
   check(await A.p.isVisible('#cookie-bar') && !(await A.p.isVisible('#cookie-yes')), 'no pixel configured → plain notice, no consent question');
   // לחיצה על וואטסאפ ועל כניסת ספקים
   await A.p.evaluate(() => { const a = document.querySelector('a.wa-float'); a.addEventListener('click', e => e.preventDefault()); a.click(); });
@@ -133,6 +134,11 @@ const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.
   const C = await salesCtx(b, true); const before = pixelHits.length;
   await C.p.goto(SYS + '/'); await C.p.waitForTimeout(1000); await C.p.click('#cookie-no'); await C.p.reload(); await C.p.waitForTimeout(1000);
   check(pixelHits.length === before, 'declined → pixel never loads');
+  // 3ב) מודעה בטיקטוק בלי utm — טיקטוק מוסיף ttclid לבד
+  const D = await salesCtx(b, false);
+  await D.p.goto(SYS + '/?ttclid=E.C.P.abc123'); await D.p.waitForTimeout(1500);
+  s = await stat(); check(s.v === 4 && s.t === 2, `TikTok ad click (ttclid) counted as TikTok (v=${s.v}, t=${s.t})`);
+  await D.ctx.close();
   // 4) לוח הניהול
   const O = await newPage(b, { width: 1280, height: 900 }, 'owner');
   await O.ctx.route('https://monitoring.googleapis.com/**', r => { const u = decodeURIComponent(r.request().url());
@@ -142,7 +148,7 @@ const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.
   await O.p.waitForFunction(() => !document.querySelector('#traffic .loading'), null, { timeout: 15000 });
   const today = (await O.p.textContent('#traffic tr:first-child')).replace(/\s+/g, ' ');
   console.log('   traffic today:', today);
-  check(/היום\s*3\s*1\s*2\s*1/.test(today), 'admin traffic: today 3 visits (3 devices), 1 from TikTok, 2 WhatsApp, 1 vendor login');
+  check(/היום\s*4\s*2\s*2\s*1/.test(today), 'admin traffic: today 4 visits (4 devices), 2 from TikTok, 2 WhatsApp, 1 vendor login');
   await O.p.click('#quota-btn'); await O.p.waitForSelector('#quota-bars:not([hidden]) .qbar', { timeout: 15000 });
   const qt = (await O.p.textContent('#quota-card')).replace(/\s+/g, ' ');
   console.log('   quota:', qt.slice(0, 200));
