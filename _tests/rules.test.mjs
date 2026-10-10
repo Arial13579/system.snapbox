@@ -1,5 +1,5 @@
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp, increment } from 'firebase/firestore';
 import fs from 'fs';
 const env = await initializeTestEnvironment({ projectId: 'check-b2a66', firestore: { rules: fs.readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8085 } });
 const as = (email, verified = true) => env.authenticatedContext(email, { email, email_verified: verified }).firestore();
@@ -238,6 +238,22 @@ await ok('anon marks offer hasPdf', updateDoc(doc(anon, 'platformQuotes/pp1'), {
 await no('anon cannot read offer pdf', getDoc(doc(anon, 'platformQuotes/pp1/pdf/file')));
 await no('vendor cannot read offer pdf', getDoc(doc(noa, 'platformQuotes/pp1/pdf/file')));
 await ok('owner reads offer pdf', getDoc(doc(owner, 'platformQuotes/pp1/pdf/file')));
+
+// מונה כניסות ופעולות (אנונימי, רק +1 לשדה אחד במסמך של היום)
+const today = 'stats/d' + Math.floor(Date.now() / 86400000), yday = 'stats/d' + (Math.floor(Date.now() / 86400000) - 1);
+await ok('anon counts a visit (creates today)', setDoc(doc(anon, today), { v: increment(1) }, { merge: true }));
+await ok('anon counts another visit', setDoc(doc(anon, today), { v: increment(1) }, { merge: true }));
+await ok('anon counts a WhatsApp click', setDoc(doc(anon, today), { w: increment(1) }, { merge: true }));
+await no('anon cannot add more than 1', setDoc(doc(anon, today), { v: increment(5) }, { merge: true }));
+await no('anon cannot set a number', setDoc(doc(anon, today), { v: 1000 }, { merge: true }));
+await no('anon cannot bump two fields at once', setDoc(doc(anon, today), { v: increment(1), l: increment(1) }, { merge: true }));
+await no('anon cannot add other fields', setDoc(doc(anon, today), { x: increment(1) }, { merge: true }));
+await no('anon cannot write another day', setDoc(doc(anon, yday), { v: increment(1) }, { merge: true }));
+await no('anon cannot read stats', getDoc(doc(anon, today)));
+await no('vendor cannot read stats', getDoc(doc(noa, today)));
+await no('anon cannot delete stats', deleteDoc(doc(anon, today)));
+await ok('owner reads stats', getDoc(doc(owner, today)));
+await ok('owner lists stats', getDocs(collection(owner, 'stats')));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();

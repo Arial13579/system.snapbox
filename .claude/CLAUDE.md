@@ -398,3 +398,13 @@
 - ⚠️ ה-id ‏`more-box` תפוס (תיבת "מה שהופך הצעה לסגירה" במחולל) — לא להשתמש בו.
 - בדיקה חדשה `_tests/dash.e2e.js` (120 הצעות: 50 נטענות, מדדים מהשרת, טעינה נוספת, הצעה חדשה למעלה). עברו גם full, snapiiii, real, session, onboard, pkg, promo, check, speed, migrate.
 - גרסת מטמון `?v=20261009b`.
+
+## עדכון 2026-10-10: פיקסל טיקטוק, מונה תנועה באתר ומכסת Firebase בלוח הניהול (בקשת הבעלים)
+- **`common/track.js`** (נטען רק באתר המכירה `index.html`, לפני `cookie.js`):
+  - **מונה אנונימי** ב-`stats/d<יום UTC>` = `{v,t,w,l}`: v כניסות (מכשיר אחד פעם ביום, `localStorage sb.st.<יום>.<שדה>`), t כניסות עם `?utm_source=tiktok`, w לחיצות על קישורי wa.me, l לחיצות על "כניסת ספקים". כתיבה ב-REST (`documents:commit` עם `increment`), בלי SDK ובלי עוגיות. keepalive רק בלחיצה שעוזבת את הדף.
+  - **פיקסל טיקטוק:** `window.MARKETING = { tiktokPixel: '' }` ב-`index.html`. **ריק = כבוי.** כשיש מזהה — `cookie.js` שואל "אישור / רק הכרחיות" (`localStorage sb_mkt_v1`), והפיקסל נטען **רק אחרי אישור**. אירועים: PageView, `Contact` (וואטסאפ), `ClickButton` (כניסת ספקים). `SBConsentReset()` — כפתור "שינוי הבחירה" בדף הפרטיות.
+- **כללים:** `stats/{day}` — כל אחד יכול רק +1 לשדה אחד מ-v/t/w/l ורק במסמך של היום (`'d' + string(int(request.time.toMillis() / 86400000))` — `math.floor` מחזיר float ונכשל!). רק הבעלים קורא/מוחק. ⚠️ להדביק `firestore.rules` מחדש.
+- **לוח הניהול (`admin.html`):** כרטיס "תנועה באתר הראשי" (היום/אתמול/7/30 ימים, שאילתת טווח `documentId() >= 'd<היום-30>'` — orderBy desc על המזהה דורש אינדקס). כרטיס "מכסת Firebase היום": כפתור → `Core.usageToken()` (`reauthenticateWithPopup` עם scope `monitoring.read`, נשמר 50 דק' ב-sessionStorage) → Cloud Monitoring `firestore.googleapis.com/api/billable_read_units` (+ `billable_realtime_read_units`) ו-`billable_write_units` מחצות שעון פסיפיק, מול 50,000/40,000. **לא נבדק מול Google האמיתי** (רק עם תשובה מדומה) — אם נכשל, יש קישור "פתיחה ב-Firebase". ייתכן מסך "Google hasn't verified this app" → Advanced → להמשיך.
+- **פרטיות:** סעיף 4 עודכן (מונה אנונימי + כלי מדידה של פלטפורמות פרסום רק באישור, בלי שמות שירותים).
+- בדיקות: rules 199/199, `_tests/traffic.e2e.js` (חדש), full (+ סגירת הודעת העוגיות לפני axe), check, dash, snapiiii, promo, session, onboard, pkg, real, speed, migrate — עברו.
+- גרסאות: vendors `?v=20261010a`, `cookie.js?v=2`, `track.js?v=3`.

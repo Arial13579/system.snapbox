@@ -25,6 +25,32 @@
         document.head.appendChild(style);
     }
 
+    /* כשמוגדר פיקסל פרסום (common/track.js): שואלים אם מותר להפעיל מדידה של פלטפורמות פרסום. בלי אישור — לא נטען. */
+    var MKT = 'sb_mkt_v1';
+    function mktMode(){ return !!(window.SBMarketing && window.SBMarketing.configured()); }
+    function mktChoice(){ try { return localStorage.getItem(MKT); } catch(e){ return null; } }
+    function setMkt(v){
+        try { localStorage.setItem(MKT, v); } catch(e){}
+        if (v === 'yes' && window.SBMarketing) window.SBMarketing.on();
+        ack();
+    }
+    window.SBConsentReset = function(){ try { localStorage.removeItem(MKT); localStorage.removeItem(KEY); } catch(e){} location.reload(); };
+    function showMkt(){
+        var bar = document.createElement('div');
+        bar.id = 'cookie-bar';
+        bar.setAttribute('role', 'region');
+        bar.setAttribute('aria-label', 'הודעת עוגיות');
+        bar.innerHTML =
+            '<p>האתר שומר במכשיר מידע טכני הכרחי. באישורך נפעיל גם כלי מדידה של פלטפורמות פרסום, כדי לדעת אילו מודעות עוזרות לנו. ' +
+            'פרטים ב<a href="' + (window.PRIVACY_URL || 'privacy.html') + '">מדיניות הפרטיות</a>.</p>' +
+            '<span style="display:flex;gap:8px;flex-wrap:wrap"><button type="button" id="cookie-yes">אישור</button>' +
+            '<button type="button" id="cookie-no" style="background:transparent;color:#fff;border-color:#fff">רק הכרחיות</button></span>';
+        document.body.appendChild(bar);
+        document.documentElement.classList.add('has-cookie-bar');
+        document.getElementById('cookie-yes').addEventListener('click', function(){ setMkt('yes'); });
+        document.getElementById('cookie-no').addEventListener('click', function(){ setMkt('no'); });
+    }
+
     function show(){
         var bar = document.createElement('div');
         bar.id = 'cookie-bar';
@@ -39,7 +65,7 @@
         document.getElementById('cookie-ok').addEventListener('click', ack);
     }
 
-    function init(){ injectStyles(); if (!acked()) show(); }
+    function init(){ injectStyles(); if (mktMode()) { if (!mktChoice()) showMkt(); } else if (!acked()) show(); }
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
     else init();
 })();

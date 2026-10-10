@@ -428,6 +428,8 @@ async function draw(p){
   check(await O.p.locator('#tbody button.edit[data-id=demo]').count() === 0, 'sync does not re-create a deleted vendor');
   const left = await O.p.evaluate(async () => { const f = await Core.fb(); const q = await f.fs.getDocs(f.fs.collection(f.db, 'tenants', 'demo', 'quotes')); const i = await f.fs.getDoc(f.fs.doc(f.db, 'vendorIndex', 'noa@gmail.com')); const t = await f.fs.getDoc(f.fs.doc(f.db, 'tenants', 'demo')); return q.size + (i.exists() ? 100 : 0) + (t.exists() ? 1000 : 0); });
   check(left === 0, 'all vendor data deleted (quotes, access, card)');
+  // הודעת העוגיות (קבועה בתחתית) מסתירה שורות בטבלה שנדחפה למטה בגלל כרטיסי התנועה והמכסה — סוגרים אותה כמו משתמש
+  if (await O.p.isVisible('#cookie-ok')) await O.p.click('#cookie-ok');
   await axe(O.p, 'admin with deleted vendors');
   await O.p.screenshot({ path: SHOTS + 'admin-deleted.png', fullPage: true });
   await V.p.goto(SYS + '/vendors/'); await V.p.waitForSelector('#err:not(.hidden)', { timeout: 15000 });
