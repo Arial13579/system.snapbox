@@ -138,14 +138,27 @@
             document.head.appendChild(s);
         });
     }
-    // טוען את config.js של הספק מאתר הלקוחות (שם נמצאים המיתוג, המחירון והתנאים)
+    // טוען את config.js של הספק מאתר הלקוחות (שם נמצאים המיתוג, המחירון והתנאים).
+    // ספק שנוצר מלוח הניהול אין לו קובץ — ההגדרות שלו ב-vendorConfigs/<slug> (T.dynamic = true)
     async function loadTenant(slug){
         if (!/^[a-z0-9-]{2,40}$/.test(slug)) throw new Error('bad slug');
         window.TENANT = null;
-        await loadScript(`${PF.customerBase}/${slug}/config.js?v=${Date.now()}`);
-        if (!window.TENANT || window.TENANT.slug !== slug) throw new Error('tenant config missing');
+        try { await loadScript(`${PF.customerBase}/${slug}/config.js?v=${Date.now()}`); } catch(e) {}
+        if (!window.TENANT || window.TENANT.slug !== slug) window.TENANT = await remoteConfig(slug);
+        if (!window.TENANT) throw new Error('tenant config missing');
         return window.TENANT;
     }
+    async function remoteConfig(slug){
+        const f = await fb(), snap = await f.fs.getDoc(f.fs.doc(f.db, 'vendorConfigs', slug));
+        if (!snap.exists()) return null;
+        const T = JSON.parse(snap.data().config || 'null'); if (!T) return null;
+        T.slug = slug; T.dynamic = true;
+        return T;
+    }
+    // כתובת דף ההצעה: ספק עם תיקייה משלו — /<slug>/ ; ספק שנוצר מלוח הניהול — הדף המשותף /v/?t=<slug>
+    const isDynamic = slug => !!(window.TENANT && window.TENANT.slug === slug && window.TENANT.dynamic);
+    const quoteBase = slug => isDynamic(slug) ? `${PF.customerBase}/v/?t=${slug}&` : `${PF.customerBase}/${slug}/?`;
+    const withKey = (u, id) => { const t = u.searchParams.get('t'); u.search = (t ? '?t=' + encodeURIComponent(t) + '&' : '?') + 'k=' + id; return u.href; };
 
     function esc(s){ return String(s == null ? '' : s).replace(/[&<>"']/g, m => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m])); }
     function b64UrlDecode(str){
@@ -187,7 +200,7 @@
         const more = [lines(q.breakdown, x => [x.label, Number(x.amount) || 0]), lines(q.extras, x => [x.label, Number(x.price) || 0, x.desc || '']),
             lines(q.perks, x => [x.label, Number(x.worth) || 0]), q.validUntil || '', pay];
         if (more.some(Boolean)) { while (f.length < 15) f.push(f.length === 13 ? (Number(q.discount) || 0) : ''); f.push(...more); }
-        return `${PF.customerBase}/${slug}/?q=${b64UrlEncode(f.join('|'))}`;
+        return `${quoteBase(slug)}q=${b64UrlEncode(f.join('|'))}`;
     }
 
     /* ---- קישורים קצרים: shortLinks/{id} = { q, kind, tenant } ----
@@ -203,13 +216,12 @@
             const id = randomId(10);
             try {
                 await f.fs.setDoc(f.fs.doc(f.db, 'shortLinks', id), { q, kind, tenant: tenant || '', createdAt: f.fs.serverTimestamp() });
-                u.search = '?k=' + id;
-                return { url: u.href, id };
+                return { url: withKey(u, id), id };
             } catch(e) { console.warn('short link failed', e && e.code); }
         }
         return { url: longUrl, id: null };
     }
-    const shortUrl = (longUrl, id) => { if (!id) return longUrl; const u = new URL(longUrl); u.search = '?k=' + id; return u.href; };
+    const shortUrl = (longUrl, id) => id ? withKey(new URL(longUrl), id) : longUrl;
     async function resolveShortLink(id){
         if (!/^[a-z0-9]{6,20}$/.test(String(id || ''))) return null;
         const f = await fb();
@@ -322,5 +334,5 @@
     }
     const clearUsageToken = () => { try { sessionStorage.removeItem('sb.mon'); } catch(e) {} };
 
-    window.Core = { usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();

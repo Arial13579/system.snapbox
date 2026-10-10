@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230d9488'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial'%3E%E2%82%AA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="vendor.css?v=20261011c">
+<link rel="stylesheet" href="vendor.css?v=20261011d">
 <title>לוח ניהול | מחולל הצעות מחיר</title>
 </head>
 <body>
@@ -149,6 +149,8 @@
         </div>
       </fieldset>
 
+      <div class="hidden" id="e_cfg_box"><button type="button" class="btn primary block" id="e_cfg">הגדרות הספק · מחירון, חבילות, מיתוג ותנאים</button></div>
+
       <fieldset class="mg">
         <legend>פרטים ומנוי</legend>
         <div class="grid2">
@@ -203,14 +205,104 @@
   </form>
 </dialog>
 
+<!-- יצירת משתמש מהצעה חתומה / הגדרות של ספק שנוצר מלוח הניהול (vendor-editor.js) -->
+<dialog class="modal wide" id="vc_dlg" aria-labelledby="vc_title">
+  <form method="dialog" id="vc_form" novalidate>
+    <div class="card-h"><h2 id="vc_title">יצירת משתמש</h2><button type="button" class="btn sm" id="vc_close" aria-label="סגירה">✕</button></div>
+    <div class="card-b">
+      <div class="vc-ref hidden" id="vc_ref"><b>מה הספק מילא בהצעה</b><div id="vc_ref_body"></div></div>
+
+      <fieldset class="mg">
+        <legend>חשבון</legend>
+        <div class="grid2">
+          <div><label class="lbl" for="vc_gmail">Gmail להתחברות</label><input class="field ltr" style="text-align:left" id="vc_gmail" type="email" autocomplete="off" inputmode="email"></div>
+          <div><label class="lbl" for="vc_slug">שם משתמש באנגלית</label><input class="field ltr" style="text-align:left" id="vc_slug" autocomplete="off" maxlength="40" spellcheck="false"></div>
+          <div><label class="lbl" for="vc_contact">איש/אשת קשר</label><input class="field" id="vc_contact" maxlength="80"></div>
+        </div>
+        <p class="hint">הקישור להצעות של הספק: <bdi class="ltr" id="vc_url"></bdi></p>
+      </fieldset>
+
+      <fieldset class="mg">
+        <legend>פרטי העסק <small>· מופיעים ללקוחות של הספק</small></legend>
+        <div class="grid2">
+          <div><label class="lbl" for="vc_name">שם העסק *</label><input class="field" id="vc_name" maxlength="80"></div>
+          <div><label class="lbl" for="vc_tag">שורת תיאור</label><input class="field" id="vc_tag" maxlength="120" placeholder="למשל: DJ ומוזיקה לאירועים"></div>
+          <div><label class="lbl" for="vc_phone">טלפון</label><input class="field ltr" style="text-align:left" id="vc_phone" inputmode="tel" maxlength="30"></div>
+          <div><label class="lbl" for="vc_email">מייל לקבלת ההסכמים החתומים</label><input class="field ltr" style="text-align:left" id="vc_email" type="email" maxlength="120" placeholder="ריק = ה-Gmail"></div>
+          <div><label class="lbl" for="vc_bid">עוסק / ח.פ</label><input class="field" id="vc_bid" maxlength="60"></div>
+          <div><label class="lbl" for="vc_website">אתר</label><input class="field ltr" style="text-align:left" id="vc_website" maxlength="200" placeholder="https://"></div>
+          <div><label class="lbl" for="vc_instagram">אינסטגרם</label><input class="field ltr" style="text-align:left" id="vc_instagram" maxlength="200" placeholder="https://instagram.com/…"></div>
+          <div><label class="lbl" for="vc_facebook">פייסבוק</label><input class="field ltr" style="text-align:left" id="vc_facebook" maxlength="200" placeholder="https://facebook.com/…"></div>
+          <div><label class="lbl" for="vc_tiktok">טיקטוק</label><input class="field ltr" style="text-align:left" id="vc_tiktok" maxlength="200" placeholder="https://tiktok.com/@…"></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="mg">
+        <legend>מיתוג</legend>
+        <span class="lbl" id="vc_color_l">צבע ראשי</span>
+        <div class="vc-colors" role="group" aria-labelledby="vc_color_l"><div id="vc_swatches"></div><input type="color" id="vc_color" aria-label="צבע אחר"></div>
+        <span class="lbl" style="margin-top:10px">לוגו <small>· PNG שקוף עדיף</small></span>
+        <div class="vc-logo"><div id="vc_logo_prev"></div>
+          <button type="button" class="btn sm" id="vc_logo_btn">העלאת לוגו</button><button type="button" class="btn sm danger hidden" id="vc_logo_rm">הסרה</button></div>
+        <input type="file" id="vc_logo_file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden>
+      </fieldset>
+
+      <fieldset class="mg">
+        <legend>מחירון</legend>
+        <div class="seg3 two" role="radiogroup" aria-label="סוג המחירון">
+          <label><input type="radio" name="vc_mode" id="vc_mode_pkg" checked><span><b>חבילות</b><small>מחיר לפי חבילה, שעות, מוזמנים ומרחק (DJ, עמדות צילום, להקות)</small></span></label>
+          <label><input type="radio" name="vc_mode" id="vc_mode_items"><span><b>פריטים</b><small>הספק בוחר פריטים מהמחירון (מעצבים, צלמים, השכרות)</small></span></label>
+        </div>
+        <div id="vc_pkg_box">
+          <div class="vc-list" id="vc_pkgs"></div>
+          <button type="button" class="btn sm" id="vc_add_pkg">+ הוספת חבילה</button>
+          <div class="grid2" style="margin-top:12px">
+            <div><label class="lbl" for="vc_deposit">מקדמה ללקוחות (₪)</label><input class="field" type="number" min="0" id="vc_deposit"></div>
+            <div><label class="lbl" for="vc_city">עיר יציאה <small>· לחישוב מרחק</small></label><input class="field" id="vc_city" maxlength="60"></div>
+          </div>
+          <span class="lbl" style="margin-top:12px">תוספת לפי כמות מוזמנים</span>
+          <div class="vc-list" id="vc_guest"></div><button type="button" class="btn sm" id="vc_add_guest">+ תוספת לפי מוזמנים</button>
+          <span class="lbl" style="margin-top:12px">תוספת לפי מרחק</span>
+          <div class="vc-list" id="vc_travel"></div><button type="button" class="btn sm" id="vc_add_travel">+ תוספת לפי מרחק</button>
+        </div>
+        <div id="vc_items_box" class="hidden">
+          <div class="vc-list" id="vc_items"></div>
+          <button type="button" class="btn sm" id="vc_add_item">+ הוספת פריט</button>
+          <div class="grid2" style="margin-top:12px"><div><label class="lbl" for="vc_deposit_pct">מקדמה מוצעת (% מהסכום)</label><input class="field" type="number" min="0" max="100" id="vc_deposit_pct"></div></div>
+        </div>
+        <label class="lbl" for="vc_common" style="margin-top:12px">כלול בכל הזמנה <small>· שורה לכל פריט</small></label>
+        <textarea class="field" id="vc_common" rows="3"></textarea>
+        <div class="grid2" style="margin-top:10px">
+          <div><label class="lbl" for="vc_included">כותרת "מה כלול"</label><input class="field" id="vc_included" maxlength="40"></div>
+          <div><label class="lbl" for="vc_types">סוגי אירועים <small>· מופרדים בפסיק</small></label><input class="field" id="vc_types"></div>
+        </div>
+      </fieldset>
+
+      <fieldset class="mg">
+        <legend>תנאי ההסכם <small>· שורה לכל סעיף. {name} = שם העסק</small></legend>
+        <textarea class="field" id="vc_terms" rows="7" aria-label="תנאי ההסכם"></textarea>
+        <label class="lbl" for="vc_ptiers" style="margin-top:10px">מדיניות ביטול אחרי תקופת הצינון <small>· שורה לכל מדרגה</small></label>
+        <textarea class="field" id="vc_ptiers" rows="3"></textarea>
+        <label class="lbl" for="vc_postpone" style="margin-top:10px">דחיית מועד</label>
+        <textarea class="field" id="vc_postpone" rows="2"></textarea>
+      </fieldset>
+
+      <p class="hint" id="vc_status" role="status" aria-live="polite"></p>
+      <div class="vc-done hidden" id="vc_done"><a class="btn sm primary" id="vc_open" href="#">כניסה לחשבון של הספק</a><span class="hint">הספק נכנס ב-system.snapbox.co.il/vendors עם ה-Gmail שלו.</span></div>
+      <button type="submit" class="btn primary block" id="vc_save">יצירת המשתמש</button>
+    </div>
+  </form>
+</dialog>
+
 <footer class="site-foot">
   <nav aria-label="מסמכים"><a href="../legal/terms.html">תנאי שימוש והסכם שירות</a><a href="../legal/privacy.html">מדיניות פרטיות</a><a href="../legal/accessibility.html">הצהרת נגישות</a></nav>
   <p>Snap Box · לוח ניהול</p>
 </footer>
-<script src="platform.js?v=20261011c"></script>
-<script src="registry.js?v=20261011c"></script>
-<script src="core.js?v=20261011c"></script>
-<script src="admin.js?v=20261011c"></script>
+<script src="platform.js?v=20261011d"></script>
+<script src="registry.js?v=20261011d"></script>
+<script src="core.js?v=20261011d"></script>
+<script src="vendor-editor.js?v=20261011d"></script>
+<script src="admin.js?v=20261011d"></script>
 <script>window.PRIVACY_URL = '../legal/privacy.html';</script>
 <script src="../common/cookie.js?v=3"></script>
 <script src="../common/a11y.js"></script>
