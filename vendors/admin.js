@@ -74,10 +74,19 @@
                 msg.textContent = u.any ? 'עודכן עכשיו (הנתונים של Google מגיעים בעיכוב של כמה דקות).' : 'עדיין אין נתונים להיום, או שהם עוד לא הגיעו. נסו שוב בעוד כמה דקות.';
             } catch(e) {
                 console.warn(e);
-                if (e && e.status === 401) Core.clearUsageToken();
-                msg.textContent = e && /popup-closed|cancelled-popup|user-cancelled/.test(e.code || '') ? 'החלון נסגר לפני האישור. לחצו שוב ואשרו את ההרשאה.'
+                const g = String((e && e.message) || ''), why = /SERVICE_DISABLED|has not been used|is disabled/i.test(g) ? 'disabled' : /SCOPE_INSUFFICIENT|insufficient.*scope/i.test(g) ? 'scope' : '';
+                if (e && (e.status === 401 || e.status === 403) && why !== 'disabled') Core.clearUsageToken();   // בלחיצה הבאה Google ישאל שוב
+                msg.textContent = '';
+                if (why === 'disabled') {
+                    // פעולה חד-פעמית: להפעיל את Cloud Monitoring API בפרויקט
+                    const a = document.createElement('a');
+                    a.href = 'https://console.cloud.google.com/apis/library/monitoring.googleapis.com?project=' + PF.firebase.projectId;
+                    a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'לפתוח את הדף ולהפעיל (Enable)';
+                    msg.append('צריך להפעיל פעם אחת את השירות של Google שמחזיר את נתוני השימוש (Cloud Monitoring API). ', a, '. אחרי דקה-שתיים לחצו שוב "בדיקת השימוש היום".');
+                } else msg.textContent = e && /popup-closed|cancelled-popup|user-cancelled/.test(e.code || '') ? 'החלון נסגר לפני האישור. לחצו שוב ואשרו את ההרשאה.'
                     : e && e.code === 'auth/user-mismatch' ? 'יש לבחור בחלון של Google את אותו חשבון שמחובר כאן.'
-                    : e && (e.status === 403 || e.status === 401) ? 'Google לא אישר גישה לנתוני השימוש. לחצו שוב ואשרו את ההרשאה, או פתחו את הנתונים ישירות ב-Firebase.'
+                    : why === 'scope' ? 'בחלון של Google צריך לסמן את התיבה "View monitoring data" (צפייה בנתוני ניטור) ואז Continue. לחצו שוב.'
+                    : e && (e.status === 403 || e.status === 401) ? `Google לא אישר גישה לנתוני השימוש (${e.status}). לחצו שוב ואשרו את ההרשאה, או פתחו את הנתונים ישירות ב-Firebase. פרטים: ${g.replace(/\s+/g, ' ').slice(0, 160)}`
                     : 'לא הצלחנו לקבל את הנתונים כרגע. אפשר לפתוח אותם ישירות ב-Firebase.';
             } finally { btn.disabled = false; }
         });

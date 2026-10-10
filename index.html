@@ -270,10 +270,6 @@ a.c-card{text-decoration:none;color:inherit;transition:border-color .2s ease}
 a.c-card:hover{border-color:var(--accent)}
 .btn.wa{background:#25D366;border-color:#25D366;color:#06301a}
 .btn.wa svg{width:22px;height:22px}
-.wa-float{position:fixed;left:20px;bottom:calc(20px + env(safe-area-inset-bottom,0px));z-index:40;width:60px;height:60px;border-radius:50%;background:#25D366;color:#fff;display:grid;place-items:center;box-shadow:0 12px 30px -8px rgba(0,0,0,.55)}
-.wa-float svg{width:32px;height:32px}
-.wa-float:hover{transform:scale(1.07)}
-@media (prefers-reduced-motion:no-preference){.wa-float{transition:transform .2s ease}}
 /* "חזרו אליי" */
 .lead-form{background:var(--surface);border:1px solid var(--line);border-radius:18px;padding:20px;display:grid;gap:14px;min-width:0}
 .lf-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -291,7 +287,6 @@ a.c-card:hover{border-color:var(--accent)}
 /* פס תחתון בטלפון/טאבלט (במקום הכפתור הצף) */
 .mbar{display:none}
 @media (max-width:860px){
-  .wa-float{display:none}
   .mbar{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:45;align-items:center;justify-content:space-between;gap:12px;padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));background:var(--surface);border-top:1px solid var(--line);box-shadow:0 -10px 30px -18px rgba(0,0,0,.5);transform:translateY(110%);visibility:hidden}
   .mbar.show{transform:none;visibility:visible}
   html.has-cookie-bar .mbar{display:none}
@@ -302,6 +297,22 @@ a.c-card:hover{border-color:var(--accent)}
   html.has-mbar #a11y-wrap{bottom:calc(env(safe-area-inset-bottom,0px) + 84px)}
 }
 @media (max-width:860px) and (prefers-reduced-motion:no-preference){.mbar{transition:transform .25s ease,visibility .25s}}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top,0px) + 80px);z-index:60;transform:translateX(-50%);width:max-content;max-width:calc(100% - 32px);display:flex;align-items:center;gap:14px;padding:14px 20px 14px 22px;border-radius:18px;background:var(--surface);color:var(--fg);border:1px solid var(--accent);box-shadow:0 24px 50px -20px rgba(0,0,0,.55);cursor:pointer}
+.toast[hidden]{display:none}
+.toast .t-ic{width:40px;height:40px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;flex:none}
+.toast .t-ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round}
+.toast b{display:block;font-size:1.05rem}
+.toast span.t-sub{color:var(--muted);font-size:.95rem}
+@media (prefers-reduced-motion:no-preference){
+  .toast.in{animation:toast-in .45s cubic-bezier(.2,.9,.3,1.2) both}
+  .toast.in .t-ic{animation:toast-pop .4s .2s ease-out both}
+  .toast.in .t-ic path{stroke-dasharray:24;stroke-dashoffset:24;animation:toast-draw .35s .45s ease-out forwards}
+  .toast.out{animation:toast-out .3s ease-in forwards}
+  @keyframes toast-in{from{opacity:0;transform:translate(-50%,-16px) scale(.96)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
+  @keyframes toast-out{to{opacity:0;transform:translate(-50%,-12px)}}
+  @keyframes toast-pop{from{transform:scale(.4)}to{transform:scale(1)}}
+  @keyframes toast-draw{to{stroke-dashoffset:0}}
+}
 footer{border-top:1px solid var(--line);padding-block:28px 100px;color:var(--muted);font-size:.9rem}
 footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 .foot-links{display:flex;gap:6px 16px;flex-wrap:wrap}.foot-links a{color:var(--muted);font-weight:600}.foot-links a:hover{color:var(--fg)}
@@ -585,7 +596,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
       <div class="support-line">
         <svg aria-hidden="true"><use href="#i-clock"/></svg>
         <div><b>תמיכה טכנית חודשית</b><span>לכל מי שרוצה ליווי שוטף אחרי ההתקנה</span></div>
-        <div class="support-price"><span class="num">₪69</span> לחודש</div>
+        <div class="support-price"><span class="num">₪89</span> לחודש</div>
       </div>
       <div class="calm">
         <h3>אני מכין לך את המערכת, ואת/ה פשוט עובד/ת איתה</h3>
@@ -709,7 +720,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   q.addEventListener('input', calc); m.addEventListener('input', calc); calc();
 })();
 </script>
-<a class="wa-float" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%A8%D7%90%D7%99%D7%AA%D7%99%20%D7%90%D7%AA%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%D7%95%D7%94%D7%97%D7%95%D7%96%D7%99%D7%9D%20%D7%95%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" aria-label="שלחו הודעה בוואטסאפ"><svg aria-hidden="true"><use href="#i-wa"/></svg></a>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden><span class="t-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b>תודה על הפנייה</b><span class="t-sub">נחזור אליך בהקדם</span></div></div>
 <div class="mbar" id="mbar" aria-hidden="true">
   <a class="mbar-price" href="#pricing" tabindex="-1"><b class="num" id="mbar-price">₪1,499</b><span id="mbar-sub">מבצע השקה · תשלום חד-פעמי</span></a>
   <a class="btn wa" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%A8%D7%90%D7%99%D7%AA%D7%99%20%D7%90%D7%AA%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%D7%95%D7%94%D7%97%D7%95%D7%96%D7%99%D7%9D%20%D7%95%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" tabindex="-1"><svg aria-hidden="true"><use href="#i-wa"/></svg>וואטסאפ</a>
@@ -782,6 +793,10 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   var form = document.getElementById('lead'); if (!form) return;
   var msg = document.getElementById('lf-msg'), btn = document.getElementById('lf-send');
   function say(t, bad){ msg.textContent = ''; msg.className = 'lf-msg' + (bad ? ' bad' : ' ok'); if (typeof t === 'string') msg.textContent = t; else msg.appendChild(t); }
+  var tEl = document.getElementById('toast'), tTimer = null;
+  function hideToast(){ clearTimeout(tTimer); tEl.classList.remove('in'); tEl.classList.add('out'); setTimeout(function(){ tEl.hidden = true; tEl.classList.remove('out'); }, 300); }
+  function toast(){ clearTimeout(tTimer); tEl.classList.remove('out', 'in'); tEl.hidden = false; void tEl.offsetWidth; tEl.classList.add('in'); tTimer = setTimeout(hideToast, 5000); }
+  tEl.addEventListener('click', hideToast);
   form.addEventListener('submit', function(e){
     e.preventDefault();
     var $ = function(id){ return document.getElementById(id); };
@@ -793,7 +808,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     var body = { 'שם': name, 'טלפון': phone, 'תחום': field || '—', _subject: 'פנייה חדשה מהאתר: ' + name + (field ? ' (' + field + ')' : ''), _template: 'table', _captcha: 'false' };
     var done = function(ok){
       btn.disabled = false; btn.textContent = 'חזרו אליי';
-      if (ok) { form.reset(); say('תודה! קיבלנו ונחזור אליכם בהקדם 🙂'); if (window.SBTrack) SBTrack.event('f', 'SubmitForm'); return; }
+      if (ok) { form.reset(); msg.textContent = ''; msg.className = 'lf-msg'; toast(); if (window.SBTrack) SBTrack.event('f', 'SubmitForm'); return; }
       var a = document.createElement('a');
       a.href = 'https://wa.me/972512440252?text=' + encodeURIComponent('היי! אשמח שתחזרו אליי. ' + name + ', ' + phone + (field ? ', ' + field : ''));
       a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'לשלוח את הפרטים בוואטסאפ';

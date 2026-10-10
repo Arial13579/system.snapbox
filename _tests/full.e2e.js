@@ -145,9 +145,9 @@ async function draw(p){
   check(await O.p.inputValue('#o_deposit') === '500', 'deposit defaults to ₪500');
   await O.p.fill('#o_email', 'Dani.Photo@gmail.com'); await O.p.fill('#o_deposit', '600'); await O.p.locator('#o_deposit').dispatchEvent('input');
   await O.p.fill('#o_pricing', 'חבילה בסיסית 3,500 ₪ ל-5 שעות\nשעה נוספת 500 ₪');
-  check((await O.p.textContent('#o_summary')).includes('₪1,213'), 'summary: deposit ₪600, balance ₪1,213');
+  check((await O.p.textContent('#o_summary')).includes('₪1,333'), 'summary: deposit ₪600, balance ₪1,333');
   const sumTxt = await O.p.textContent('#o_summary');
-  check(sumTxt.includes('₪1,813'), 'offer total = 1499 + 6×69 − 100 = ₪1,813');
+  check(sumTxt.includes('₪1,933'), 'offer total = 1499 + 6×89 − 100 = ₪1,933');
   check(sumTxt.includes('8 חודשי תמיכה'), 'support months = 2 included + 6');
   await axe(O.p, 'admin offer form');
   await O.p.screenshot({ path: SHOTS + 'admin-offer.png', fullPage: true });
@@ -165,8 +165,8 @@ async function draw(p){
   await P.p.goto(offerUrl);
   await P.p.waitForSelector('#sig-canvas');
   const ot = await P.p.textContent('main');
-  check(ot.includes('צלם הדגמה') && ot.includes('₪1,813') && ot.includes('8 חודשים'), 'offer page shows vendor, total and support');
-  check(ot.includes('dani.photo@gmail.com') && ot.includes('שעה נוספת 500') && ot.includes('₪600') && ot.includes('₪1,213'), 'offer page shows the Gmail, pricing info, deposit and balance');
+  check(ot.includes('צלם הדגמה') && ot.includes('₪1,933') && ot.includes('8 חודשים'), 'offer page shows vendor, total and support');
+  check(ot.includes('dani.photo@gmail.com') && ot.includes('שעה נוספת 500') && ot.includes('₪600') && ot.includes('₪1,333'), 'offer page shows the Gmail, pricing info, deposit and balance');
   await hasA11yWidget(P.p, 'offer page');
   await axe(P.p, 'offer page');
   await P.p.screenshot({ path: SHOTS + 'offer-mobile.png', fullPage: true });
@@ -183,7 +183,7 @@ async function draw(p){
   await O.p.waitForSelector('#otbody .badge.ok', { timeout: 15000 });
   check(await O.p.locator('#otbody .view').count() === 1, 'signed offer PDF stored');
   check(!(await O.p.textContent('#otbody')).includes('פרטים שונים'), 'signed offer matches what was sent (no tamper warning)');
-  check((await O.p.textContent('#okpis')).includes('₪1,813'), 'signed offers total KPI');
+  check((await O.p.textContent('#okpis')).includes('₪1,933'), 'signed offers total KPI');
   await O.ctx.grantPermissions(['clipboard-read', 'clipboard-write'], { origin: SITE });
   await O.p.click('#otbody .setup'); await O.p.waitForTimeout(400);
   const setupTxt = await O.p.evaluate(() => navigator.clipboard.readText());

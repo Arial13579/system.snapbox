@@ -28,6 +28,6 @@ window.PLATFORM = {
             regular: { label: 'מחיר רגיל', price: 1999, listPrice: 1999, freeSupportMonths: 0 },
             custom:  { label: 'מחיר מותאם', price: 0,    listPrice: 0,    freeSupportMonths: 0 }
         },
-        supportMonthly: 69
+        supportMonthly: 89
     }
 };

@@ -109,7 +109,7 @@ const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.
   check(s.v === 1, `visit counted once per device per day (v=${s.v})`);
   check(await A.p.isVisible('#cookie-bar') && !(await A.p.isVisible('#cookie-yes')), 'no pixel configured → plain notice, no consent question');
   // לחיצה על וואטסאפ ועל כניסת ספקים
-  await A.p.evaluate(() => { const a = document.querySelector('a.wa-float'); a.addEventListener('click', e => e.preventDefault()); a.click(); });
+  await A.p.evaluate(() => { const a = document.querySelector('.hero .btn.wa'); a.addEventListener('click', e => e.preventDefault()); a.click(); });
   await A.p.evaluate(() => { const a = document.querySelector('a.vendor-login'); a.addEventListener('click', e => e.preventDefault()); a.click(); });
   await A.p.waitForTimeout(1200);
   s = await stat(); check(s.w === 1 && s.l === 1, `WhatsApp click and vendor-login click counted (w=${s.w}, l=${s.l})`);
@@ -126,7 +126,7 @@ const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.
   check(pixelHits.some(u => u.includes('sdkid=' + PIXEL_ID)), 'pixel loads after "אישור"');
   await B.p.reload(); await B.p.waitForTimeout(1000);
   check(!(await B.p.isVisible('#cookie-bar')), 'choice remembered (no banner again)');
-  await B.p.evaluate(() => { const a = document.querySelector('a.wa-float'); a.addEventListener('click', e => e.preventDefault()); a.click(); });
+  await B.p.evaluate(() => { const a = document.querySelector('.hero .btn.wa'); a.addEventListener('click', e => e.preventDefault()); a.click(); });
   await B.p.waitForTimeout(500);
   const q = await B.p.evaluate(() => JSON.stringify(window.ttq && Array.from(window.ttq).slice(-3)));
   check(/"track","Contact"/.test(q || ''), 'WhatsApp click → pixel "Contact" event');
@@ -144,6 +144,7 @@ const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.
   const heroWa = await D.p.locator('.hero .btn.wa').boundingBox();
   check(heroWa && heroWa.y + heroWa.height <= 844, `WhatsApp button visible in the first screen on a phone (bottom=${heroWa && Math.round(heroWa.y + heroWa.height)})`);
   check(!(await D.p.isVisible('#mbar.show')), 'bottom bar hidden at the top of the page');
+  check(await D.p.locator('.wa-float').count() === 0, 'no floating round button');
   await D.p.evaluate(() => window.scrollTo(0, 2500)); await D.p.waitForTimeout(600);
   check(await D.p.isVisible('#mbar.show'), 'bottom bar shows after scrolling past the hero');
   await D.p.evaluate(() => document.getElementById('contact').scrollIntoView()); await D.p.waitForTimeout(600);
@@ -154,7 +155,11 @@ const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.
   await D.p.click('#lf-send');
   check(/שם/.test(await D.p.textContent('#lf-msg')) && leads.length === 0, 'lead form: empty name → error, nothing sent');
   await D.p.fill('#lf-name', 'דני'); await D.p.fill('#lf-phone', '050-1234567'); await D.p.selectOption('#lf-field', 'DJ'); await D.p.click('#lf-send');
-  await D.p.waitForFunction(() => /תודה/.test(document.getElementById('lf-msg').textContent), null, { timeout: 8000 });
+  await D.p.waitForSelector('#toast:not([hidden])', { timeout: 8000 });
+  check(/תודה על הפנייה/.test(await D.p.textContent('#toast')) && /נחזור אליך בהקדם/.test(await D.p.textContent('#toast')) && !/🙂/.test(await D.p.textContent('#toast, #lf-msg')), 'thank-you toast shown (no emoji)');
+  check(await D.p.inputValue('#lf-name') === '', 'form cleared after sending');
+  await D.p.waitForSelector('#toast', { state: 'hidden', timeout: 8000 });
+  check(true, 'toast hides by itself');
   check(leads.length === 1 && /דני/.test(leads[0]) && /050-1234567/.test(leads[0]) && /DJ/.test(leads[0]), 'lead form sent (name, phone, field)');
   leadOk = false;
   await D.p.fill('#lf-name', 'רוני'); await D.p.fill('#lf-phone', '0521234567'); await D.p.click('#lf-send');
@@ -194,6 +199,13 @@ const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.
   check(qt.includes('13,000') && qt.includes('50,000') && qt.includes('2,345') && qt.includes('40,000'), 'Firebase usage: reads 13,000/50,000 and writes 2,345/40,000');
   check(/מתאפס ב-\d{2}:\d{2}/.test(qt), 'shows the reset time');
   await axe(O.p, 'admin with traffic + quota cards');
+  // שגיאות מ-Google: השירות לא מופעל / לא סומנה ההרשאה (fetch מדומה בדף, כדי לא לרשום שגיאת רשת בקונסול)
+  await O.p.evaluate(() => { const f = window.fetch; window.fetch = (u, o) => /monitoring\.googleapis/.test(String(u)) ? Promise.resolve(new Response(JSON.stringify({ error: { code: 403, message: window.__monErr === 'scope' ? 'Request had insufficient authentication scopes.' : 'Cloud Monitoring API has not been used in project 1 before or it is disabled.', status: 'PERMISSION_DENIED', details: [{ reason: window.__monErr === 'scope' ? 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' : 'SERVICE_DISABLED' }] } }), { status: 403 })) : f(u, o); });
+  await O.p.click('#quota-btn'); await O.p.waitForSelector('#quota-msg a[href*="monitoring.googleapis.com"]', { timeout: 8000 });
+  check(/Enable/.test(await O.p.textContent('#quota-msg')), 'API disabled → link to enable Cloud Monitoring API');
+  await O.p.evaluate(() => { window.__monErr = 'scope'; });
+  await O.p.click('#quota-btn'); await O.p.waitForFunction(() => /View monitoring data/.test(document.getElementById('quota-msg').textContent), null, { timeout: 8000 });
+  check(true, 'scope not granted → explains which box to tick');
   check(!errors.length, 'no page errors' + (errors.length ? ':\n    ' + errors.join('\n    ') : ''));
   await b.close(); console.log(failures ? `\n${failures} FAILED` : '\nALL CHECKS PASSED'); process.exit(failures ? 1 : 0);
 })().catch(e => { console.error('CRASH', e); process.exit(2); });
