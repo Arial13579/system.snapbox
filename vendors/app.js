@@ -100,6 +100,13 @@
     /* ================= תקופת ניסיון ================= */
     function renderTrial(){
         const a = Core.accessStatus(tenantData), c = Core.PF.contact || {}, price = Core.money((Core.PF.sales || {}).renewalYearly || 400);
+        if (a.state === 'pending') {
+            $('support-card').classList.add('hidden');
+            $('pending-note').classList.remove('hidden');
+            $('pending-price').textContent = price + ' לשנה';
+            $('pending-wa').href = 'https://wa.me/' + (c.whatsapp || '') + '?text=' + encodeURIComponent(`היי, אשמח למנוי שנתי 🙂\nהעסק: ${T.business.name}\n${user.email}`);
+            return true;
+        }
         if (a.state !== 'trial' && a.state !== 'trialEnded') return false;
         const wa = 'https://wa.me/' + (c.whatsapp || '') + '?text=' + encodeURIComponent(`היי, אשמח למנוי שנתי 🙂\nהעסק: ${T.business.name}\n${user.email}`);
         $('support-card').classList.add('hidden');
@@ -154,7 +161,7 @@
         const expired = Core.accessOver(tenantData);
         const limited = Core.accountState(tenantData) === 'limited' || expired;
         if (Core.accountState(tenantData) === 'limited') $('limited-note').classList.remove('hidden');
-        if (expired && !tenantData.trial) $('expired-note').classList.remove('hidden');
+        if (expired && !tenantData.trial && !tenantData.pending) $('expired-note').classList.remove('hidden');
         if (limited && !isOwnerView) $('creator-fs').disabled = true;
         // מצב המחולל: מחירון אוטומטי או פריטים
         document.querySelectorAll('.m-classic, .m-items').forEach(el => {

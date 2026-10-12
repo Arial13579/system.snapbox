@@ -86,5 +86,54 @@
         };
     }
 
-    window.VendorTemplates = { COLORS, DEFAULT_TERMS, DEFAULT_TIERS, DEFAULT_POSTPONE, EVENT_TYPES, CITIES, FIELDS, build };
+    /* ---- הגדרות מלאות ממה שהספק מילא בעצמו בהרשמה (פרטי העסק, חבילות/מחירון, מה משפיע על המחיר, תנאי החוזה) ---- */
+    const txt = (s, n) => String(s == null ? '' : s).replace(/[<>|^~]/g, '').replace(/\s+/g, ' ').trim().slice(0, n || 300);
+    const lines = (s, n) => String(s || '').split('\n').map(x => txt(x, n || 400)).filter(Boolean);
+    const num = v => Math.max(0, Math.round(Number(v) || 0));
+    // "מעל X → +₪Y" ⇒ מדרגות (max, price, label) כמו ב-config.js
+    function toTiers(rules, unit, first){
+        const r = rules.map(x => ({ over: num(x.over), add: num(x.add) })).filter(x => x.over > 0 && x.add > 0).sort((a, b) => a.over - b.over);
+        if (!r.length) return [];
+        const t = [{ max: r[0].over, price: 0, label: `עד ${r[0].over} ${unit}${first ? ' · ' + first : ''}` }];
+        r.forEach((x, i) => t.push({ max: i + 1 < r.length ? r[i + 1].over : 1e9, price: x.add, label: `מעל ${x.over} ${unit}` }));
+        return t;
+    }
+    function fromForm(o){
+        const items = o.mode === 'items', cityName = CITIES[o.city] ? o.city : 'תל אביב', c = CITIES[cityName];
+        const B = { name: txt(o.name, 60), tagline: txt(o.tagline, 120) || ((FIELDS[o.field] || {}).tagline || ''), email: txt(o.email, 120).toLowerCase(), phone: txt(o.phone, 30),
+            businessId: txt(o.businessId, 60), address: txt(o.address, 160), logo: /^data:image\//.test(o.logo || '') ? o.logo : '' };
+        const P = { COMMON_ITEMS: lines(o.common, 200).slice(0, 15) };
+        const guestRules = (o.guestRules || []).map(r => ({ over: num(r.over), add: num(r.add) })).filter(r => r.over && r.add).slice(0, 5);
+        const travelRules = (o.travelRules || []).map(r => ({ over: num(r.over), add: num(r.add) })).filter(r => r.over && r.add).slice(0, 5);
+        if (items) Object.assign(P, { MODE: 'items', DEPOSIT_PERCENT: Math.min(100, num(o.depositPct)), EVENT_HOURS: 4,
+            CATALOG: (o.rows || []).map(r => ({ label: txt(r.label, 80), price: num(r.price), desc: txt(r.desc, 300) })).filter(r => r.label).slice(0, 30) });
+        else {
+            const SERVICES = {};
+            (o.rows || []).filter(r => txt(r.label, 80)).slice(0, 15).forEach((r, i) => {
+                SERVICES['p' + (i + 1)] = { label: txt(r.label, 80), base: num(r.price), hours: Math.max(0, Number(r.hours) || 0), extraHour: num(r.extraHour), lead: '', items: lines(r.items, 200).slice(0, 15) };
+            });
+            Object.assign(P, { ORIGIN: { name: cityName, lat: c[0], lon: c[1] }, DEFAULT_SERVICE: Object.keys(SERVICES)[0] || '', DEPOSIT: num(o.deposit), SERVICES,
+                GUEST_TIERS: toTiers(guestRules, 'מוזמנים'), TRAVEL_TIERS: toTiers(travelRules, 'ק"מ', 'מ' + cityName), EXTRA_FRACTION: { 0: 0, 15: 0.25, 30: 0.5, 45: 0.75 } });
+        }
+        return {
+            business: B,
+            theme: { brand: COLORS.includes(o.color) ? o.color : COLORS[0], background: '#F7F6F3', font: 'Assistant' },
+            labels: { service: 'חבילה', included: items ? 'מה כלול' : 'מה כלול בחבילה', docTitle: 'הצעת מחיר והסכם', eventTypes: EVENT_TYPES.slice() },
+            pricing: P,
+            terms: lines(o.terms, 600).slice(0, 30),
+            policy: { coolingDays: 14, coolingNoticeDays: 7, refundDays: 14, tiers: lines(o.tiers, 400).slice(0, 10), postpone: txt(o.postpone, 400) },
+            editor: { guestRules, travelRules }
+        };
+    }
+    // מספר זהות / עוסק / ח.פ ישראלי: 9 ספרות עם ספרת ביקורת
+    function validIsraeliId(v){
+        const d = String(v || '').replace(/\D/g, '');
+        if (!d || d.length > 9 || /^0+$/.test(d)) return false;
+        const s = d.padStart(9, '0');
+        let sum = 0;
+        for (let i = 0; i < 9; i++) { let x = Number(s[i]) * (i % 2 + 1); sum += x > 9 ? x - 9 : x; }
+        return sum % 10 === 0;
+    }
+
+    window.VendorTemplates = { COLORS, DEFAULT_TERMS, DEFAULT_TIERS, DEFAULT_POSTPONE, EVENT_TYPES, CITIES, FIELDS, build, fromForm, toTiers, validIsraeliId };
 })();

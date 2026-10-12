@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230d9488'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial'%3E%E2%82%AA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="vendor.css?v=20261012c">
+<link rel="stylesheet" href="vendor.css?v=20261012d">
 <title>החשבון שלי | מחולל הצעות מחיר</title>
 </head>
 <body>
@@ -52,6 +52,7 @@
       </div>
     </div>
     <div class="trial-bar hidden" id="trial-bar" role="status"><div><b>🎁 תקופת ניסיון חינם</b> · נותרו <b id="trial-left"></b> <span class="s" id="trial-until"></span><div class="s" id="trial-sample">המחירון כאן לדוגמה לפי התחום. לשינוי: <a href="#dash" id="trial-pkgs">לוח בקרה ← <span id="trial-pkgs-name">החבילות שלי</span></a>.</div></div><a class="btn sm primary" id="trial-buy" target="_blank" rel="noopener">שדרוג למנוי שנתי</a></div>
+    <div class="trial-bar hidden" id="pending-note" role="status"><div><b>⏳ המנוי השנתי ממתין לאישור</b><div class="s">החשבון פתוח ואפשר להסתכל על הכול. שליחת הצעות ללקוחות תיפתח אחרי התשלום (<span id="pending-price"></span>) ואישור שלנו.</div></div><a class="btn sm primary" id="pending-wa" target="_blank" rel="noopener">לתשלום ואישור בוואטסאפ</a></div>
     <div class="limited-note hidden" id="trial-over" role="note"><b>תקופת הניסיון הסתיימה.</b> ההצעות וההסכמים נשמרים ואפשר לראות אותם בלוח הבקרה, ולקוחות עדיין יכולים לחתום על הצעות שכבר נשלחו. כדי להמשיך ליצור הצעות חדשות: <b>מנוי שנתי <span id="trial-price"></span></b>. <a href="#" id="trial-over-wa" class="btn sm primary" target="_blank" rel="noopener">שדרוג למנוי שנתי בוואטסאפ</a></div>
     <div class="limited-note hidden" id="expired-note" role="note"><b>הרישיון השנתי הסתיים.</b> אפשר לראות את ההצעות וההסכמים בלוח הבקרה, אבל לא ליצור הצעות חדשות. חידוש לשנה: <b id="renew-price"></b> (בלי תמיכה). <a href="#" id="renew-link" target="_blank" rel="noopener">לחידוש בוואטסאפ</a>.</div>
     <div class="limited-note hidden" id="limited-note" role="note"><b>החשבון במצב צפייה בלבד.</b> אפשר לראות את ההצעות וההסכמים בלוח הבקרה, אבל לא ליצור הצעות חדשות. לפרטים: <a href="#" class="wa-support-link">וואטסאפ לתמיכה</a>.</div>
@@ -141,7 +142,7 @@
         <input type="text" id="search" class="field" placeholder="חיפוש לפי לקוח / סוג אירוע…">
         <div class="seg" id="statusSeg"><button type="button" data-v="all" class="on">הכל</button><button type="button" data-v="pending">ממתינות</button><button type="button" data-v="signed">נחתמו</button></div>
       </div>
-      <div class="card tbl-wrap">
+      <div class="card tbl-wrap" tabindex="0" role="region" aria-label="טבלת ההצעות">
         <table>
           <thead><tr><th>נשלח</th><th>לקוח</th><th>אירוע</th><th id="th-service">חבילה</th><th>תאריך אירוע</th><th>מחיר</th><th>סטטוס</th><th>הסכם חתום</th><th>פעולות</th></tr></thead>
           <tbody id="tbody"><tr><td colspan="9" class="loading">טוען נתונים…</td></tr></tbody>
@@ -171,9 +172,9 @@
 </dialog>
 <input type="file" id="fileUploadInput" accept="application/pdf" style="display:none">
 
-<script src="platform.js?v=20261012c"></script>
-<script src="core.js?v=20261012c"></script>
-<script src="app.js?v=20261012c"></script>
+<script src="platform.js?v=20261012d"></script>
+<script src="core.js?v=20261012d"></script>
+<script src="app.js?v=20261012d"></script>
 <script>window.PRIVACY_URL = '../legal/privacy.html';</script>
 <script src="../common/cookie.js?v=3"></script>
 <script src="../common/a11y.js"></script>

@@ -157,7 +157,7 @@
         const N = v => Math.max(0, Number(v) || 0), str = v => typeof v === 'string' ? v : '', arr = v => Array.isArray(v) ? v : [];
         const strs = v => arr(v).map(str).filter(Boolean), hex = (v, d) => /^#[0-9a-f]{6}$/i.test(v) ? v : d;
         const B = T.business = Object.assign({}, T.business);
-        ['name', 'tagline', 'email', 'phone', 'businessId'].forEach(k => { B[k] = str(B[k]); });
+        ['name', 'tagline', 'email', 'phone', 'businessId', 'address'].forEach(k => { B[k] = str(B[k]); });
         B.logo = /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(str(B.logo)) ? B.logo : '';
         ['website', 'instagram', 'facebook', 'tiktok'].forEach(k => { if (B[k] !== undefined && !/^https:\/\/[^\s"'`]+$/i.test(str(B[k]))) delete B[k]; });
         const th = T.theme = Object.assign({}, T.theme);
@@ -331,6 +331,7 @@
     }
     const fmtDateTime = d => fmtDate(d) + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     function accessStatus(t){
+        if (t && t.pending) return { state: 'pending', label: 'מנוי שנתי · ממתין לאישור' };
         if (t && t.trial) {
             const until = trialEnd(t), ms = until - Date.now();
             return ms > 0 ? { state: 'trial', until, ms, left: leftText(ms), label: 'ניסיון חינם עד ' + fmtDateTime(until) }
@@ -345,26 +346,30 @@
         return { state: days <= 30 ? 'expiring' : 'active', until, days, label: 'בתוקף עד ' + fmtDate(until) };
     }
     // צפייה בלבד בגלל זמן: רישיון שנתי שהסתיים או תקופת ניסיון שהסתיימה
-    const accessOver = t => { const s = accessStatus(t).state; return s === 'expired' || s === 'trialEnded'; };
+    const accessOver = t => { const s = accessStatus(t).state; return s === 'expired' || s === 'trialEnded' || s === 'pending'; };
 
     /* פתיחת תקופת ניסיון: ספק חדש פותח לעצמו חשבון. ארבעה מסמכים בפעולה אחת (הכללים בודקים שהם יחד):
        trials/{מייל} (פעם אחת לכל Gmail), tenants/{ספק}, vendorIndex/{מייל}, vendorConfigs/{ספק}. מחזיר את ה-slug. */
     function randomSlug(){ return 'v' + Array.from(crypto.getRandomValues(new Uint8Array(7)), b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join(''); }
+    // o = { plan: 'trial'|'regular', name, phone, contactName, businessType, pricingInfo, config }
     async function startTrial(o){
         const f = await fb(), u = f.auth.currentUser; if (!u) throw new Error('not signed in');
-        const email = String(u.email || '');
-        const cfg = JSON.stringify(window.VendorTemplates.build(o.field, { name: o.name, phone: o.phone, email: email.toLowerCase(), color: o.color, city: o.city }));
+        const email = String(u.email || ''), annual = o.plan === 'regular';
+        const cfg = JSON.stringify(o.config || window.VendorTemplates.build(o.field, { name: o.name, phone: o.phone, email: email.toLowerCase(), color: o.color, city: o.city }));
         let lastErr;
         for (let i = 0; i < 3; i++) {   // שם משתמש אקראי; אם במקרה תפוס — מנסים שם אחר
             const slug = randomSlug(), b = f.fs.writeBatch(f.db), now = f.fs.serverTimestamp();
-            b.set(f.fs.doc(f.db, 'trials', email), { tenant: slug, createdAt: now });
-            b.set(f.fs.doc(f.db, 'tenants', slug), { slug, name: o.name, admins: [email], active: true, managed: 'trial', trial: true, plan: 'trial',
-                phone: o.phone, contactName: o.contactName || '', businessType: (window.VendorTemplates.FIELDS[o.field] || {}).label || '', createdAt: now });
+            b.set(f.fs.doc(f.db, 'trials', email), { tenant: slug, plan: annual ? 'regular' : 'trial', createdAt: now });
+            b.set(f.fs.doc(f.db, 'tenants', slug), { slug, name: String(o.name || '').slice(0, 80), admins: [email], active: true,
+                managed: annual ? 'signup' : 'trial', trial: !annual, plan: annual ? 'regular' : 'trial', pending: annual,
+                phone: String(o.phone || '').slice(0, 30), contactName: String(o.contactName || '').slice(0, 80),
+                businessType: String(o.businessType || (window.VendorTemplates.FIELDS[o.field] || {}).label || '').slice(0, 40),
+                pricingInfo: String(o.pricingInfo || '').slice(0, 1500), createdAt: now });
             b.set(f.fs.doc(f.db, 'vendorIndex', email), { tenant: slug });
             b.set(f.fs.doc(f.db, 'vendorConfigs', slug), { config: cfg, updatedAt: now });
             try { await b.commit(); return slug; }
             catch(e) { lastErr = e; if (e.code !== 'permission-denied') throw e;
-                // אם כבר נרשם ניסיון למייל הזה — לא מנסים שוב
+                // אם כבר נרשם חשבון למייל הזה — לא מנסים שוב
                 try { if ((await f.fs.getDoc(f.fs.doc(f.db, 'trials', email))).exists()) throw Object.assign(new Error('used'), { code: 'trial-used' }); } catch(x) { if (x.code === 'trial-used') throw x; }
             }
         }

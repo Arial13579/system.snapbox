@@ -63,7 +63,7 @@
     function fill(T, o){
         const B = T.business || {}, P = T.pricing || {}, L = T.labels || {}, E = T.editor || {};
         $('vc_name').value = B.name || ''; $('vc_tag').value = B.tagline || ''; $('vc_phone').value = B.phone || '';
-        $('vc_email').value = B.email || ''; $('vc_bid').value = B.businessId || '';
+        $('vc_email').value = B.email || ''; $('vc_bid').value = B.businessId || ''; $('vc_addr').value = B.address || '';
         ['website', 'instagram', 'facebook', 'tiktok'].forEach(k => { $('vc_' + k).value = B[k] || ''; });
         setColor((T.theme && T.theme.brand) || COLORS[0]);
         setLogo(B.logo || '');
@@ -172,7 +172,7 @@
         const guestRules = readRows('vc_guest').map(r => ({ over: num(r.over), add: num(r.add) })).filter(r => r.over && r.add);
         const travelRules = readRows('vc_travel').map(r => ({ over: num(r.over), add: num(r.add) })).filter(r => r.over && r.add);
         const B = { name, tagline: txt($('vc_tag').value, 120), email: txt($('vc_email').value, 120).toLowerCase(), phone: txt($('vc_phone').value, 30),
-            businessId: txt($('vc_bid').value, 60), logo: LOGO };
+            businessId: txt($('vc_bid').value, 60), address: txt($('vc_addr').value, 160), logo: LOGO };
         ['website', 'instagram', 'facebook', 'tiktok'].forEach(k => { const v = txt($('vc_' + k).value, 200); if (/^https:\/\//i.test(v)) B[k] = v; });
         const P = { COMMON_ITEMS: lines($('vc_common').value, 200) };
         if (items) {

@@ -19,7 +19,7 @@ window.PLATFORM = {
     contact: { phone: '051-2440252', whatsapp: '972512440252', email: 'arielkahalani1@gmail.com' },
 
     // גרסת תנאי השימוש לספקים. שינוי הגרסה מחייב כל ספק לאשר מחדש בכניסה הבאה
-    termsVersion: '2026-10-12.3',
+    termsVersion: '2026-10-12.4',
 
     // תקופת ניסיון חינם (vendors/trial.html): בלי תשלום ובלי התחייבות. אחרי הימים — צפייה בלבד, עד מעבר למנוי
     trial: { days: 3 },
