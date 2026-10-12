@@ -400,6 +400,14 @@ await ok('pending vendor can prepare packages? no — blocked too', assertFails(
 await ok('owner approves the subscription', updateDoc(doc(owner, 'tenants/vyaelaaa'), { pending: false, accessEnds: Timestamp.fromMillis(Date.now() + 365 * 864e5), accessUntil: '2027-10-12', lifetime: false }));
 await ok('approved vendor sends quotes', setDoc(doc(yael, 'tenants/vyaelaaa/quotes/a2'), { status: 'pending', price: 1 }));
 
+// ספק שנמחק (הבעלים מחק את החשבון) — אותו Gmail נרשם מחדש כמו לקוח חדש, גם אם רישום ההרשמה הישן נשאר
+const sam = as('sam@gmail.com');
+await ok('sam opens a trial', trialBatch(sam, 'sam@gmail.com', 'vsamaaaa', {}));
+await no('sam cannot sign up again while the account exists', trialBatch(sam, 'sam@gmail.com', 'vsambbbb', {}));
+await ok('owner deletes sam account (tenant + index, trials record stays)', (async () => { await deleteDoc(doc(owner, 'vendorIndex/sam@gmail.com')); await deleteDoc(doc(owner, 'vendorConfigs/vsamaaaa')); await deleteDoc(doc(owner, 'tenants/vsamaaaa')); })());
+await ok('deleted vendor signs up again as a new customer', trialBatch(sam, 'sam@gmail.com', 'vsamcccc', {}));
+await no('someone else cannot take over sam signup record', setDoc(doc(rina, 'trials/sam@gmail.com'), { tenant: 'vxxxxxxx', plan: 'trial', createdAt: serverTimestamp() }));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);

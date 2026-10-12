@@ -239,12 +239,12 @@ const slugOf = async () => val((await emu('GET', 'vendorIndex/' + VENDOR)).body.
   check(ext === 'permission-denied', 'vendor cannot extend own trial (' + ext + ')');
   await axe(V.p, 'vendor app, trial over');
 
-  console.log('7. Another Gmail that already used a trial');
+  console.log('7. A Gmail with an old signup record whose account is gone (deleted) → new customer');
   await emu('POST', 'trials?documentId=used.before@gmail.com', { fields: { tenant: str('vgone123'), createdAt: { timestampValue: back } } });
   const U = await newPage(b, 'used');
   await trialLogin(U.p, 'used.before@gmail.com');
-  await U.p.waitForSelector('#s-msg:not(.hidden)', { timeout: 15000 });
-  check(/כבר נפתח חשבון/.test(await U.p.textContent('#m-title')) && await U.p.isVisible('#m-wa'), 'trial already used → WhatsApp to continue');
+  await U.p.waitForSelector('#s-form:not(.hidden)', { timeout: 15000 });
+  check(true, 'old record of a deleted account does not block: full signup form');
 
   console.log('8. Owner: trial badge, extend, convert to yearly');
   const O = await newPage(b, 'owner');
@@ -326,6 +326,33 @@ const slugOf = async () => val((await emu('GET', 'vendorIndex/' + VENDOR)).body.
   check(await A.p.isHidden('#pending-note') && !(await A.p.locator('#creator-fs').evaluate(e => e.disabled)), 'approved: vendor can send quotes');
   const aq = await A.p.evaluate(async s => { const f = await Core.fb(); try { await f.fs.setDoc(f.fs.doc(f.db, 'tenants', s, 'quotes', 'x2'), { status: 'pending', price: 1 }); return 'ok'; } catch(e) { return e.code; } }, aslug);
   check(aq === 'ok', 'approved vendor creates quotes');
+
+  console.log('8c. Owner deletes the account → same Gmail = new customer; owner restores → same Gmail gets back in');
+  await O.p.goto(SYS + '/vendors/admin.html'); await O.p.waitForSelector(`#tbody button.edit[data-id=${slug}]`, { timeout: 30000 });
+  await O.p.click(`#tbody button.edit[data-id=${slug}]`); await O.p.waitForSelector('#edit-dlg[open]');
+  await O.p.fill('#e_del_confirm', slug); await O.p.click('#e_delete');
+  await O.p.waitForFunction(s => !document.querySelector(`#tbody button.edit[data-id=${s}]`), slug, { timeout: 30000 });
+  await O.p.waitForSelector('#deleted-card:not(.hidden)', { timeout: 15000 });
+  check((await O.p.textContent('#deleted-list')).includes(VENDOR), 'deleted list shows the Gmail');
+  check((await emu('GET', 'trials/' + VENDOR)).status === 404 && (await emu('GET', 'vendorIndex/' + VENDOR)).status === 404, 'Gmail released (no signup record, no access)');
+  const tomb = (await emu('GET', 'deletedTenants/' + slug)).body.fields;
+  check(val(tomb.config).includes('ע.מ 123456782'), 'settings backed up for a restore');
+  const D = await newPage(b, 'deleted-vendor');
+  await trialLogin(D.p, VENDOR);
+  await D.p.waitForSelector('#s-form:not(.hidden)', { timeout: 15000 });
+  check(true, 'deleted vendor signing in again = new customer (full signup form)');
+  await D.p.evaluate(() => Core.signOutQuiet());
+  await O.p.click('#deleted-list button.restore');
+  await O.p.waitForSelector(`#tbody button.edit[data-id=${slug}]`, { timeout: 30000 });
+  check((await emu('GET', 'vendorIndex/' + VENDOR)).status === 200 && (await emu('GET', 'deletedTenants/' + slug)).status === 404, 'restored: same Gmail connected again');
+  await login(D.p, VENDOR);
+  await D.p.waitForURL(new RegExp('app\\.html\\?t=' + slug), { timeout: 20000 });
+  await D.p.waitForSelector('#consent:not(.hidden), #main-app:not(.hidden)', { timeout: 20000 });
+  if (await D.p.isVisible('#consent')) { await D.p.check('#consent-check'); await D.p.click('#consent-btn'); await D.p.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 }); }
+  check(await D.p.textContent('#t-name') === val(t.name) && await D.p.locator('#in_service option').count() === 2, 'restored account: same name and packages (from the backup)');
+  check(!(await D.p.locator('#creator-fs').evaluate(e => e.disabled)), 'restored account works (empty, no old quotes)');
+  const rq = (await emu('GET', `tenants/${slug}/quotes`)).body.documents || [];
+  check(rq.length === 0, 'old quotes are not back (empty account)');
 
   console.log('9. Malicious settings cannot run code (customer pages + vendor app)');
   const evil = '<img src=x onerror="window.__pwned=1">';
