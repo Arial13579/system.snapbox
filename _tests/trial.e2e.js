@@ -129,7 +129,17 @@ const slugOf = async () => val((await emu('GET', 'vendorIndex/' + VENDOR)).body.
   await V.p.click('#f_next'); check(/איש הקשר/.test(await V.p.textContent('#f_err')), 'validation: contact name');
   await V.p.fill('#f_contact', 'דנה לוי');
   check(await V.p.inputValue('#f_email') === VENDOR, 'contract email prefilled with the Gmail');
-  await V.p.click('#f_sw button[data-c="#6B21A8"]');
+  // לוגו כבד, כמו בספארי באייפון (שם webp לא נתמך ומחזיר png) — חייב להיכנס, והצבע נבחר לפי הלוגו
+  await V.p.evaluate(() => { const o = HTMLCanvasElement.prototype.toDataURL; HTMLCanvasElement.prototype.toDataURL = function(t, q){ return o.call(this, t === 'image/webp' ? 'image/png' : t, q); }; });
+  const big = await V.p.evaluate(() => { const c = document.createElement('canvas'); c.width = 1600; c.height = 1200; const g = c.getContext('2d');
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, 1600, 1200); for (let i = 0; i < 4000; i++) { g.fillStyle = `rgb(${200 + Math.random() * 55 | 0},${Math.random() * 40 | 0},${Math.random() * 40 | 0})`; g.fillRect(Math.random() * 1600, Math.random() * 1200, 30, 30); }
+    return c.toDataURL('image/png').split(',')[1]; });
+  await V.p.setInputFiles('#f_logo_file', { name: 'logo.png', mimeType: 'image/png', buffer: Buffer.from(big, 'base64') });
+  await V.p.waitForFunction(() => /הלוגו נוסף|לא הצלחנו|נסו/.test(document.getElementById('f_logo_msg').textContent), null, { timeout: 15000 });
+  check(/הלוגו נוסף/.test(await V.p.textContent('#f_logo_msg')) && await V.p.locator('#f_logo_prev img').count() === 1, 'heavy logo accepted even without webp (iPhone): ' + (await V.p.textContent('#f_logo_msg')));
+  const picked = await V.p.locator('#f_sw_logo button[aria-pressed=true]').getAttribute('data-c').catch(() => '');
+  const [pr, pg, pb] = [1, 3, 5].map(i => parseInt((picked || '#000000').slice(i, i + 2), 16));
+  check(!!picked && pr > pg + 40 && pr > pb + 40, 'brand color picked from the logo (red): ' + picked);
   await V.p.click('#f_next');
   check(await V.p.isVisible('#f_rows'), 'step 3: packages and prices');
   await axe(V.p, 'signup step 3');
@@ -140,7 +150,7 @@ const slugOf = async () => val((await emu('GET', 'vendorIndex/' + VENDOR)).body.
   await V.p.click('#f_add_row');
   const r2 = V.p.locator('#f_rows .rowcard').nth(1);
   await r2.locator('[data-f=label]').fill('DJ + תאורה'); await r2.locator('[data-f=price]').fill('5500'); await r2.locator('[data-f=hours]').fill('5');
-  await V.p.selectOption('#f_city', 'באר שבע');
+  await V.p.fill('#f_city', 'מושב נבטים');   // טקסט חופשי — לא מהרשימה
   await V.p.fill('#f_t_over', '40'); await V.p.fill('#f_t_add', '250');
   await V.p.click('#f_next'); check(/מה משפיע על המחיר/.test(await V.p.textContent('#f_err')), 'validation: what affects the price');
   await V.p.fill('#f_pricing', 'עונת חתונות, ימי שישי, מרחק');
@@ -160,6 +170,8 @@ const slugOf = async () => val((await emu('GET', 'vendorIndex/' + VENDOR)).body.
   check(t.trial.booleanValue === true && val(t.plan) === 'trial' && val(t.managed) === 'trial' && !/[<>]/.test(val(t.name)), 'tenant is a trial, name without tags: ' + val(t.name));
   check(val(t.pricingInfo) === 'עונת חתונות, ימי שישי, מרחק', 'what affects the price saved for the owner');
   const savedCfg = JSON.parse(val((await emu('GET', 'vendorConfigs/' + slug)).body.fields.config));
+  check(savedCfg.pricing.ORIGIN.name === 'מושב נבטים' && Math.abs(savedCfg.pricing.ORIGIN.lat - 31.252) < 0.01, 'free-text departure place found: ' + JSON.stringify(savedCfg.pricing.ORIGIN));
+  check(/^data:image\//.test(savedCfg.business.logo) && savedCfg.business.logo.length <= 45000 && savedCfg.theme.brand === picked, 'logo + logo color saved');
   check(savedCfg.business.businessId === 'ע.מ 123456782' && savedCfg.business.address === 'הרצל 10, באר שבע' && Object.keys(savedCfg.pricing.SERVICES).length === 2, 'contract details + 2 packages saved');
   check((await emu('GET', 'trials/' + VENDOR)).status === 200, 'signup recorded for this Gmail');
 
@@ -250,12 +262,24 @@ const slugOf = async () => val((await emu('GET', 'vendorIndex/' + VENDOR)).body.
   await O.p.waitForFunction(() => /הוארך/.test(document.getElementById('e_status').textContent), null, { timeout: 15000 });
   await V.p.reload(); await V.p.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 });
   check(await V.p.isVisible('#trial-bar') && !(await V.p.locator('#creator-fs').evaluate(e => e.disabled)), 'extended: vendor can work again');
+  // הצעת מחיר מוכנה מכל מה שהספק מילא
+  await O.p.click('#e_ready_offer');
+  await O.p.waitForSelector('#tab-offer:not(.hidden) #o_for:not(.hidden)', { timeout: 15000 });
+  check(await O.p.inputValue('#o_vendor') === val(t.name) && await O.p.inputValue('#o_email') === VENDOR && await O.p.inputValue('#o_phone') === '050-1234567', 'ready offer: name, Gmail, phone filled');
+  const opr = await O.p.inputValue('#o_pricing');
+  check(opr.includes('DJ · ₪3,500') && opr.includes('שעה נוספת ₪500') && opr.includes('עונת חתונות') && await O.p.inputValue('#o_plan') === 'regular', 'ready offer: packages, prices, what affects the price, yearly plan');
+  await O.p.click('#o_gen'); await O.p.waitForSelector('#o_result:not(.hidden)', { timeout: 15000 });
+  const offs = (await emu('GET', 'platformQuotes')).body.documents || [];
+  check(offs.some(d => val(d.fields.tenant) === slug), 'the offer is linked to the existing account (no new user)');
+  await O.p.click('.admin-tabs button[data-tab=vendors]');
+  await O.p.click(`#tbody button.edit[data-id=${slug}]`); await O.p.waitForSelector('#edit-dlg[open]');
   await O.p.click('#e_trial_convert');
   await O.p.waitForFunction(() => !document.getElementById('edit-dlg').open, null, { timeout: 15000 });
   const c = (await emu('GET', 'tenants/' + slug)).body.fields;
   check(c.trial.booleanValue === false && val(c.plan) === 'regular' && val(c.pricePaid) === 400 && /^\d{4}-\d\d-\d\d$/.test(val(c.accessUntil)), 'converted: yearly ₪400, license until ' + val(c.accessUntil));
   await V.p.reload(); await V.p.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 });
   check(await V.p.isHidden('#trial-bar') && await V.p.isHidden('#trial-over') && await V.p.isVisible('#lic-card'), 'vendor: license card, no trial');
+  check(!(await V.p.textContent('#lic-card')).includes('*') && !(await V.p.textContent('#lic-card')).includes('כל עוד'), 'license card without the fine print');
   const ok = await V.p.evaluate(async s => { const __fb = await Core.fb(); try { await __fb.fs.setDoc(__fb.fs.doc(__fb.db, 'tenants', s, 'quotes', 'after'), { status: 'pending', price: 1 }); return 'ok'; } catch(e) { return e.code; } }, slug);
   check(ok === 'ok', 'converted vendor creates quotes');
 

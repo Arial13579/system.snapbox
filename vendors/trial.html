@@ -7,7 +7,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230d9488'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial'%3E%E2%82%AA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="vendor.css?v=20261012e">
+<link rel="stylesheet" href="vendor.css?v=20261012f">
 <title>פתיחת חשבון · 3 ימים בחינם | מחולל הצעות מחיר</title>
 <meta name="description" content="נסו 3 ימים בחינם את מערכת הצעות המחיר והחוזים הדיגיטליים לספקי אירועים. בלי תשלום, בלי כרטיס אשראי ובלי התחייבות.">
 <meta property="og:type" content="website">
@@ -82,12 +82,12 @@ fieldset.plain{ border:0; padding:0; margin:0; }
         <ul class="t-get">
           <li>ממלאים פעם אחת את פרטי העסק, החבילות והמחירים, ותנאי החוזה שלכם</li>
           <li>3 ימים לשלוח הצעות אמיתיות ללקוחות, בחינם</li>
-          <li>אחרי זה: <b>מנוי שנתי ₪400*</b>, או רק צפייה במה שכבר נשלח</li>
+          <li>אחרי זה: <b>מנוי שנתי ₪400</b>, או רק צפייה במה שכבר נשלח</li>
         </ul>
         <p class="callout hidden" id="inapp" role="note">נראה שהדף נפתח בתוך וואטסאפ, אינסטגרם או טיקטוק, ושם Google לא מאפשר להתחבר. לחצו על ⋮ או על ⋯ ובחרו <b>"פתיחה בדפדפן"</b> (כרום או ספארי).</p>
         <button type="button" class="btn primary lg block" id="signin" disabled>טוען…</button>
         <p class="err hidden" id="err" role="alert"></p>
-        <p class="hint">רק עם חשבון Google (Gmail), בלי סיסמה חדשה. ההרשמה מהווה הסכמה ל<a href="../legal/terms.html">תנאי השימוש</a> ול<a href="../legal/privacy.html">מדיניות הפרטיות</a>. חשבון אחד לכל Gmail.<br>* <span id="fine"></span></p>
+        <p class="hint">רק עם חשבון Google (Gmail), בלי סיסמה חדשה. ההרשמה מהווה הסכמה ל<a href="../legal/terms.html">תנאי השימוש</a> ול<a href="../legal/privacy.html">מדיניות הפרטיות</a>. חשבון אחד לכל Gmail.</p>
       </div>
 
       <!-- טופס ההרשמה: 4 שלבים -->
@@ -100,7 +100,7 @@ fieldset.plain{ border:0; padding:0; margin:0; }
           <fieldset class="plain"><legend class="lbl">בחרו מסלול <span class="req">*</span></legend>
             <div class="plans2">
               <label><input type="radio" name="plan" value="trial" id="f_plan_trial" checked><span><b>🎁 3 ימים בחינם</b><small>החשבון נפתח מיד ושולחים הצעות. אחרי 3 ימים — צפייה בלבד, עד מעבר למנוי.</small></span></label>
-              <label><input type="radio" name="plan" value="regular" id="f_plan_annual"><span><b>מנוי שנתי · ₪400 לשנה*</b><small>החשבון נפתח מיד ואפשר להיכנס, ושליחת הצעות נפתחת אחרי התשלום ואישור שלנו.</small></span></label>
+              <label><input type="radio" name="plan" value="regular" id="f_plan_annual"><span><b>מנוי שנתי · ₪400 לשנה</b><small>החשבון נפתח מיד ואפשר להיכנס, ושליחת הצעות נפתחת אחרי התשלום ואישור שלנו.</small></span></label>
             </div>
           </fieldset>
           <p class="callout soft">בשני המסלולים ממלאים את כל מה שהחוזה מול הלקוחות שלכם צריך: פרטי העסק, מספר עוסק / ח.פ / ת.ז, כתובת, החבילות והמחירים ותנאי ההסכם. אפשר לשנות אחר כך.</p>
@@ -123,8 +123,11 @@ fieldset.plain{ border:0; padding:0; margin:0; }
           </div>
           <div><label class="lbl" for="f_email">מייל לקבלת ההסכמים החתומים <span class="req">*</span></label><input class="field ltr" id="f_email" type="email" maxlength="120" autocomplete="email"></div>
           <div class="grid2">
-            <div><span class="lbl" id="sw-lbl">הצבע של העסק</span><div class="sw" id="f_sw" role="group" aria-labelledby="sw-lbl"></div></div>
-            <div><span class="lbl">לוגו <small>· לא חובה</small></span><div class="sw"><span class="logo-prev" id="f_logo_prev">אין</span><button type="button" class="btn sm" id="f_logo_btn">העלאת לוגו</button><button type="button" class="link hidden" id="f_logo_rm">הסרה</button><input type="file" id="f_logo_file" accept="image/png,image/jpeg,image/webp,image/svg+xml" hidden></div></div>
+            <div><span class="lbl">לוגו <small>· לא חובה · הצבעים נבחרים לפיו</small></span><div class="sw"><span class="logo-prev" id="f_logo_prev">אין</span><button type="button" class="btn sm" id="f_logo_btn">העלאת לוגו</button><button type="button" class="link hidden" id="f_logo_rm">הסרה</button><input type="file" id="f_logo_file" accept="image/*" hidden></div><p class="hint" id="f_logo_msg" role="status"></p></div>
+            <div><span class="lbl" id="sw-lbl">הצבע של העסק</span>
+              <div class="sw hidden" id="f_sw_logo_wrap"><small class="hint" style="margin:0">מהלוגו:</small><span class="sw" id="f_sw_logo" role="group" aria-label="צבעים מהלוגו"></span></div>
+              <div class="sw" id="f_sw" role="group" aria-labelledby="sw-lbl"></div>
+              <label class="hint" style="display:flex;gap:8px;align-items:center;margin-top:6px">צבע אחר: <input type="color" id="f_color" value="#0F766E" style="width:44px;height:32px;border:0;padding:0;background:none" aria-label="בחירת צבע חופשית"></label></div>
           </div>
         </div>
 
@@ -141,7 +144,7 @@ fieldset.plain{ border:0; padding:0; margin:0; }
           <div class="grid2">
             <div class="m-auto"><label class="lbl" for="f_deposit">מקדמה בחתימה (₪) <span class="req">*</span></label><input class="field" id="f_deposit" type="number" min="0" inputmode="numeric" value="500"></div>
             <div class="m-items hidden"><label class="lbl" for="f_deposit_pct">מקדמה בחתימה (% מהמחיר) <span class="req">*</span></label><input class="field" id="f_deposit_pct" type="number" min="0" max="100" inputmode="numeric" value="30"></div>
-            <div class="m-auto"><label class="lbl" for="f_city">יוצאים לאירועים מ… <small>· לחישוב נסיעה</small></label><select class="field" id="f_city"></select></div>
+            <div class="m-auto"><label class="lbl" for="f_city">יוצאים לאירועים מ… <small>· עיר / יישוב, לחישוב נסיעה</small></label><input class="field" id="f_city" list="f_cities" maxlength="60" placeholder="למשל באר שבע, קריית אונו, מושב…"><datalist id="f_cities"></datalist></div>
           </div>
           <div class="m-auto form-grid">
             <span class="lbl">תוספות אוטומטיות <small>· לא חובה</small></span>
@@ -184,14 +187,13 @@ fieldset.plain{ border:0; padding:0; margin:0; }
   <nav aria-label="מסמכים"><a href="../legal/terms.html">תנאי שימוש והסכם שירות</a><a href="../legal/privacy.html">מדיניות פרטיות</a><a href="../legal/accessibility.html">הצהרת נגישות</a><a href="../">לאתר הראשי</a></nav>
   <p>Snap Box · מחולל הצעות מחיר וחוזים</p>
 </footer>
-<script src="platform.js?v=20261012e"></script>
-<script src="core.js?v=20261012e"></script>
-<script src="templates.js?v=20261012e"></script>
+<script src="platform.js?v=20261012f"></script>
+<script src="core.js?v=20261012f"></script>
+<script src="templates.js?v=20261012f"></script>
 <script>
 (async () => {
     const $ = id => document.getElementById(id), esc = Core.esc, VT = window.VendorTemplates, PF = Core.PF, C = PF.contact || {};
     const days = (PF.trial || {}).days || 3, yearly = Core.money((PF.sales || {}).renewalYearly || 400);
-    $('fine').textContent = (PF.sales || {}).licenseNote || '';
     if (Core.inAppBrowser()) $('inapp').classList.remove('hidden');
     const show = id => ['s-intro', 's-form', 's-msg'].forEach(s => $(s).classList.toggle('hidden', s !== id));
     const err = (id, t) => { $(id).textContent = t; $(id).classList.toggle('hidden', !t); };
@@ -200,10 +202,18 @@ fieldset.plain{ border:0; padding:0; margin:0; }
 
     /* ---------- תחומים, צבעים, ערים, תנאים ---------- */
     $('f_fields').innerHTML = Object.entries(VT.FIELDS).map(([k, f]) => `<label><input type="radio" name="field" value="${k}"><span>${esc(f.label)}</span></label>`).join('');
-    $('f_city').innerHTML = Object.keys(VT.CITIES).map(c => `<option>${esc(c)}</option>`).join('');
+    $('f_cities').innerHTML = Object.keys(VT.CITIES).map(c => `<option value="${esc(c)}">`).join('');
     let color = VT.COLORS[0];
-    $('f_sw').innerHTML = VT.COLORS.map(c => `<button type="button" data-c="${c}" style="background:${c}" aria-label="צבע ${c}" aria-pressed="${c === color}"></button>`).join('');
-    $('f_sw').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; color = b.dataset.c; $('f_sw').querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', String(x === b))); });
+    const swBtn = c => `<button type="button" data-c="${c}" style="background:${c}" aria-label="צבע ${c}" aria-pressed="false"></button>`;
+    $('f_sw').innerHTML = VT.COLORS.map(swBtn).join('');
+    function pick(c){
+        color = c; $('f_color').value = c.toLowerCase();
+        document.querySelectorAll('#f_sw button, #f_sw_logo button').forEach(x => x.setAttribute('aria-pressed', String(x.dataset.c.toLowerCase() === c.toLowerCase())));
+    }
+    pick(color);
+    [$('f_sw'), $('f_sw_logo')].forEach(g => g.addEventListener('click', e => { const b = e.target.closest('button'); if (b) pick(b.dataset.c); }));
+    // צבע חופשי — מכהים מעט אם צריך, כדי שטקסט לבן יהיה קריא עליו
+    $('f_color').addEventListener('change', () => pick(VT.brandFrom($('f_color').value)));
     $('f_terms').value = VT.DEFAULT_TERMS.join('\n'); $('f_tiers').value = VT.DEFAULT_TIERS.join('\n'); $('f_postpone').value = VT.DEFAULT_POSTPONE;
     const field = () => (document.querySelector('input[name="field"]:checked') || {}).value || '';
     const mode = () => $('f_mode_items').checked ? 'items' : 'auto';
@@ -250,18 +260,22 @@ fieldset.plain{ border:0; padding:0; margin:0; }
 
     /* ---------- לוגו (מוקטן ונשמר בהגדרות) ---------- */
     let LOGO = '';
-    function setLogo(src){ LOGO = src || ''; $('f_logo_prev').innerHTML = LOGO ? `<img src="${esc(LOGO)}" alt="הלוגו">` : 'אין'; $('f_logo_rm').classList.toggle('hidden', !LOGO); }
-    const shrink = file => new Promise((ok, bad) => {
-        const img = new Image(), url = URL.createObjectURL(file);
-        img.onload = () => { const k = Math.min(1, 240 / Math.max(img.width, img.height)), c = document.createElement('canvas');
-            c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
-            c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
-            let d = c.toDataURL('image/png'); if (d.length > 50000) d = c.toDataURL('image/webp', 0.8); d.length > 60000 ? bad(new Error('big')) : ok(d); };
-        img.onerror = () => { URL.revokeObjectURL(url); bad(new Error('bad')); }; img.src = url; });
+    function setLogo(src, colors){
+        LOGO = src || ''; $('f_logo_prev').innerHTML = LOGO ? `<img src="${esc(LOGO)}" alt="הלוגו">` : 'אין'; $('f_logo_rm').classList.toggle('hidden', !LOGO);
+        // הצבעים מהלוגו (RGB), מותאמים לקריאות — והראשון נבחר
+        const cols = [...new Set((colors || []).map(VT.brandFrom))];
+        $('f_sw_logo').innerHTML = cols.map(swBtn).join(''); $('f_sw_logo_wrap').classList.toggle('hidden', !cols.length);
+        if (cols.length) pick(cols[0]);
+    }
     $('f_logo_btn').addEventListener('click', () => $('f_logo_file').click());
-    $('f_logo_file').addEventListener('change', async e => { const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-        try { setLogo(await shrink(f)); } catch(x) { alert('לא הצלחנו להשתמש בתמונה. נסו קובץ אחר.'); } });
-    $('f_logo_rm').addEventListener('click', () => setLogo(''));
+    $('f_logo_file').addEventListener('change', async e => {
+        const f = e.target.files[0]; e.target.value = ''; if (!f) return;
+        const b = $('f_logo_btn'); b.disabled = true; b.textContent = 'מעלה…'; $('f_logo_msg').textContent = '';
+        try { const r = await VT.processLogo(f, 240, 45000); setLogo(r.logo, r.colors); $('f_logo_msg').textContent = r.colors.length ? '✓ הלוגו נוסף, והצבע נבחר לפיו (אפשר לשנות).' : '✓ הלוגו נוסף.'; }
+        catch(x) { console.warn(x); $('f_logo_msg').textContent = VT.logoError(x); }
+        b.disabled = false; b.textContent = LOGO ? 'החלפת לוגו' : 'העלאת לוגו';
+    });
+    $('f_logo_rm').addEventListener('click', () => { setLogo(''); $('f_logo_msg').textContent = ''; $('f_logo_btn').textContent = 'העלאת לוגו'; });
 
     /* ---------- שלבים ---------- */
     let step = 1;
@@ -310,7 +324,19 @@ fieldset.plain{ border:0; padding:0; margin:0; }
         const h = document.querySelector(`.pane[data-step="${n}"] h2`); if (h) h.focus({ preventScroll: true });
         $('s-form').scrollIntoView({ block: 'start', behavior: 'smooth' });
     }
-    $('f_next').addEventListener('click', () => { if (check(step)) go(step + 1); });
+    // מקום היציאה (טקסט חופשי) → קואורדינטות, לפני שעוברים לשלב החוזה
+    let ORIGIN = null;
+    async function resolvePlace(){
+        if (mode() !== 'auto') return true;
+        const name = clean($('f_city').value, 60) || 'תל אביב';
+        if (ORIGIN && ORIGIN.name === name) return true;
+        $('f_next').disabled = true; const t = $('f_next').textContent; $('f_next').textContent = 'מאתר את המקום…';
+        ORIGIN = await VT.findPlace(name);
+        $('f_next').disabled = false; $('f_next').textContent = t;
+        if (!ORIGIN) return fail(`לא מצאנו את "${name}". נסו לכתוב שם של עיר או יישוב.`, $('f_city'));
+        return true;
+    }
+    $('f_next').addEventListener('click', async () => { if (!check(step)) return; if (step === 3 && !(await resolvePlace())) return; go(step + 1); });
     $('f_back').addEventListener('click', () => go(Math.max(1, step - 1)));
 
     /* ---------- התחברות ---------- */
@@ -360,10 +386,11 @@ fieldset.plain{ border:0; padding:0; margin:0; }
         e.preventDefault();
         if (step !== 4) { if (check(step)) go(step + 1); return; }
         for (const n of [2, 3, 4]) if (!check(n)) { if (n !== 4) { go(n); check(n); } return; }
+        if (!(await resolvePlace())) { go(3); return; }
         const p = plan(), name = clean($('f_name').value, 60), phone = clean($('f_phone').value, 20), f = field();
         const idType = $('f_idtype').value, idNum = $('f_idnum').value.replace(/\D/g, '').padStart(9, '0');
         const config = VT.fromForm({ mode: mode(), name, tagline: $('f_tag').value, field: f, email: $('f_email').value.trim(), phone,
-            businessId: idType + ' ' + idNum, address: $('f_addr').value, logo: LOGO, color, city: $('f_city').value,
+            businessId: idType + ' ' + idNum, address: $('f_addr').value, logo: LOGO, color, origin: ORIGIN,
             rows: readRows(), deposit: $('f_deposit').value, depositPct: $('f_deposit_pct').value, common: $('f_common').value,
             guestRules: [{ over: $('f_g_over').value, add: $('f_g_add').value }], travelRules: [{ over: $('f_t_over').value, add: $('f_t_add').value }],
             terms: $('f_terms').value, tiers: $('f_tiers').value, postpone: $('f_postpone').value });

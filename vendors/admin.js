@@ -265,11 +265,19 @@
                 </div></td></tr>`;
         }).join('');
     }
+    // אפשר להסתיר את "ספקים שנמחקו" (נזכר במכשיר); נשאר קישור קטן להצגה
+    const hideDel = { get: () => { try { return localStorage.getItem('sb.hideDeleted') === '1'; } catch(e) { return false; } },
+                      set: v => { try { localStorage.setItem('sb.hideDeleted', v ? '1' : '0'); } catch(e) {} renderDeleted(); } };
     function renderDeleted(){
-        $('deleted-card').classList.toggle('hidden', !DELETED.length);
+        const hidden = hideDel.get();
+        $('deleted-card').classList.toggle('hidden', !DELETED.length || hidden);
+        $('deleted-show-row').classList.toggle('hidden', !DELETED.length || !hidden);
+        $('deleted-count').textContent = DELETED.length;
         $('deleted-list').innerHTML = DELETED.map(d => `<div class="del-row"><div><b>${esc(d.name || d.id)}</b> <span class="sub ltr">${esc(d.id)}</span><div class="sub">נמחק ${d.deletedAt && d.deletedAt.toDate ? d.deletedAt.toDate().toLocaleDateString('he-IL') : ''}${d.quotes ? ` · ${d.quotes} הצעות נמחקו` : ''}</div></div>
             <button type="button" class="btn sm restore" data-id="${esc(d.id)}">שחזור כחשבון ריק</button></div>`).join('');
     }
+    $('deleted-hide').addEventListener('click', () => hideDel.set(true));
+    $('deleted-show').addEventListener('click', () => hideDel.set(false));
     $('deleted-list').addEventListener('click', async e => {
         const b = e.target.closest('button.restore'); if (!b) return;
         if (!confirm('לשחזר את הספק? ייווצר חשבון ריק (בלי ההצעות שנמחקו), והגישה שלו תחזור.')) return;
@@ -339,6 +347,28 @@
                   t.trialEnds = until; trialNow(t); $('e_status').textContent = '✓ הניסיון הוארך עד ' + Core.fmtDateTime(until) + '.'; renderVendors(); }
             catch(err) { $('e_status').textContent = 'ההארכה נכשלה: ' + (err.code || err.message); }
             b.disabled = false;
+        });
+        // הצעת מחיר מוכנה לספק שנרשם לבד (ניסיון / מנוי שממתין): כל מה שמילא — שם, איש קשר, טלפון, Gmail, תחום, חבילות ומחירים
+        $('e_ready_offer').addEventListener('click', async () => {
+            const t = VENDORS.find(v => v.id === editing); if (!t) return;
+            const b = $('e_ready_offer'); b.disabled = true; b.textContent = 'מכין…';
+            let T = {}; try { T = await Core.loadTenant(t.id); } catch(e) {}
+            const B = T.business || {}, P = T.pricing || {}, m = Core.money, L = [];
+            if (P.MODE === 'items') (P.CATALOG || []).forEach(c => L.push(`${c.label} · ${m(c.price)}${c.desc ? ' · ' + c.desc : ''}`));
+            else Object.values(P.SERVICES || {}).forEach(s => L.push(`${s.label} · ${m(s.base)}${s.hours ? ` · ${s.hours} שעות` : ''}${s.extraHour ? ` · שעה נוספת ${m(s.extraHour)}` : ''}`));
+            [...(P.GUEST_TIERS || []), ...(P.TRAVEL_TIERS || [])].filter(x => x.price > 0).forEach(x => L.push(`${x.label}: +${m(x.price)}`));
+            if (P.ORIGIN && P.ORIGIN.name && P.MODE !== 'items') L.push('יציאה מ' + P.ORIGIN.name);
+            L.push(P.MODE === 'items' ? `מקדמה ${P.DEPOSIT_PERCENT || 0}% מהמחיר` : `מקדמה ${m(P.DEPOSIT || 0)}`);
+            if (t.pricingInfo) L.push('מה משפיע על המחיר: ' + t.pricingInfo);
+            $('o_vendor').value = B.name || t.name || ''; $('o_contact').value = t.contactName || '';
+            $('o_phone').value = t.phone || B.phone || ''; $('o_email').value = ((t.admins || [])[0] || '');
+            $('o_type').value = t.businessType || ''; $('o_pricing').value = L.join('\n').slice(0, 1500);
+            $('o_plan').value = 'regular'; applyPlan();
+            OFFER_TENANT = t.id; $('o_for_name').textContent = B.name || t.name; $('o_for').classList.remove('hidden');
+            $('o_result').classList.add('hidden');
+            b.disabled = false; b.textContent = 'הצעת מחיר מוכנה לספק · מהנתונים שמילא';
+            $('edit-dlg').close(); showTab('offer'); renderSummary();
+            $('o_vendor').scrollIntoView({ behavior: 'smooth', block: 'center' });
         });
         $('e_trial_convert').addEventListener('click', async () => {
             const t = VENDORS.find(v => v.id === editing); if (!t) return;
@@ -558,8 +588,10 @@
         ['o_price', 'o_free', 'o_months', 'o_monthly', 'o_discount', 'o_deposit'].forEach(id => $(id).addEventListener('input', renderSummary));
         applyPlan();
         $('offer-form').addEventListener('submit', createOffer);
+        $('o_for_clear').addEventListener('click', () => { OFFER_TENANT = ''; $('o_for').classList.add('hidden'); $('offer-form').reset(); applyPlan(); renderSummary(); });
         $('o_copy').addEventListener('click', () => copyText($('o_url').value, $('o_copy')));
     }
+    let OFFER_TENANT = '';   // הצעה מוכנה לספק שכבר יש לו חשבון (נרשם לבד) — ההצעה משויכת אליו, ואין "יצירת משתמש"
     const genId = () => 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
     const clean = Core.clean;
     function offerUrl(q){
@@ -575,7 +607,7 @@
             businessType: $('o_type').value.trim(), plan: o.planKey, planLabel: o.plan.label, price: o.price, listPrice: o.listPrice, freeMonths: o.free,
             extraMonths: o.extra, monthly: o.monthly, discount: o.discount, total: o.total, notes: $('o_notes').value.trim(),
             validDays: num('o_valid') || 14, createdISO: Core.toISO(new Date()),
-            email: $('o_email').value.trim().toLowerCase(), deposit: o.deposit, pricingInfo: $('o_pricing').value.trim() };
+            email: $('o_email').value.trim().toLowerCase(), deposit: o.deposit, pricingInfo: $('o_pricing').value.trim(), ...(OFFER_TENANT ? { tenant: OFFER_TENANT } : {}) };
         btn.disabled = true; btn.textContent = 'שומר…';
         try {
             const { id, ...data } = q;
@@ -587,6 +619,7 @@
             const s = await Core.makeShortLink('offer', '', url);
             if (s.id) { url = s.url; await fs.updateDoc(fs.doc(db, 'platformQuotes', q.id), { shortId: s.id }).catch(() => {}); }
         } catch(err) { console.warn('short link failed', err); }
+        OFFER_TENANT = ''; $('o_for').classList.add('hidden');
         $('o_url').value = url; $('o_preview').href = url; $('o_wa_preview').href = url; $('o_wa_url').textContent = url;
         Core.bindWhatsApp($('o_wa'), url, q.phone);
         $('o_result').classList.remove('hidden'); $('o_result').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
