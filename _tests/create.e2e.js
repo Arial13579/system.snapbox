@@ -242,6 +242,21 @@ const LOGO = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQV
   await V.p.reload(); await V.p.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 });
   check(!(await V.p.isVisible('#expired-note')) && !(await V.p.locator('#in_clientName').isDisabled()) && (await V.p.textContent('#lic-text')).includes('בתוקף עד'), 'after renewal the vendor can create quotes again');
 
+  console.log('6c. Renewal reminders by email: a month before and a week before');
+  const iso = d => { const x = new Date(); x.setDate(x.getDate() + d); return x.toISOString().slice(0, 10); };
+  for (const [days, stage] of [[20, 30], [5, 7]]) {
+    const until = iso(days), before = sent.length;
+    await O.p.click('#tbody button.edit[data-id=roydj]');
+    await O.p.fill('#e_lic_until', until);
+    await O.p.click('#e_save'); await O.p.waitForFunction(() => !document.getElementById('edit-dlg').open, null, { timeout: 15000 });
+    let n = { status: 404 };
+    for (let i = 0; i < 40 && n.status !== 200; i++) { await new Promise(r => setTimeout(r, 300)); n = await emu('GET', `tenants/roydj/notices/lic${stage}-${until}`); }
+    check(n.status === 200 && val(n.body.fields.stage) === stage, `reminder ${stage} days before is recorded once (lic${stage}-${until})`);
+    check(sent.slice(before).some(u => u.includes('formsubmit.co/ajax/')), `reminder ${stage} days before was emailed`);
+  }
+  await V.p.reload(); await V.p.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 });
+  check(await V.p.isVisible('#lic-renew'), 'vendor sees the renew button in the last month');
+
   console.log('7. Delete the vendor');
   await O.p.click('#tbody button.edit[data-id=roydj]');
   await O.p.fill('#e_del_confirm', 'roydj'); await O.p.click('#e_delete');

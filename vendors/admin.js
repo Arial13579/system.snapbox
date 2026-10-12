@@ -191,6 +191,8 @@
         } catch(e) { console.warn(e); t.total = t.signed = '—'; }
         t.support = Core.supportStatus(t);
         if (Core.reminderDue(t)) { try { t.reminded = (await fs.getDoc(fs.doc(db, 'tenants', d.id, 'notices', 'support-' + t.supportUntil))).exists(); } catch(e) {} }
+        const ld = Core.licenseReminderDue(t);
+        if (ld) { try { t.licReminded = (await fs.getDoc(fs.doc(db, 'tenants', d.id, 'notices', ld.id))).exists(); } catch(e) {} }
         t.state = Core.accountState(t);
         t.inRegistry = t.managed === 'admin' || (window.REGISTRY || []).some(r => r.slug === d.id);
         return t;
@@ -200,7 +202,7 @@
         const a = Core.accessStatus(t);
         return a.state === 'lifetime' ? '<div class="sub"><span class="badge ok">לכל החיים</span></div>'
             : a.state === 'none' ? '<div class="sub"><span class="badge mute">רישיון לא הוגדר</span></div>'
-            : `<div class="sub"><span class="badge ${a.state === 'expired' ? 'bad' : a.state === 'expiring' ? 'warn' : 'ok'}">${a.state === 'expired' ? 'הרישיון הסתיים' : 'רישיון עד ' + Core.fmtDate(a.until)}</span></div>`;
+            : `<div class="sub"><span class="badge ${a.state === 'expired' ? 'bad' : a.state === 'expiring' ? 'warn' : 'ok'}">${a.state === 'expired' ? 'הרישיון הסתיים' : 'רישיון עד ' + Core.fmtDate(a.until)}</span>${t.licReminded ? '<div class="sub">✉️ נשלחה תזכורת חידוש</div>' : ''}</div>`;
     }
     function supportCell(s){
         return s.state === 'none' ? '<span class="badge mute">לא הוגדרה</span>'
@@ -211,9 +213,11 @@
     // שבוע אחרון של תמיכה → מייל תזכורת אחד לספק (עם עותק אליך). רץ בכל טעינה של הרשימה, כולל מיד אחרי שמירה בחלון "ניהול"
     async function sendReminders(){
         let sent = false;
-        for (const v of VENDORS.filter(v => v.inRegistry && !v.reminded && Core.reminderDue(v))) {
+        for (const v of VENDORS.filter(v => v.inRegistry && ((!v.reminded && Core.reminderDue(v)) || (!v.licReminded && Core.licenseReminderDue(v))))) {
             const biz = await Core.loadTenant(v.id).then(T => T.business || {}).catch(() => ({}));
-            if (await Core.supportReminder(v.id, v, (v.admins || []).concat(biz.email || []), biz.name || v.name)) { v.reminded = true; sent = true; }
+            const to = (v.admins || []).concat(biz.email || []), name = biz.name || v.name;
+            if (!v.reminded && await Core.supportReminder(v.id, v, to, name)) { v.reminded = true; sent = true; }
+            if (!v.licReminded && await Core.licenseReminder(v.id, v, to, name)) { v.licReminded = true; sent = true; }
         }
         return sent;
     }
@@ -500,7 +504,7 @@
     function applyPlan(){
         const p = SALES.plans[$('o_plan').value];
         if (!p) return;
-        if ($('o_plan').value !== 'custom') { $('o_price').value = p.price; $('o_free').value = p.freeSupportMonths; }
+        if ($('o_plan').value !== 'custom') { $('o_price').value = p.price; $('o_free').value = p.freeSupportMonths; $('o_deposit').value = p.price > 500 ? 500 : 0; }   // מנוי שנתי — בלי מקדמה, תשלום מלא
         renderSummary();
     }
     function initOfferForm(){
