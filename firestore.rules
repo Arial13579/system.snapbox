@@ -17,6 +17,7 @@ rules_version = '2';
 //   shortLinks/{מזהה}             — קישורים קצרים להצעות (פתוחים לקריאה לפי מזהה בלבד)
 //   sessions/{מייל}               — החיבור הפעיל של הספק (חיבור אחד בלבד; פתיחה במקום אחר מנתקת את הקודם)
 //   vendorIndex/{מייל}            — לאיזה ספק שייך כל מייל (לכניסת ספקים)
+//   trials/{מייל}                 — מי כבר פתח תקופת ניסיון (פעם אחת לכל Gmail)
 //   check_quotes/{הצעה}           — המערכת הקיימת של CHECK (נשארת עובדת כרגיל)
 //
 // מי רשאי מה:
@@ -42,9 +43,33 @@ service cloud.firestore {
         && request.auth.token.email in tenantDoc(t).data.admins;
     }
     // ספק שמותר לו ליצור הצעות חדשות: פעיל, לא מוגבל, והרישיון בתוקף (accessEnds — סוף יום התוקף; בלי ערך = בלי הגבלת זמן)
+    // ותקופת ניסיון (trial) — 3 ימים מרגע הפתיחה (createdAt, זמן השרת), או עד trialEnds אם הבעלים האריך
     function canCreateFor(t) {
       return isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true
-        && (tenantDoc(t).data.get('accessEnds', null) == null || request.time < tenantDoc(t).data.accessEnds);
+        && (tenantDoc(t).data.get('accessEnds', null) == null || request.time < tenantDoc(t).data.accessEnds)
+        && (tenantDoc(t).data.get('trial', false) != true
+            || request.time < tenantDoc(t).data.get('trialEnds', tenantDoc(t).data.createdAt + duration.value(3, 'd')));
+    }
+    // ---- תקופת ניסיון: ספק חדש פותח לעצמו חשבון (בלי הבעלים), פעם אחת לכל Gmail ----
+    // ארבעה מסמכים באותה פעולה: trials/{מייל}, tenants/{ספק}, vendorIndex/{מייל}, vendorConfigs/{ספק}
+    function trialPath(e) { return /databases/$(database)/documents/trials/$(e); }
+    function isTrialSignup(t) {
+      let e = request.auth.token.email;
+      let d = request.resource.data;
+      return signedIn() && e == e.lower()
+        && !exists(trialPath(e))
+        && !exists(/databases/$(database)/documents/vendorIndex/$(e))
+        && !exists(/databases/$(database)/documents/deletedTenants/$(t))
+        && t.matches('^v[a-z2-9]{7}$')
+        && getAfter(trialPath(e)).data.tenant == t
+        && d.keys().hasOnly(['slug', 'name', 'admins', 'active', 'managed', 'trial', 'plan', 'phone', 'contactName', 'businessType', 'createdAt'])
+        && d.slug == t && d.admins == [e] && d.active == true
+        && d.managed == 'trial' && d.trial == true && d.plan == 'trial'
+        && d.createdAt == request.time
+        && d.name is string && d.name.size() > 0 && d.name.size() <= 80
+        && d.phone is string && d.phone.size() <= 30
+        && d.get('contactName', '') is string && d.get('contactName', '').size() <= 80
+        && d.get('businessType', '') is string && d.get('businessType', '').size() <= 40;
     }
     // לקוח חותם: רק pending → signed, ורק שדות התיעוד.
     // זמן החתימה = זמן השרת (אי אפשר להקדים/לאחר), לא נשמר IP, ו-signedQ = הפרטים בדיוק כפי שהוצגו לחותם (להשוואה מול המקור).
@@ -63,10 +88,37 @@ service cloud.firestore {
             || (request.resource.data.signerName is string && request.resource.data.signerName.size() < 120));
     }
     // לקוח מסמן שה-PDF נשמר (במסמך הנפרד …/pdf/file): רק אחרי החתימה, רק hasPdf=true
+    // חלון הזמן שבו הדפדפן של החותם מצרף את ה-PDF (אחרי זה — רק הבעלים)
+    function justSigned() {
+      return resource.data.get('signedAt', null) is timestamp
+        && request.time < resource.data.signedAt + duration.value(30, 'm');
+    }
     function isClientMarkingPdf() {
-      return resource.data.status == 'signed'
+      return resource.data.status == 'signed' && justSigned()
+        && resource.data.get('hasPdf', false) != true && !('pdfData' in resource.data)
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasPdf'])
         && request.resource.data.hasPdf == true;
+    }
+    // החתימה צריכה להיות על בדיוק מה שנשלח: הצעה עם קישור קצר — signedQ חייב להיות זהה לתוכן הקישור (שאי אפשר לשנות)
+    function signedMatchesLink() {
+      return !('shortId' in resource.data)
+        || request.resource.data.get('signedQ', '') == get(/databases/$(database)/documents/shortLinks/$(resource.data.shortId)).data.q;
+    }
+    function strMax(d, f, n) { return !(f in d) || (d[f] is string && d[f].size() <= n); }
+    function listMax(d, f, n) { return !(f in d) || (d[f] is list && d[f].size() <= n); }
+    // הצעה חדשה של ספק: רק השדות שהמחולל כותב, בגדלים סבירים (בלי שדות חתימה, בלי קבצים)
+    function validVendorQuote() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['clientName', 'clientPhone', 'eventType', 'location', 'date', 'price', 'deposit', 'notes', 'mode', 'items',
+            'discount', 'service', 'startTime', 'endTime', 'guests', 'pkg', 'validUntil', 'payment', 'perks', 'extras', 'breakdown',
+            'status', 'createdAt', 'createdBy'])
+        && d.status == 'pending'
+        && strMax(d, 'clientName', 200) && strMax(d, 'clientPhone', 40) && strMax(d, 'eventType', 120) && strMax(d, 'location', 300)
+        && strMax(d, 'date', 20) && strMax(d, 'notes', 4000) && strMax(d, 'mode', 10) && strMax(d, 'service', 40)
+        && strMax(d, 'startTime', 10) && strMax(d, 'endTime', 10) && strMax(d, 'validUntil', 20) && strMax(d, 'createdBy', 200)
+        && listMax(d, 'items', 40) && listMax(d, 'perks', 10) && listMax(d, 'extras', 10) && listMax(d, 'breakdown', 20)
+        && (!('pkg' in d) || (d.pkg is map && strMax(d.pkg, 'label', 120) && strMax(d.pkg, 'lead', 200) && listMax(d.pkg, 'items', 20)))
+        && (!('payment' in d) || (d.payment is map && strMax(d.payment, 'due', 80) && listMax(d.payment, 'methods', 10)));
     }
     function validPdf() {
       return request.resource.data.keys().hasOnly(['pdfData', 'at'])
@@ -74,8 +126,8 @@ service cloud.firestore {
     }
     // לקוח מצרף PDF: פעם אחת בלבד, אחרי החתימה
     function isClientAttachingPdf() {
-      return resource.data.status == 'signed'
-        && !('pdfData' in resource.data)
+      return resource.data.status == 'signed' && justSigned()
+        && !('pdfData' in resource.data) && resource.data.get('hasPdf', false) != true
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pdfData'])
         && request.resource.data.pdfData is string
         && request.resource.data.pdfData.size() < 1000000;
@@ -85,16 +137,24 @@ service cloud.firestore {
     match /tenants/{t} {
       allow read: if isOwner() || isVendorOf(t);
       allow write: if isOwner();
+      allow create: if isTrialSignup(t);
 
       match /quotes/{q} {
         allow read: if isOwner() || isVendorOf(t);
-        // ספק מוגבל (צפייה בלבד) לא מוחק ולא משנה. בהצעה חתומה הספק יכול רק להחליף את קובץ ה-PDF.
-        allow delete: if isOwner() || canCreateFor(t);
-        allow create: if (isOwner() || canCreateFor(t)) && request.resource.data.status == 'pending';
+        // הסכם חתום נשמר כמו שהוא: הספק לא מוחק אותו ולא משנה אותו (רק הבעלים). ספק מוגבל — צפייה בלבד.
+        allow delete: if isOwner() || (canCreateFor(t) && resource.data.status != 'signed');
+        allow create: if isOwner() || (canCreateFor(t) && q.matches('^[A-Za-z0-9_-]{1,40}$') && validVendorQuote());
+        // הספק: בהצעה שעוד לא נחתמה — רק לשמור את מזהה הקישור הקצר. בהצעה חתומה בלי קובץ — לצרף PDF (פעם אחת).
         allow update: if isOwner()
-          || (canCreateFor(t) && (resource.data.status != 'signed'
-                || request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pdfData', 'hasPdf'])))
-          || isClientSigning() || isClientAttachingPdf() || isClientMarkingPdf();
+          || (canCreateFor(t) && resource.data.status == 'pending'
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['shortId'])
+                && request.resource.data.shortId is string && request.resource.data.shortId.size() <= 20)
+          || (canCreateFor(t) && resource.data.status == 'signed'
+                && resource.data.get('hasPdf', false) != true && !('pdfData' in resource.data)
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pdfData', 'hasPdf'])
+                && (!('pdfData' in request.resource.data) || (request.resource.data.pdfData is string && request.resource.data.pdfData.size() < 1000000)))
+          || (isClientSigning() && signedMatchesLink()) || isClientAttachingPdf()
+          || (isClientMarkingPdf() && exists(/databases/$(database)/documents/tenants/$(t)/quotes/$(q)/pdf/file));
       }
     }
 
@@ -105,11 +165,12 @@ service cloud.firestore {
       allow create, update: if isOwner() || (canCreateFor(t)
         && p.size() <= 40
         && request.resource.data.keys().hasOnly(['label', 'base', 'hours', 'extraHour', 'items', 'desc', 'deleted', 'updatedAt'])
+        && strMax(request.resource.data, 'label', 80) && strMax(request.resource.data, 'desc', 300) && listMax(request.resource.data, 'items', 20)
+        && (!('hours' in request.resource.data) || request.resource.data.hours is number)
+        && (!('extraHour' in request.resource.data) || request.resource.data.extraHour is number)
         && (request.resource.data.get('deleted', false) == true
-            || (request.resource.data.label is string && request.resource.data.label.size() > 0 && request.resource.data.label.size() <= 80
-                && request.resource.data.base is number && request.resource.data.base >= 0 && request.resource.data.base <= 1000000
-                && (!('items' in request.resource.data) || (request.resource.data.items is list && request.resource.data.items.size() <= 20))
-                && (!('desc' in request.resource.data) || (request.resource.data.desc is string && request.resource.data.desc.size() <= 300)))));
+            || (request.resource.data.label is string && request.resource.data.label.size() > 0
+                && request.resource.data.base is number && request.resource.data.base >= 0 && request.resource.data.base <= 1000000)));
     }
 
     // ---- תזכורות שנשלחו לספק (מייל בשבוע האחרון של התמיכה): נרשמת פעם אחת לכל תאריך סיום ----
@@ -135,18 +196,23 @@ service cloud.firestore {
 
     // ---- PDF חתום של הצעה ללקוח (מסמך נפרד, כדי שהרשימות ייטענו מהר) ----
     // הלקוח (בלי התחברות) יוצר פעם אחת, רק אחרי שההצעה נחתמה. הספק (לא מוגבל) יכול להחליף. קריאה — הספק והבעלים.
+    // הלקוח יוצר אותו רק בדקות שאחרי החתימה. הספק יכול לצרף קובץ רק כשאין (לא להחליף). רק הבעלים מחליף/מוחק קובץ של הסכם חתום.
+    function quoteDoc(t, q) { return get(/databases/$(database)/documents/tenants/$(t)/quotes/$(q)).data; }
     match /tenants/{t}/quotes/{q}/pdf/{f} {
       allow read: if isOwner() || isVendorOf(t);
       allow create: if f == 'file' && validPdf()
-        && (isOwner() || canCreateFor(t) || get(/databases/$(database)/documents/tenants/$(t)/quotes/$(q)).data.status == 'signed');
-      allow update: if f == 'file' && validPdf() && (isOwner() || canCreateFor(t));
-      allow delete: if isOwner() || canCreateFor(t);
+        && (isOwner()
+            || (quoteDoc(t, q).status == 'signed' && (canCreateFor(t)
+                || (quoteDoc(t, q).get('signedAt', null) is timestamp && request.time < quoteDoc(t, q).signedAt + duration.value(30, 'm')))));
+      allow update: if f == 'file' && validPdf() && isOwner();
+      allow delete: if isOwner();
     }
     // ---- PDF חתום של הצעה לספק ----
     match /platformQuotes/{q}/pdf/{f} {
       allow read, update, delete: if isOwner();
       allow create: if f == 'file' && validPdf()
-        && (isOwner() || get(/databases/$(database)/documents/platformQuotes/$(q)).data.status == 'signed');
+        && (isOwner() || (get(/databases/$(database)/documents/platformQuotes/$(q)).data.status == 'signed'
+            && request.time < get(/databases/$(database)/documents/platformQuotes/$(q)).data.signedAt + duration.value(30, 'm')));
     }
 
     // ---- הערות פנימיות של הבעלים על ספק: רק הבעלים (הספק לא רואה) ----
@@ -170,7 +236,9 @@ service cloud.firestore {
       allow create: if isVendorOf(t)
         && consentId == request.auth.token.email + '|' + request.resource.data.version
         && request.resource.data.email == request.auth.token.email
-        && request.resource.data.keys().hasOnly(['email', 'version', 'acceptedAt', 'userAgent']);
+        && request.resource.data.keys().hasOnly(['email', 'version', 'acceptedAt', 'userAgent'])
+        && request.resource.data.acceptedAt == request.time
+        && strMax(request.resource.data, 'version', 40) && strMax(request.resource.data, 'userAgent', 400);
     }
 
     // ---- קישורים קצרים (…/?k=id): כל אחד יכול לפתוח קישור שקיבל, אבל אי אפשר לרשום את כל הקישורים ----
@@ -181,12 +249,12 @@ service cloud.firestore {
       allow create: if request.resource.data.keys().hasOnly(['q', 'kind', 'tenant', 'createdAt'])
         && request.resource.data.q is string && request.resource.data.q.size() < 8000
         && request.resource.data.tenant is string
-        && (isOwner() || (request.resource.data.kind == 'quote' && request.resource.data.tenant.size() > 1 && canCreateFor(request.resource.data.tenant)));
+        && (isOwner() || (request.resource.data.createdAt == request.time && request.resource.data.kind == 'quote' && request.resource.data.tenant.size() > 1 && canCreateFor(request.resource.data.tenant)));
       allow delete: if isOwner() || (resource.data.kind == 'quote' && isVendorOf(resource.data.tenant));
     }
 
     // ---- מונה כניסות ופעולות באתר הראשי (אנונימי): מסמך ליום, stats/d<מספר היום מאז 1970, לפי UTC> ----
-    // כל אחד יכול רק להוסיף 1 לשדה אחד מתוך v/t/w/l/f/d, ורק במסמך של היום. רק הבעלים קורא ומוחק.
+    // כל אחד יכול רק להוסיף 1 לשדה אחד מתוך v/t/w/l/f/d/r, ורק במסמך של היום. רק הבעלים קורא ומוחק.
     function isTodayStats(day) {
       return day == 'd' + string(int(request.time.toMillis() / 86400000));
     }
@@ -196,13 +264,13 @@ service cloud.firestore {
     match /stats/{day} {
       allow read, delete: if isOwner();
       allow create: if isTodayStats(day)
-        && request.resource.data.keys().hasOnly(['v', 't', 'w', 'l', 'f', 'd'])
+        && request.resource.data.keys().hasOnly(['v', 't', 'w', 'l', 'f', 'd', 'r'])
         && request.resource.data.size() == 1
         && request.resource.data[request.resource.data.keys()[0]] == 1;
       allow update: if isTodayStats(day)
-        && request.resource.data.keys().hasOnly(['v', 't', 'w', 'l', 'f', 'd'])
+        && request.resource.data.keys().hasOnly(['v', 't', 'w', 'l', 'f', 'd', 'r'])
         && request.resource.data.diff(resource.data).affectedKeys().size() == 1
-        && (statBump('v') || statBump('t') || statBump('w') || statBump('l') || statBump('f') || statBump('d'));
+        && (statBump('v') || statBump('t') || statBump('w') || statBump('l') || statBump('f') || statBump('d') || statBump('r'));
     }
 
     // ---- הגדרות של ספק שנוצר מלוח הניהול (במקום config.js באתר הלקוחות) ----
@@ -214,6 +282,29 @@ service cloud.firestore {
         && request.resource.data.keys().hasOnly(['config', 'updatedAt'])
         && request.resource.data.config is string
         && request.resource.data.config.size() < 300000;
+      // תקופת ניסיון: נוצר רק יחד עם כרטיס הספק החדש (באותה פעולה), בלי לוגו כבד
+      allow create: if signedIn() && slug.matches('^v[a-z2-9]{7}$')
+        && !exists(/databases/$(database)/documents/tenants/$(slug))
+        && getAfter(/databases/$(database)/documents/tenants/$(slug)).data.get('trial', false) == true
+        && getAfter(/databases/$(database)/documents/tenants/$(slug)).data.admins == [request.auth.token.email]
+        && request.resource.data.keys().hasOnly(['config', 'updatedAt'])
+        && request.resource.data.config is string
+        && request.resource.data.config.size() < 40000
+        && request.resource.data.updatedAt == request.time;
+    }
+
+    // ---- מי כבר פתח תקופת ניסיון: נרשם פעם אחת, יחד עם החשבון. רק הבעלים מוחק (כדי לאפשר ניסיון נוסף) ----
+    match /trials/{email} {
+      allow get: if isOwner() || (signedIn() && request.auth.token.email == email);
+      allow list, update, delete: if isOwner();
+      allow create: if isOwner() || (signedIn() && request.auth.token.email == email
+        && request.resource.data.keys().hasOnly(['tenant', 'createdAt'])
+        && request.resource.data.tenant is string
+        && request.resource.data.createdAt == request.time
+        && !exists(/databases/$(database)/documents/vendorIndex/$(email))
+        && !exists(/databases/$(database)/documents/tenants/$(request.resource.data.tenant))
+        && getAfter(/databases/$(database)/documents/tenants/$(request.resource.data.tenant)).data.get('trial', false) == true
+        && getAfter(/databases/$(database)/documents/vendorIndex/$(email)).data.tenant == request.resource.data.tenant);
     }
 
     // ---- מצב מבצע ההשקה (כמה נחתמו מתוך 5). כולם קוראים, רק הבעלים כותב ----
@@ -225,7 +316,8 @@ service cloud.firestore {
     // ---- הצעות מחיר של הבעלים לספקים (מכירת המערכת) ----
     match /platformQuotes/{q} {
       allow read, create, delete: if isOwner();
-      allow update: if isOwner() || isClientSigning() || isClientAttachingPdf() || isClientMarkingPdf();
+      allow update: if isOwner() || (isClientSigning() && signedMatchesLink()) || isClientAttachingPdf()
+        || (isClientMarkingPdf() && exists(/databases/$(database)/documents/platformQuotes/$(q)/pdf/file));
     }
 
     // ---- חיבור פעיל אחד לכל ספק: כל משתמש קורא/כותב רק את הרשומה של המייל שלו ----
@@ -244,6 +336,11 @@ service cloud.firestore {
     match /vendorIndex/{email} {
       allow get: if isOwner() || (signedIn() && request.auth.token.email == email);
       allow list, write: if isOwner();
+      // תקופת ניסיון: המייל של המשתמש עצמו, יחד עם trials/{מייל} באותה פעולה
+      allow create: if signedIn() && request.auth.token.email == email
+        && !exists(/databases/$(database)/documents/trials/$(email))
+        && request.resource.data.keys().hasOnly(['tenant'])
+        && getAfter(/databases/$(database)/documents/trials/$(email)).data.tenant == request.resource.data.tenant;
     }
 
     // ---- המערכת הקיימת של CHECK (ללא שינוי) ----

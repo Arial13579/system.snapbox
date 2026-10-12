@@ -75,11 +75,11 @@ a{color:var(--accent)}
 .brand{white-space:nowrap}
 @media (max-width:350px){.brand{font-size:.95rem;white-space:normal}.vendor-login{font-size:.85rem}}
 .top-actions{display:flex;align-items:center;gap:16px;flex:none}
-.vendor-login{color:var(--muted);font-weight:600;font-size:.92rem;text-decoration:none;white-space:nowrap}
-.vendor-login:hover{color:var(--fg);text-decoration:underline}
+.vendor-login{color:var(--accent);font-weight:800;font-size:.92rem;text-decoration:none;white-space:nowrap;border:1.5px solid var(--accent);border-radius:999px;padding:7px 14px}
+.vendor-login:hover{background:var(--accent);color:var(--accent-ink)}
 .btn.sm{padding:8px 16px;font-size:.92rem}
 .btn.wa.sm svg{width:18px;height:18px}
-@media (max-width:420px){.top .wrap{gap:10px}.brand{font-size:1.02rem;gap:8px}.top-actions{gap:12px}.btn.wa.sm{padding:9px}.btn.wa.sm span{display:none}}
+@media (max-width:420px){.top .wrap{gap:10px}.brand{font-size:1.02rem;gap:8px}.top-actions{gap:8px}.vendor-login{padding:6px 10px;font-size:.84rem}.btn.wa.sm{padding:9px}.btn.wa.sm span{display:none}}
 
 /* hero */
 .hero{padding-block:64px 40px}
@@ -93,6 +93,14 @@ a{color:var(--accent)}
 .proof{display:flex;gap:28px;flex-wrap:wrap;color:var(--muted);font-size:.95rem}
 .proof b{display:block;color:var(--fg);font-family:var(--f-num);font-size:1.5rem;font-weight:600}
 @media (max-width:860px){.hero .wrap{grid-template-columns:1fr}.hero{padding-block:28px 36px}.hero-copy{gap:18px}}
+.trial-btn{border-color:var(--accent);color:var(--accent);font-weight:800}
+.trial-strip{display:flex;align-items:center;gap:12px 16px;flex-wrap:wrap;margin:0 0 22px;padding:16px 18px;border-radius:18px;border:1.5px dashed var(--accent);background:var(--surface);color:var(--fg);text-decoration:none}
+.trial-strip .ts-ic{font-size:1.8rem;line-height:1}
+.trial-strip .ts-tx{flex:1 1 240px;display:grid;gap:2px}
+.trial-strip .ts-tx b{font-size:1.08rem}
+.trial-strip .ts-tx small{color:var(--muted);font-size:.9rem}
+.trial-strip:hover .ts-btn{transform:translateY(-1px)}
+@media(max-width:540px){.trial-strip .ts-btn{width:100%}}
 .hero-offer{display:inline-flex;align-items:center;gap:6px 10px;flex-wrap:wrap;justify-self:start;padding:6px 6px 6px 16px;border-radius:20px;background:var(--surface);border:1px solid var(--accent);color:var(--fg);text-decoration:none;font-weight:600;max-width:100%}
 .hero-offer .tag{background:#fbbf24;color:#1a1300;font-weight:800;border-radius:999px;padding:3px 12px;font-size:.85rem}
 .hero-offer .num{font-size:1.15rem;font-weight:600}
@@ -360,7 +368,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
       <a href="#contact">יצירת קשר</a>
     </nav>
     <div class="top-actions">
-      <a class="vendor-login" href="vendors/">כניסת ספקים</a>
+      <a class="vendor-login" href="vendors/">כניסה / הרשמה</a>
       <a class="btn wa sm" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%A8%D7%90%D7%99%D7%AA%D7%99%20%D7%90%D7%AA%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%D7%95%D7%94%D7%97%D7%95%D7%96%D7%99%D7%9D%20%D7%95%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" aria-label="וואטסאפ: שלחו לנו הודעה"><svg aria-hidden="true"><use href="#i-wa"/></svg><span>וואטסאפ</span></a>
     </div>
   </div>
@@ -376,9 +384,10 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
         <a class="hero-offer" href="#pricing" id="hero-offer"><span class="tag" id="hero-tag">מבצע השקה</span><span class="txt"><b class="num" id="hero-price">₪1,499</b> <span id="hero-left">· פעם אחת, לכל החיים* · ל-5 העסקים הראשונים</span></span></a>
         <div class="cta-row">
           <a class="btn wa big" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A7%D7%91%D7%9C%20%D7%94%D7%A6%D7%A2%D7%AA%20%D7%9E%D7%97%D7%99%D7%A8%20%D7%9C%D7%93%D7%95%D7%92%D7%9E%D7%94%20%D7%9B%D7%9E%D7%95%20%D7%A9%D7%94%D7%9C%D7%A7%D7%95%D7%97%D7%95%D7%AA%20%D7%A9%D7%9C%D7%99%20%D7%99%D7%A7%D7%91%D7%9C%D7%95%20%F0%9F%99%82%20%D7%94%D7%AA%D7%97%D7%95%D7%9D%20%D7%A9%D7%9C%D7%99%3A%20" target="_blank" rel="noopener noreferrer"><svg aria-hidden="true"><use href="#i-wa"/></svg>שלחו לי הצעה לדוגמה בוואטסאפ</a>
+          <a class="btn trial-btn" href="vendors/trial.html" data-trial>🎁 3 ימים בחינם</a>
           <a class="btn" id="demo-link" data-demo href="https://arial13579.github.io/hatzaa/demo/?demo=1" target="_blank" rel="noopener">לנסות לחתום בעצמי ←</a>
         </div>
-        <p class="micro">בלי התחייבות · במבצע ההשקה: תשלום חד-פעמי, לכל החיים* · <a href="#lead">או השאירו טלפון ונחזור אליכם</a></p>
+        <p class="micro"><b>ניסיון 3 ימים בחינם:</b> בלי תשלום ובלי כרטיס אשראי · במבצע ההשקה: תשלום חד-פעמי, לכל החיים* · <a href="#lead">או השאירו טלפון ונחזור אליכם</a></p>
         <div class="proof">
           <div><b>~3 דק׳</b>להכנת הצעה</div>
           <div><b>0</b>הדפסות וסריקות</div>
@@ -570,6 +579,11 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
         <h2>מערכת מותאמת לעסק שלך</h2>
         <p class="lead">המערכת נבנית עם המחירון, החבילות, התנאים והמיתוג שלך. במבצע ההשקה משלמים פעם אחת ומקבלים אותה לכל החיים. תמיכה טכנית חודשית — רק למי שרוצה.</p>
       </div>
+      <a class="trial-strip" href="vendors/trial.html" data-trial>
+        <span class="ts-ic" aria-hidden="true">🎁</span>
+        <span class="ts-tx"><b>לא בטוחים? נסו 3 ימים בחינם</b><small>פותחים חשבון לבד בדקה עם Google · בלי תשלום, בלי כרטיס אשראי ובלי התחייבות</small></span>
+        <span class="btn primary ts-btn">לפתיחת ניסיון חינם</span>
+      </a>
       <div class="plans">
         <div class="plan">
           <h3>מנוי שנתי</h3>
@@ -828,7 +842,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 <script>window.PRIVACY_URL = 'legal/privacy.html';
 /* מזהה הפיקסל של טיקטוק (TikTok Ads Manager ← Assets ← Events ← Web events). ריק = כבוי. */
 window.MARKETING = { tiktokPixel: 'DB57MPRC77U074LG2QFG' };</script>
-<script src="common/track.js?v=6"></script>
+<script src="common/track.js?v=7"></script>
 <script src="common/cookie.js?v=3"></script>
 <script src="common/a11y.js"></script>
 </body>
