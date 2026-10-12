@@ -99,7 +99,10 @@
         return t;
     }
     function fromForm(o){
-        const items = o.mode === 'items', cityName = CITIES[o.city] ? o.city : 'תל אביב', c = CITIES[cityName];
+        const items = o.mode === 'items';
+        // עיר יציאה: מהרשימה, או מקום שהוקלד חופשי (עם קואורדינטות שנמצאו בחיפוש)
+        const og = o.origin && o.origin.name && Number.isFinite(o.origin.lat) ? o.origin : null;
+        const cityName = og ? txt(og.name, 60) : CITIES[o.city] ? o.city : 'תל אביב', c = og ? [og.lat, og.lon] : CITIES[cityName];
         const B = { name: txt(o.name, 60), tagline: txt(o.tagline, 120) || ((FIELDS[o.field] || {}).tagline || ''), email: txt(o.email, 120).toLowerCase(), phone: txt(o.phone, 30),
             businessId: txt(o.businessId, 60), address: txt(o.address, 160), logo: /^data:image\//.test(o.logo || '') ? o.logo : '' };
         const P = { COMMON_ITEMS: lines(o.common, 200).slice(0, 15) };
@@ -117,7 +120,7 @@
         }
         return {
             business: B,
-            theme: { brand: COLORS.includes(o.color) ? o.color : COLORS[0], background: '#F7F6F3', font: 'Assistant' },
+            theme: { brand: /^#[0-9a-f]{6}$/i.test(o.color || '') ? o.color : COLORS[0], background: '#F7F6F3', font: 'Assistant' },
             labels: { service: 'חבילה', included: items ? 'מה כלול' : 'מה כלול בחבילה', docTitle: 'הצעת מחיר והסכם', eventTypes: EVENT_TYPES.slice() },
             pricing: P,
             terms: lines(o.terms, 600).slice(0, 30),
@@ -135,5 +138,83 @@
         return sum % 10 === 0;
     }
 
-    window.VendorTemplates = { COLORS, DEFAULT_TERMS, DEFAULT_TIERS, DEFAULT_POSTPONE, EVENT_TYPES, CITIES, FIELDS, build, fromForm, toTiers, validIsraeliId };
+    /* ---- לוגו: הקטנה שעובדת בכל דפדפן (ספארי באייפון לא יודע לשמור webp ומחזיר png כבד — אז מקטינים עוד, ובסוף jpeg על רקע לבן) ---- */
+    function loadImage(file){
+        return new Promise((ok, bad) => {
+            const url = URL.createObjectURL(file), img = new Image();
+            img.onload = () => ok({ img, url });
+            img.onerror = () => { URL.revokeObjectURL(url); bad(Object.assign(new Error('decode'), { code: 'decode' })); };
+            img.src = url;
+        });
+    }
+    async function processLogo(file, max, limit){
+        if (!file || (file.type && !/^image\//.test(file.type))) throw Object.assign(new Error('type'), { code: 'type' });
+        if (file.size > 25 * 1024 * 1024) throw Object.assign(new Error('huge'), { code: 'huge' });
+        const { img, url } = await loadImage(file);
+        try {
+            let w = img.naturalWidth || img.width, h = img.naturalHeight || img.height;
+            if (!w || !h) { w = h = max; }   // SVG בלי מידות
+            const c = document.createElement('canvas'), g = c.getContext('2d');
+            const draw = (size, bg) => { const k = Math.min(1, size / Math.max(w, h)); c.width = Math.max(1, Math.round(w * k)); c.height = Math.max(1, Math.round(h * k));
+                g.clearRect(0, 0, c.width, c.height); if (bg) { g.fillStyle = bg; g.fillRect(0, 0, c.width, c.height); } g.drawImage(img, 0, 0, c.width, c.height); };
+            const colors = () => { draw(64); return logoColors(g.getImageData(0, 0, c.width, c.height).data); };
+            for (const size of [max, Math.round(max * 0.75), Math.round(max * 0.55), Math.round(max * 0.4)]) {
+                draw(size);
+                let d = c.toDataURL('image/png'); if (d.length <= limit) { const col = colors(); return { logo: d, colors: col }; }
+                d = c.toDataURL('image/webp', 0.85); if (d.startsWith('data:image/webp') && d.length <= limit) { const col = colors(); return { logo: d, colors: col }; }
+            }
+            for (const q of [0.85, 0.7, 0.55]) { draw(Math.round(max * 0.6), '#ffffff'); const d = c.toDataURL('image/jpeg', q); if (d.length <= limit) { const col = colors(); return { logo: d, colors: col }; } }
+            throw Object.assign(new Error('big'), { code: 'big' });
+        } finally { URL.revokeObjectURL(url); }
+    }
+    const hexOf = (r, g, b) => '#' + [r, g, b].map(v => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('').toUpperCase();
+    const rgbOf = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+    // הצבעים העיקריים בלוגו (RGB): מתעלמים משקוף ומלבן כמעט-טהור, מקבצים גוונים דומים, מסדרים לפי כמות (צבעוני קודם לאפור)
+    function logoColors(px){
+        const buckets = new Map();
+        for (let i = 0; i < px.length; i += 4) {
+            const r = px[i], gg = px[i + 1], b = px[i + 2], a = px[i + 3];
+            if (a < 140 || (r > 238 && gg > 238 && b > 238)) continue;
+            const key = (r >> 4) + ',' + (gg >> 4) + ',' + (b >> 4), o = buckets.get(key) || { n: 0, r: 0, g: 0, b: 0 };
+            o.n++; o.r += r; o.g += gg; o.b += b; buckets.set(key, o);
+        }
+        const list = [...buckets.values()].map(o => { const r = o.r / o.n, g = o.g / o.n, b = o.b / o.n, mx = Math.max(r, g, b), mn = Math.min(r, g, b);
+            return { hex: hexOf(r, g, b), n: o.n, sat: mx ? (mx - mn) / mx : 0 }; })
+            .sort((x, y) => (y.n * (0.35 + y.sat)) - (x.n * (0.35 + x.sat)));
+        const out = [];
+        for (const c of list) {
+            const [r, g, b] = rgbOf(c.hex);
+            if (out.every(h => { const [r2, g2, b2] = rgbOf(h); return Math.abs(r - r2) + Math.abs(g - g2) + Math.abs(b - b2) > 70; })) out.push(c.hex);
+            if (out.length >= 5) break;
+        }
+        return out;
+    }
+    // צבע שאפשר לכתוב עליו טקסט לבן ולהשתמש בו כטקסט על רקע בהיר (ניגודיות 4.5 לפחות): מכהים בהדרגה, באותו גוון
+    const lum = hex => { const [r, g, b] = rgbOf(hex).map(v => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
+    const contrastWhite = hex => 1.05 / (lum(hex) + 0.05);
+    function brandFrom(hex){
+        if (!/^#[0-9a-f]{6}$/i.test(hex || '')) return COLORS[0];
+        let [r, g, b] = rgbOf(hex), out = hex.toUpperCase();
+        for (let i = 0; i < 40 && contrastWhite(out) < 4.6; i++) { r *= 0.92; g *= 0.92; b *= 0.92; out = hexOf(r, g, b); }
+        return out;
+    }
+    const logoError = e => e && e.code === 'decode' ? 'לא הצלחנו לפתוח את הקובץ. נסו תמונה מסוג PNG או JPG (צילום מסך של הלוגו עובד מצוין).'
+        : e && e.code === 'type' ? 'אפשר להעלות רק תמונה (PNG, JPG, WEBP או SVG).'
+        : e && e.code === 'huge' ? 'הקובץ גדול מאוד (מעל 25MB). נסו תמונה קטנה יותר.'
+        : 'לא הצלחנו להשתמש בתמונה. נסו קובץ אחר.';
+
+    // מקום יציאה שהוקלד חופשי → קואורדינטות (לחישוב מרחק הנסיעה). מהרשימה — בלי חיפוש
+    async function findPlace(name){
+        name = txt(name, 60);
+        if (!name) return null;
+        if (CITIES[name]) return { name, lat: CITIES[name][0], lon: CITIES[name][1] };
+        try {
+            const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=' + encodeURIComponent(name + ', ישראל'), { headers: { 'Accept-Language': 'he' } });
+            const j = await r.json();
+            if (j && j[0] && Number.isFinite(+j[0].lat)) return { name, lat: +j[0].lat, lon: +j[0].lon };
+        } catch(e) {}
+        return null;
+    }
+
+    window.VendorTemplates = { findPlace, processLogo, logoColors, brandFrom, contrastWhite, logoError, COLORS, DEFAULT_TERMS, DEFAULT_TIERS, DEFAULT_POSTPONE, EVENT_TYPES, CITIES, FIELDS, build, fromForm, toTiers, validIsraeliId };
 })();

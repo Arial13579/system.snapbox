@@ -136,8 +136,8 @@
         if (a.state === 'none') return;
         const wa = 'https://wa.me/' + (c.whatsapp || '') + '?text=' + encodeURIComponent(`היי, זה ${T.business.name}. אשמח לחדש את הרישיון השנתי של המערכת 🙂`);
         $('lic-card').classList.remove('hidden');
-        $('lic-text').textContent = a.state === 'lifetime' ? 'לכל החיים* ✓' : a.state === 'expired' ? 'הסתיים ב-' + Core.fmtDate(a.until) : 'בתוקף עד ' + Core.fmtDate(a.until) + '*';
-        $('lic-fine').textContent = '* ' + ((Core.PF.sales || {}).licenseNote || '');
+        // האותיות הקטנות ("כל עוד Snap Box מפעילה את השירות") — באתר מתחת לחבילות ובתנאי השימוש, לא בחשבון
+        $('lic-text').textContent = a.state === 'lifetime' ? 'לכל החיים ✓' : a.state === 'expired' ? 'הסתיים ב-' + Core.fmtDate(a.until) : 'בתוקף עד ' + Core.fmtDate(a.until);
         $('lic-card').classList.toggle('warn', a.state === 'expiring' || a.state === 'expired');
         const r = $('lic-renew'); r.href = wa; r.classList.toggle('hidden', !(a.state === 'expiring' || a.state === 'expired'));
         r.textContent = 'חידוש · ' + price + ' לשנה';

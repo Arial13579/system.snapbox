@@ -264,6 +264,12 @@ const LOGO = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQV
   check((await emu('GET', 'vendorConfigs/roydj')).status === 404, 'settings deleted');
   check(!(await emu('GET', 'platformQuotes/offer-roy')).body.fields.tenant, 'offer can be used again to create an account');
   check((await emu('GET', 'vendorIndex/' + VENDOR)).status === 404, 'access removed');
+  await O.p.waitForSelector('#deleted-card:not(.hidden)', { timeout: 15000 });
+  await O.p.click('#deleted-hide');
+  check(await O.p.isHidden('#deleted-card') && await O.p.isVisible('#deleted-show'), '"deleted vendors" can be hidden');
+  await O.p.reload(); await O.p.waitForSelector('#tbody button.edit', { timeout: 30000 }); await O.p.waitForTimeout(500);
+  check(await O.p.isHidden('#deleted-card') && await O.p.isVisible('#deleted-show'), 'stays hidden after reload');
+  await O.p.click('#deleted-show'); check(await O.p.isVisible('#deleted-card'), 'and can be shown again');
 
   check(!errors.length, 'no page errors' + (errors.length ? ':\n    ' + errors.join('\n    ') : ''));
   await b.close();

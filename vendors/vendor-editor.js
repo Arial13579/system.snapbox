@@ -139,22 +139,6 @@
         $('vc_logo_prev').innerHTML = LOGO ? `<img src="${esc(LOGO)}" alt="הלוגו">` : '<span>אין לוגו · תוצג האות הראשונה של השם</span>';
         $('vc_logo_rm').classList.toggle('hidden', !LOGO);
     }
-    // לוגו מוקטן (עד 320px) — נשמר בתוך ההגדרות, כך שאין צורך בקובץ באתר
-    function shrink(file){
-        return new Promise((ok, bad) => {
-            const img = new Image(), url = URL.createObjectURL(file);
-            img.onload = () => {
-                const k = Math.min(1, 320 / Math.max(img.width, img.height)), c = document.createElement('canvas');
-                c.width = Math.max(1, Math.round(img.width * k)); c.height = Math.max(1, Math.round(img.height * k));
-                c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
-                let d = c.toDataURL('image/png'); if (d.length > 90000) d = c.toDataURL('image/webp', 0.85);
-                d.length > 120000 ? bad(new Error('big')) : ok(d);
-            };
-            img.onerror = () => { URL.revokeObjectURL(url); bad(new Error('bad image')); };
-            img.src = url;
-        });
-    }
-
     function syncMode(){
         const items = $('vc_mode_items').checked;
         $('vc_pkg_box').classList.toggle('hidden', items); $('vc_items_box').classList.toggle('hidden', !items);
@@ -267,8 +251,17 @@
         $('vc_logo_btn').addEventListener('click', () => $('vc_logo_file').click());
         $('vc_logo_file').addEventListener('change', async e => {
             const f = e.target.files[0]; e.target.value = ''; if (!f) return;
-            if (!/^image\/(png|jpeg|webp|svg\+xml)$/.test(f.type)) return alert('אפשר להעלות תמונה מסוג PNG, JPG, WEBP או SVG.');
-            try { setLogo(await shrink(f)); } catch(err) { alert('לא הצלחנו להשתמש בתמונה. נסו קובץ אחר או קטן יותר.'); }
+            const b = $('vc_logo_btn'); b.disabled = true;
+            try {
+                const r = await VT.processLogo(f, 320, 90000);
+                setLogo(r.logo);
+                // צבעים מהלוגו (RGB), מותאמים לקריאות: מוצגים ראשונים, והראשון נבחר
+                const cols = [...new Set(r.colors.map(VT.brandFrom))];
+                $('vc_swatches').querySelectorAll('[data-logo]').forEach(x => x.remove());
+                $('vc_swatches').insertAdjacentHTML('afterbegin', cols.map(c => `<button type="button" data-logo="1" data-c="${c}" style="background:${c}" aria-label="צבע מהלוגו ${c}" aria-pressed="false"></button>`).join(''));
+                if (cols.length) setColor(cols[0]);
+            } catch(err) { console.warn(err); alert(VT.logoError(err)); }
+            b.disabled = false;
         });
         $('vc_logo_rm').addEventListener('click', () => setLogo(''));
         [['vc_add_pkg', 'vc_pkgs', 'pkg'], ['vc_add_item', 'vc_items', 'item'], ['vc_add_guest', 'vc_guest', 'guest'], ['vc_add_travel', 'vc_travel', 'travel']]
