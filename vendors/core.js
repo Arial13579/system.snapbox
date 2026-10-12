@@ -91,7 +91,7 @@
        מסמכים ישנים מחזיקים את הקובץ בשדה pdfData של המסמך עצמו — נקראים כרגיל ומועברים (migratePdf) בפעם הבאה שהרשימה נטענת. */
     const hasPdf = d => !!(d && (d.hasPdf || d.pdfData));
     async function getPdf(path, d){
-        if (d && d.pdfData) return d.pdfData;
+        if (d && d.pdfData && !d.hasPdf) return d.pdfData;
         const f = await fb(), s = await withRetry(() => f.fs.getDoc(f.fs.doc(f.db, path + '/pdf/file')));
         return s.exists() ? s.data().pdfData : null;
     }
@@ -148,10 +148,54 @@
         if (!window.TENANT) throw new Error('tenant config missing');
         return window.TENANT;
     }
+    /* הגדרות ספק שנשמרו במאגר (vendorConfigs) אינן קוד שלנו — מנקים לפני שימוש: בלי תגיות, מספרים כמספרים,
+       צבעים וקישורים בפורמט תקין בלבד. כך שום ערך לא יכול להריץ קוד בדף. */
+    function cleanConfig(T){
+        const deep = v => Array.isArray(v) ? v.map(deep) : v && typeof v === 'object' ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deep(x)]))
+            : typeof v === 'string' ? v.replace(/[<>]/g, '') : (typeof v === 'number' || typeof v === 'boolean' || v == null) ? v : '';
+        T = deep(T && typeof T === 'object' && !Array.isArray(T) ? T : {});
+        const N = v => Math.max(0, Number(v) || 0), str = v => typeof v === 'string' ? v : '', arr = v => Array.isArray(v) ? v : [];
+        const strs = v => arr(v).map(str).filter(Boolean), hex = (v, d) => /^#[0-9a-f]{6}$/i.test(v) ? v : d;
+        const B = T.business = Object.assign({}, T.business);
+        ['name', 'tagline', 'email', 'phone', 'businessId'].forEach(k => { B[k] = str(B[k]); });
+        B.logo = /^data:image\/(png|jpeg|webp|gif|svg\+xml);base64,[A-Za-z0-9+/=]+$/.test(str(B.logo)) ? B.logo : '';
+        ['website', 'instagram', 'facebook', 'tiktok'].forEach(k => { if (B[k] !== undefined && !/^https:\/\/[^\s"'`]+$/i.test(str(B[k]))) delete B[k]; });
+        const th = T.theme = Object.assign({}, T.theme);
+        th.brand = hex(th.brand, '#0F766E'); th.background = hex(th.background, '#F7F6F3'); th.font = /^[A-Za-z ]{1,40}$/.test(str(th.font)) ? th.font : 'Assistant';
+        const L = T.labels = Object.assign({}, T.labels);
+        ['service', 'included', 'docTitle'].forEach(k => { if (L[k] !== undefined) L[k] = str(L[k]); });
+        L.eventTypes = strs(L.eventTypes);
+        const P = T.pricing = Object.assign({}, T.pricing), sv = {};
+        Object.entries(P.SERVICES && typeof P.SERVICES === 'object' ? P.SERVICES : {}).forEach(([k, s]) => {
+            if (/^[A-Za-z][A-Za-z0-9_]{0,40}$/.test(k) && s && typeof s === 'object')
+                sv[k] = { label: str(s.label), lead: str(s.lead), base: N(s.base), hours: N(s.hours), extraHour: N(s.extraHour), items: strs(s.items) };
+        });
+        P.SERVICES = sv;
+        if (!sv[P.DEFAULT_SERVICE]) P.DEFAULT_SERVICE = Object.keys(sv)[0] || '';
+        ['GUEST_TIERS', 'TRAVEL_TIERS'].forEach(k => { P[k] = arr(P[k]).map(t => ({ max: Number(t && t.max) || 0, price: N(t && t.price), label: str(t && t.label) })); });
+        P.CATALOG = arr(P.CATALOG).map(c => ({ label: str(c && c.label), price: N(c && c.price), desc: str(c && c.desc) }));
+        P.COMMON_ITEMS = strs(P.COMMON_ITEMS);
+        ['DEPOSIT', 'EVENT_HOURS', 'QUOTE_VALID_DAYS'].forEach(k => { if (P[k] != null) P[k] = N(P[k]); });
+        if (P.DEPOSIT_PERCENT != null) P.DEPOSIT_PERCENT = Math.min(100, N(P.DEPOSIT_PERCENT));
+        if (P.MODE !== undefined) P.MODE = P.MODE === 'items' ? 'items' : '';
+        P.EXTRA_FRACTION = Object.fromEntries(Object.entries(P.EXTRA_FRACTION && typeof P.EXTRA_FRACTION === 'object' ? P.EXTRA_FRACTION : { 0: 0, 15: 0.25, 30: 0.5, 45: 0.75 }).map(([k, v]) => [String(N(k)), N(v)]));
+        if (P.ORIGIN) { const o = P.ORIGIN; P.ORIGIN = { name: str(o.name) }; if (Number.isFinite(Number(o.lat)) && Number.isFinite(Number(o.lon)) && o.lat !== '' && o.lon !== '') { P.ORIGIN.lat = Number(o.lat); P.ORIGIN.lon = Number(o.lon); } }
+        if (P.PAYMENT_METHODS !== undefined) P.PAYMENT_METHODS = strs(P.PAYMENT_METHODS);
+        if (P.BALANCE_DUE !== undefined) P.BALANCE_DUE = str(P.BALANCE_DUE);
+        T.terms = strs(T.terms);
+        const pol = T.policy = Object.assign({}, T.policy);
+        ['coolingDays', 'coolingNoticeDays', 'refundDays'].forEach(k => { pol[k] = N(pol[k]); });
+        pol.tiers = strs(pol.tiers); pol.postpone = str(pol.postpone);
+        if (T.og !== undefined) T.og = { head: str(T.og && T.og.head), cta: str(T.og && T.og.cta) };
+        T.sample = T.sample === true;
+        return T;
+    }
     async function remoteConfig(slug){
         const f = await fb(), snap = await f.fs.getDoc(f.fs.doc(f.db, 'vendorConfigs', slug));
         if (!snap.exists()) return null;
-        const T = JSON.parse(snap.data().config || 'null'); if (!T) return null;
+        let T = null; try { T = JSON.parse(snap.data().config || 'null'); } catch(e) {}
+        if (!T || typeof T !== 'object') return null;
+        T = cleanConfig(T);
         T.slug = slug; T.dynamic = true;
         return T;
     }
@@ -270,7 +314,28 @@
     /* רישיון השימוש במערכת: lifetime (מבצע ההשקה) או accessUntil (YYYY-MM-DD; regular/מותאם — שנה, וחידוש שנתי).
        אחרי התאריך החשבון במצב צפייה בלבד (נאכף בכללים לפי accessEnds). בלי שדות בכלל = לא הוגדר (לא מוגבל). */
     const licenseOf = plan => ((PF.sales || {}).plans || {})[plan] && PF.sales.plans[plan].lifetime ? 'lifetime' : 'year';
+    /* תקופת ניסיון (trial): PF.trial.days ימים מרגע הפתיחה (createdAt, זמן השרת), או עד trialEnds אם הבעלים האריך.
+       אחרי הסיום — צפייה בלבד (נאכף בכללים). */
+    const tsDate = v => v && v.toDate ? v.toDate() : v instanceof Date ? v : (v && v.seconds ? new Date(v.seconds * 1000) : null);
+    function trialEnd(t){
+        if (!t || !t.trial) return null;
+        const e = tsDate(t.trialEnds); if (e) return e;
+        const c = tsDate(t.createdAt) || new Date();
+        return new Date(c.getTime() + ((PF.trial || {}).days || 3) * 86400000);
+    }
+    function leftText(ms){
+        const h = Math.max(0, Math.floor(ms / 3600000)), d = Math.floor(h / 24), r = h % 24;
+        if (d >= 1) return (d === 1 ? 'יום' : d === 2 ? 'יומיים' : d + ' ימים') + (r ? ` ו-${r === 1 ? 'שעה' : r === 2 ? 'שעתיים' : r + ' שעות'}` : '');
+        if (h >= 1) return h === 1 ? 'שעה' : h === 2 ? 'שעתיים' : h + ' שעות';
+        return 'פחות משעה';
+    }
+    const fmtDateTime = d => fmtDate(d) + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
     function accessStatus(t){
+        if (t && t.trial) {
+            const until = trialEnd(t), ms = until - Date.now();
+            return ms > 0 ? { state: 'trial', until, ms, left: leftText(ms), label: 'ניסיון חינם עד ' + fmtDateTime(until) }
+                : { state: 'trialEnded', until, ms: 0, label: 'תקופת הניסיון הסתיימה ב-' + fmtDateTime(until) };
+        }
         if (t && t.lifetime) return { state: 'lifetime', label: 'רישיון לכל החיים' };
         const until = parseISO(t && t.accessUntil);
         if (!until) return { state: 'none', label: 'לא הוגדר' };
@@ -279,6 +344,37 @@
         if (days < 0) return { state: 'expired', until, days, label: 'הרישיון הסתיים ב-' + fmtDate(until) };
         return { state: days <= 30 ? 'expiring' : 'active', until, days, label: 'בתוקף עד ' + fmtDate(until) };
     }
+    // צפייה בלבד בגלל זמן: רישיון שנתי שהסתיים או תקופת ניסיון שהסתיימה
+    const accessOver = t => { const s = accessStatus(t).state; return s === 'expired' || s === 'trialEnded'; };
+
+    /* פתיחת תקופת ניסיון: ספק חדש פותח לעצמו חשבון. ארבעה מסמכים בפעולה אחת (הכללים בודקים שהם יחד):
+       trials/{מייל} (פעם אחת לכל Gmail), tenants/{ספק}, vendorIndex/{מייל}, vendorConfigs/{ספק}. מחזיר את ה-slug. */
+    function randomSlug(){ return 'v' + Array.from(crypto.getRandomValues(new Uint8Array(7)), b => 'abcdefghjkmnpqrstuvwxyz23456789'[b % 31]).join(''); }
+    async function startTrial(o){
+        const f = await fb(), u = f.auth.currentUser; if (!u) throw new Error('not signed in');
+        const email = String(u.email || '');
+        const cfg = JSON.stringify(window.VendorTemplates.build(o.field, { name: o.name, phone: o.phone, email: email.toLowerCase(), color: o.color, city: o.city }));
+        let lastErr;
+        for (let i = 0; i < 3; i++) {   // שם משתמש אקראי; אם במקרה תפוס — מנסים שם אחר
+            const slug = randomSlug(), b = f.fs.writeBatch(f.db), now = f.fs.serverTimestamp();
+            b.set(f.fs.doc(f.db, 'trials', email), { tenant: slug, createdAt: now });
+            b.set(f.fs.doc(f.db, 'tenants', slug), { slug, name: o.name, admins: [email], active: true, managed: 'trial', trial: true, plan: 'trial',
+                phone: o.phone, contactName: o.contactName || '', businessType: (window.VendorTemplates.FIELDS[o.field] || {}).label || '', createdAt: now });
+            b.set(f.fs.doc(f.db, 'vendorIndex', email), { tenant: slug });
+            b.set(f.fs.doc(f.db, 'vendorConfigs', slug), { config: cfg, updatedAt: now });
+            try { await b.commit(); return slug; }
+            catch(e) { lastErr = e; if (e.code !== 'permission-denied') throw e;
+                // אם כבר נרשם ניסיון למייל הזה — לא מנסים שוב
+                try { if ((await f.fs.getDoc(f.fs.doc(f.db, 'trials', email))).exists()) throw Object.assign(new Error('used'), { code: 'trial-used' }); } catch(x) { if (x.code === 'trial-used') throw x; }
+            }
+        }
+        throw lastErr;
+    }
+    async function trialUsed(email){
+        const f = await fb();
+        try { return (await f.fs.getDoc(f.fs.doc(f.db, 'trials', String(email || '')))).exists(); } catch(e) { return false; }
+    }
+
     // השדות לכרטיס הספק: accessUntil לתצוגה, accessEnds (סוף היום) לאכיפה בכללים
     function accessFields(fs, lifetime, untilISO){
         if (lifetime) return { lifetime: true, accessUntil: '', accessEnds: null };
@@ -385,5 +481,5 @@
     }
     const clearUsageToken = () => { try { sessionStorage.removeItem('sb.mon'); } catch(e) {} };
 
-    window.Core = { licenseReminderDue, licenseReminder, accessStatus, accessFields, licenseOf, isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { cleanConfig, trialEnd, leftText, fmtDateTime, accessOver, startTrial, trialUsed, licenseReminderDue, licenseReminder, accessStatus, accessFields, licenseOf, isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();

@@ -1,5 +1,5 @@
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp, increment, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp, increment, Timestamp, writeBatch } from 'firebase/firestore';
 import fs from 'fs';
 const env = await initializeTestEnvironment({ projectId: 'check-b2a66', firestore: { rules: fs.readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8085 } });
 const as = (email, verified = true) => env.authenticatedContext(email, { email, email_verified: verified }).firestore();
@@ -50,7 +50,8 @@ await ok('owner reads noa quotes', getDocs(collection(owner, 'tenants/noa/quotes
 await ok('owner suspends noa', updateDoc(doc(owner, 'tenants/noa'), { active: false }));
 await no('suspended noa cannot read quotes', getDocs(collection(noa, 'tenants/noa/quotes')));
 await ok('owner still reads noa quotes', getDocs(collection(owner, 'tenants/noa/quotes')));
-await ok('noa deletes after reactivation', updateDoc(doc(owner, 'tenants/noa'), { active: true }).then(() => deleteDoc(doc(noa, 'tenants/noa/quotes/q1'))));
+await ok('owner reactivates noa', updateDoc(doc(owner, 'tenants/noa'), { active: true }));
+await (async () => { const s = (await getDoc(doc(owner, 'tenants/noa/quotes/q1'))).data() || {}; if (s.status === 'signed') { await no('vendor cannot delete a signed quote', deleteDoc(doc(noa, 'tenants/noa/quotes/q1'))); await ok('owner deletes a signed quote', deleteDoc(doc(owner, 'tenants/noa/quotes/q1'))); } else await ok('noa deletes a pending quote after reactivation', deleteDoc(doc(noa, 'tenants/noa/quotes/q1'))); })();
 
 console.log('Legacy CHECK system (unchanged behaviour)');
 await ok('owner creates check quote', setDoc(doc(owner, 'check_quotes/c1'), { status: 'pending' }));
@@ -255,9 +256,11 @@ await no('anon cannot mark hasPdf + change price', updateDoc(doc(anon, 'tenants/
 await no('anon cannot read the pdf', getDoc(doc(anon, 'tenants/noa/quotes/pq1/pdf/file')));
 await no('other vendor cannot read the pdf', getDoc(doc(yossi, 'tenants/noa/quotes/pq1/pdf/file')));
 await ok('vendor reads the pdf', getDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file')));
-await ok('vendor replaces the pdf', setDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0y' }));
-await ok('vendor moves old in-doc pdf (hasPdf + remove pdfData)', updateDoc(doc(noa, 'tenants/noa/quotes/pq1'), { hasPdf: true }));
-await ok('vendor deletes the pdf', deleteDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file')));
+await no('vendor cannot replace the signed pdf', setDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0y' }));
+await no('vendor cannot delete the signed pdf', deleteDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file')));
+await no('anon cannot add in-doc pdfData once the file exists', updateDoc(doc(anon, 'tenants/noa/quotes/pq1'), { pdfData: 'JVBERi0z' }));
+await no('vendor cannot add in-doc pdfData once the file exists', updateDoc(doc(noa, 'tenants/noa/quotes/pq1'), { pdfData: 'JVBERi0z' }));
+await ok('owner replaces the pdf', setDoc(doc(owner, 'tenants/noa/quotes/pq1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0y' }));
 await ok('owner creates platform offer (pdf)', setDoc(doc(owner, 'platformQuotes/pp1'), { status: 'pending', total: 1 }));
 await no('anon cannot add offer pdf before signing', setDoc(doc(anon, 'platformQuotes/pp1/pdf/file'), pdfDoc));
 await ok('anon signs offer (pdf)', updateDoc(doc(anon, 'platformQuotes/pp1'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'UA' }));
@@ -274,6 +277,7 @@ await ok('anon counts another visit', setDoc(doc(anon, today), { v: increment(1)
 await ok('anon counts a WhatsApp click', setDoc(doc(anon, today), { w: increment(1) }, { merge: true }));
 await ok('anon counts a lead form', setDoc(doc(anon, today), { f: increment(1) }, { merge: true }));
 await ok('anon counts a demo open', setDoc(doc(anon, today), { d: increment(1) }, { merge: true }));
+await ok('anon counts a trial click', setDoc(doc(anon, today), { r: increment(1) }, { merge: true }));
 await no('anon cannot add more than 1', setDoc(doc(anon, today), { v: increment(5) }, { merge: true }));
 await no('anon cannot set a number', setDoc(doc(anon, today), { v: 1000 }, { merge: true }));
 await no('anon cannot bump two fields at once', setDoc(doc(anon, today), { v: increment(1), l: increment(1) }, { merge: true }));
@@ -284,6 +288,101 @@ await no('vendor cannot read stats', getDoc(doc(noa, today)));
 await no('anon cannot delete stats', deleteDoc(doc(anon, today)));
 await ok('owner reads stats', getDoc(doc(owner, today)));
 await ok('owner lists stats', getDocs(collection(owner, 'stats')));
+
+// תקופת ניסיון: ספק חדש פותח לעצמו חשבון (4 מסמכים באותה פעולה), פעם אחת לכל Gmail; אחרי 3 ימים — צפייה בלבד
+const dana = as('dana@gmail.com'), rina = as('rina@gmail.com'), Dana = as('Dana.X@gmail.com');
+const trialTenant = (e, slug, extra = {}) => ({ slug, name: 'דנה צילום', admins: [e], active: true, managed: 'trial', trial: true, plan: 'trial', phone: '050-1111111', contactName: 'דנה', businessType: 'צלם', createdAt: serverTimestamp(), ...extra });
+function trialBatch(db, e, slug, o = {}){
+    const b = writeBatch(db);
+    if (!o.skipTrial) b.set(doc(db, 'trials/' + (o.trialId || e)), { tenant: o.trialTenant || slug, createdAt: serverTimestamp(), ...(o.trialExtra || {}) });
+    if (!o.skipTenant) b.set(doc(db, 'tenants/' + slug), trialTenant(e, slug, o.tenant));
+    if (!o.skipIndex) b.set(doc(db, 'vendorIndex/' + (o.indexId || e)), { tenant: o.indexTenant || slug });
+    if (!o.skipCfg) b.set(doc(db, 'vendorConfigs/' + slug), { config: o.cfg || '{"business":{"name":"דנה"}}', updatedAt: serverTimestamp() });
+    return b.commit();
+}
+await no('trial: tenant alone is not enough', setDoc(doc(dana, 'tenants/vdanaaaa'), trialTenant('dana@gmail.com', 'vdanaaaa')));
+await no('trial: without trials record', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { skipTrial: true }));
+await no('trial: without vendorIndex', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { skipIndex: true }));
+await no('trial: cannot set someone else as admin', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { tenant: { admins: ['rina@gmail.com'] } }));
+await no('trial: cannot set a license', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { tenant: { lifetime: true } }));
+await no('trial: cannot extend own trial', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { tenant: { trialEnds: Timestamp.fromMillis(Date.now() + 365 * 864e5) } }));
+await no('trial: must be a trial', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { tenant: { trial: false } }));
+await no('trial: must be plan trial', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { tenant: { plan: 'launch' } }));
+await no('trial: cannot backdate createdAt', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { tenant: { createdAt: Timestamp.fromMillis(Date.now() + 864e5 * 30) } }));
+await no('trial: cannot claim another email', trialBatch(dana, 'rina@gmail.com', 'vdanaaaa', {}));
+await no('trial: index must point to the new tenant', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { indexTenant: 'noa' }));
+await no('trial: huge config refused', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { cfg: 'x'.repeat(50000) }));
+await no('trial: uppercase email refused', trialBatch(Dana, 'Dana.X@gmail.com', 'vdxxxxxx', {}));
+await no('trial: cannot take an existing tenant', trialBatch(dana, 'dana@gmail.com', 'noa', {}));
+await ok('owner indexes noa', setDoc(doc(owner, 'vendorIndex/noa@gmail.com'), { tenant: 'noa' }));
+await no('trial: existing vendor cannot open a trial', trialBatch(noa, 'noa@gmail.com', 'vnoaaaaa', {}));
+await ok('trial: new vendor opens a trial', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', {}));
+await ok('trial: vendor reads own trial record', getDoc(doc(dana, 'trials/dana@gmail.com')));
+await no('trial: cannot read others trial record', getDoc(doc(rina, 'trials/dana@gmail.com')));
+await no('trial: cannot list trials', getDocs(collection(dana, 'trials')));
+await no('trial: cannot delete own trial record', deleteDoc(doc(dana, 'trials/dana@gmail.com')));
+await no('trial: cannot open a second trial (same Gmail)', trialBatch(dana, 'dana@gmail.com', 'vdanabbb', {}));
+await no('trial: vendor cannot edit own tenant', updateDoc(doc(dana, 'tenants/vdanaaaa'), { trial: false }));
+await no('trial: vendor cannot edit config', setDoc(doc(dana, 'vendorConfigs/vdanaaaa'), { config: '{}', updatedAt: serverTimestamp() }));
+await ok('trial: vendor reads own tenant', getDoc(doc(dana, 'tenants/vdanaaaa')));
+await ok('trial: vendor creates a quote', setDoc(doc(dana, 'tenants/vdanaaaa/quotes/q1'), { status: 'pending', price: 100 }));
+await ok('trial: vendor edits own packages', setDoc(doc(dana, 'tenants/vdanaaaa/packages/p1'), pk));
+await ok('trial: vendor creates a short link', setDoc(doc(dana, 'shortLinks/trl1'), { q: 'abc', kind: 'quote', tenant: 'vdanaaaa', createdAt: serverTimestamp() }));
+// אחרי 3 ימים (מדמים: הבעלים מקדים את createdAt)
+await ok('owner backdates trial (simulate 3 days later)', updateDoc(doc(owner, 'tenants/vdanaaaa'), { createdAt: Timestamp.fromMillis(Date.now() - 3 * 864e5 - 60000) }));
+await no('trial ended: no new quotes', setDoc(doc(dana, 'tenants/vdanaaaa/quotes/q2'), { status: 'pending', price: 100 }));
+await no('trial ended: no package edits', setDoc(doc(dana, 'tenants/vdanaaaa/packages/p2'), pk));
+await no('trial ended: no short links', setDoc(doc(dana, 'shortLinks/trl2'), { q: 'abc', kind: 'quote', tenant: 'vdanaaaa', createdAt: serverTimestamp() }));
+await ok('trial ended: vendor still reads quotes', getDocs(collection(dana, 'tenants/vdanaaaa/quotes')));
+await ok('trial ended: customer can still sign', updateDoc(doc(anon, 'tenants/vdanaaaa/quotes/q1'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'UA' }));
+await ok('owner extends the trial', updateDoc(doc(owner, 'tenants/vdanaaaa'), { trialEnds: Timestamp.fromMillis(Date.now() + 2 * 864e5) }));
+await ok('trial extended: quotes again', setDoc(doc(dana, 'tenants/vdanaaaa/quotes/q3'), { status: 'pending', price: 100 }));
+await ok('owner converts to yearly', updateDoc(doc(owner, 'tenants/vdanaaaa'), { trial: false, plan: 'regular', trialEnds: Timestamp.fromMillis(Date.now() - 1000), accessEnds: Timestamp.fromMillis(Date.now() + 365 * 864e5), accessUntil: '2027-10-12', lifetime: false }));
+await ok('converted: quotes work after trial', setDoc(doc(dana, 'tenants/vdanaaaa/quotes/q4'), { status: 'pending', price: 100 }));
+await ok('owner lists trials', getDocs(collection(owner, 'trials')));
+await ok('owner deletes a trial record (allow another try)', deleteDoc(doc(owner, 'trials/dana@gmail.com')));
+await no('deleted tenant slug cannot be reused by trial', (async () => { await setDoc(doc(owner, 'deletedTenants/vgoneaaa'), { name: 'x' }); return trialBatch(rina, 'rina@gmail.com', 'vgoneaaa', {}); })());
+await ok('another new vendor opens a trial', trialBatch(rina, 'rina@gmail.com', 'vrinaaaa', {}));
+
+// ---- בדיקת אבטחה: אי אפשר לשבש הסכם ----
+const vq = { clientName: 'לקוח', price: 5000, deposit: 1000, status: 'pending', createdAt: serverTimestamp(), createdBy: 'noa@gmail.com' };
+await ok('vendor creates a normal quote', setDoc(doc(noa, 'tenants/noa/quotes/sec1'), vq));
+await no('vendor cannot create a quote with odd id', setDoc(doc(noa, 'tenants/noa/quotes/x"><img src=x>'), vq));
+await no('vendor cannot create a signed quote', setDoc(doc(noa, 'tenants/noa/quotes/sec2'), { ...vq, status: 'signed' }));
+await no('vendor cannot create a quote with signature fields', setDoc(doc(noa, 'tenants/noa/quotes/sec3'), { ...vq, signedAt: serverTimestamp() }));
+await no('vendor cannot create a quote with unknown fields', setDoc(doc(noa, 'tenants/noa/quotes/sec4'), { ...vq, junk: 'x' }));
+await no('vendor cannot create a huge quote', setDoc(doc(noa, 'tenants/noa/quotes/sec5'), { ...vq, notes: 'x'.repeat(5000) }));
+await no('vendor cannot embed a pdf in a new quote', setDoc(doc(noa, 'tenants/noa/quotes/sec6'), { ...vq, pdfData: 'JVBER' }));
+await no('nobody can sign with a backdated time', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { status: 'signed', signedAt: Timestamp.fromMillis(Date.now() - 864e5 * 30), ip: null }));
+await no('vendor cannot write signature details as a vendor', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { status: 'signed', signedAt: serverTimestamp(), ip: null, signerName: 'x', price: 1 }));
+await no('vendor cannot change price of a sent quote', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { price: 1 }));
+await ok('owner/vendor short link for sec1', setDoc(doc(noa, 'shortLinks/seclink001'), { q: 'ORIGINAL', kind: 'quote', tenant: 'noa', createdAt: serverTimestamp() }));
+await ok('vendor saves the short link id', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { shortId: 'seclink001' }));
+await no('short link createdAt must be now', setDoc(doc(noa, 'shortLinks/seclink002'), { q: 'X', kind: 'quote', tenant: 'noa', createdAt: Timestamp.fromMillis(1) }));
+await no('customer cannot sign altered details (signedQ ≠ link)', updateDoc(doc(anon, 'tenants/noa/quotes/sec1'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'UA', signedQ: 'CHANGED' }));
+await no('customer cannot sign without signedQ when there is a short link', updateDoc(doc(anon, 'tenants/noa/quotes/sec1'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'UA' }));
+await ok('customer signs exactly what was sent', updateDoc(doc(anon, 'tenants/noa/quotes/sec1'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'UA', signedQ: 'ORIGINAL' }));
+await no('nobody can sign twice', updateDoc(doc(anon, 'tenants/noa/quotes/sec1'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'UA', signedQ: 'ORIGINAL' }));
+await no('anon cannot mark hasPdf without a file', updateDoc(doc(anon, 'tenants/noa/quotes/sec1'), { hasPdf: true }));
+await ok('owner moves signedAt back 1 hour (simulate later)', updateDoc(doc(owner, 'tenants/noa/quotes/sec1'), { signedAt: Timestamp.fromMillis(Date.now() - 3600e3) }));
+await no('anon cannot add a pdf an hour after signing', setDoc(doc(anon, 'tenants/noa/quotes/sec1/pdf/file'), pdfDoc));
+await no('anon cannot add in-doc pdf an hour after signing', updateDoc(doc(anon, 'tenants/noa/quotes/sec1'), { pdfData: 'JVBERi0x' }));
+await ok('vendor can attach a missing pdf once', setDoc(doc(noa, 'tenants/noa/quotes/sec1/pdf/file'), pdfDoc));
+await ok('vendor marks it', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { hasPdf: true }));
+await no('vendor cannot replace it afterwards', setDoc(doc(noa, 'tenants/noa/quotes/sec1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0z' }));
+await no('vendor cannot delete a signed quote', deleteDoc(doc(noa, 'tenants/noa/quotes/sec1')));
+await no('consent cannot be backdated', setDoc(doc(noa, 'tenants/noa/consents/noa@gmail.com|v9'), { email: 'noa@gmail.com', version: 'v9', acceptedAt: Timestamp.fromMillis(1), userAgent: 'UA' }));
+await no('package delete marker cannot carry big data', setDoc(doc(noa, 'tenants/noa/packages/big'), { deleted: true, desc: 'x'.repeat(400), updatedAt: serverTimestamp() }));
+await ok('package delete marker', setDoc(doc(noa, 'tenants/noa/packages/big'), { deleted: true, updatedAt: serverTimestamp() }));
+// הצעה לספק עם קישור קצר: החתימה רק על מה שנשלח
+await ok('owner offer with short link', setDoc(doc(owner, 'platformQuotes/secoff'), { status: 'pending', total: 400, shortId: 'secoffl001' }));
+await ok('owner short link for offer', setDoc(doc(owner, 'shortLinks/secoffl001'), { q: 'OFFER', kind: 'offer', tenant: '', createdAt: serverTimestamp() }));
+await no('vendor-to-be cannot sign altered offer', updateDoc(doc(anon, 'platformQuotes/secoff'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'UA', signedQ: 'OFFER-1' }));
+await ok('vendor-to-be signs the offer as sent', updateDoc(doc(anon, 'platformQuotes/secoff'), { status: 'signed', signedAt: serverTimestamp(), ip: null, userAgent: 'UA', signedQ: 'OFFER', signerName: 'X' }));
+// תקופת ניסיון: שם משתמש רק בפורמט אקראי, ואי אפשר לתפוס חשבון קיים
+const eve = as('eve@gmail.com');
+await no('trial cannot pick a chosen name like "check"', trialBatch(eve, 'eve@gmail.com', 'check', {}));
+await no('trial cannot point trials/index at someone else\'s trial', (async () => { const b = writeBatch(eve); b.set(doc(eve, 'trials/eve@gmail.com'), { tenant: 'vrinaaaa', createdAt: serverTimestamp() }); b.set(doc(eve, 'vendorIndex/eve@gmail.com'), { tenant: 'vrinaaaa' }); return b.commit(); })());
 
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();

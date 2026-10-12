@@ -65,6 +65,7 @@
             if (/wa\.me\//.test(h)) { bump('w'); pixel('Contact'); }
             else if (/(^|\/)vendors\/?$/.test(h)) { bump('l', true); pixel('ClickButton'); }
             else if (a.hasAttribute('data-demo')) { bump('d'); pixel('ViewContent'); }
+            else if (a.hasAttribute('data-trial')) { bump('r', true); pixel('ClickButton'); }
         }, true);
         var c = null; try { c = localStorage.getItem('sb_mkt_v1'); } catch(e) {}
         if (c === 'yes') loadPixel();

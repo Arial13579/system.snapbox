@@ -32,10 +32,10 @@
             // 30 הימים האחרונים (טווח עולה לפי המזהה — לא צריך אינדקס מיוחד)
             const snap = await fs.getDocs(fs.query(fs.collection(db, 'stats'), fs.where(fs.documentId(), '>=', 'd' + (today - 30))));
             const by = {}; snap.docs.forEach(d => { by[d.id] = d.data(); });
-            const sum = (from, to) => { const r = { v: 0, t: 0, w: 0, f: 0, d: 0, l: 0 }; for (let i = from; i <= to; i++) { const d = by['d' + (today - i)]; if (d) for (const k in r) r[k] += Number(d[k]) || 0; } return r; };
+            const sum = (from, to) => { const r = { v: 0, t: 0, w: 0, f: 0, d: 0, r: 0, l: 0 }; for (let i = from; i <= to; i++) { const d = by['d' + (today - i)]; if (d) for (const k in r) r[k] += Number(d[k]) || 0; } return r; };
             const rows = [['היום', 0, 0], ['אתמול', 1, 1], ['7 ימים', 0, 6], ['30 ימים', 0, 29]];
-            box.innerHTML = rows.map(([l, a, b]) => { const r = sum(a, b); return `<tr><td>${l}</td><td><b>${r.v}</b></td><td>${r.t}</td><td>${r.w}</td><td>${r.f}</td><td>${r.d}</td><td>${r.l}</td></tr>`; }).join('');
-        } catch(e) { box.innerHTML = `<tr><td colspan="7" class="loading">${esc(Core.isQuota(e) ? Core.QUOTA_MSG : 'טעינת הנתונים נכשלה (' + (e.code || e.message) + ')')}</td></tr>`; }
+            box.innerHTML = rows.map(([l, a, b]) => { const r = sum(a, b); return `<tr><td>${l}</td><td><b>${r.v}</b></td><td>${r.t}</td><td>${r.w}</td><td>${r.f}</td><td>${r.d}</td><td>${r.r}</td><td>${r.l}</td></tr>`; }).join('');
+        } catch(e) { box.innerHTML = `<tr><td colspan="8" class="loading">${esc(Core.isQuota(e) ? Core.QUOTA_MSG : 'טעינת הנתונים נכשלה (' + (e.code || e.message) + ')')}</td></tr>`; }
     }
 
     /* ================= מכסת Firebase היום (Google Cloud Monitoring) ================= */
@@ -128,7 +128,7 @@
             // כל הספקים במקביל, וכותבים רק מה שהשתנה (כך הסנכרון מהיר)
             const idxP = fs.getDocs(fs.collection(db, 'vendorIndex'));
             // ספקים שנוצרו מלוח הניהול (לא ב-registry.js): הגישה שלהם נשמרת לפי הכרטיס
-            const managed = await fs.getDocs(fs.query(fs.collection(db, 'tenants'), fs.where('managed', '==', 'admin')));
+            const managed = await fs.getDocs(fs.query(fs.collection(db, 'tenants'), fs.where('managed', 'in', ['admin', 'trial'])));
             managed.docs.forEach(d => { if (!gone.has(d.id)) (d.data().admins || []).forEach(e => { wanted[String(e).toLowerCase()] = d.id; }); });
             await Promise.all((window.REGISTRY || []).map(async r => {
                 const slug = String(r.slug || '').toLowerCase();
@@ -173,7 +173,8 @@
     const loginEmails = t => { const r = (window.REGISTRY || []).find(x => x.slug === t.id); return ((r && r.admins && r.admins.length) ? r.admins : (t.admins || [])).map(e => String(e).toLowerCase()); };
 
     let VENDORS = [];
-    const planLabel = k => (SALES.plans[k] || {}).label || (k ? k : '—');
+    const planLabel = k => k === 'trial' ? 'ניסיון חינם' : (SALES.plans[k] || {}).label || (k ? k : '—');
+    const isManaged = t => t.managed === 'admin' || t.managed === 'trial';   // נוצר בלי קובץ באתר (לוח הניהול / תקופת ניסיון)
     async function loadVendor(d){
         const t = { id: d.id, ...d.data() }, col = fs.collection(db, 'tenants', d.id, 'quotes');
         try {
@@ -194,12 +195,14 @@
         const ld = Core.licenseReminderDue(t);
         if (ld) { try { t.licReminded = (await fs.getDoc(fs.doc(db, 'tenants', d.id, 'notices', ld.id))).exists(); } catch(e) {} }
         t.state = Core.accountState(t);
-        t.inRegistry = t.managed === 'admin' || (window.REGISTRY || []).some(r => r.slug === d.id);
+        t.inRegistry = isManaged(t) || (window.REGISTRY || []).some(r => r.slug === d.id);
         return t;
     }
     const STATE_BADGE = { active: '<span class="badge ok">פעיל</span>', limited: '<span class="badge lim">מוגבל</span>', suspended: '<span class="badge bad">מושהה</span>' };
     function licCell(t){
         const a = Core.accessStatus(t);
+        if (a.state === 'trial') return `<div class="sub"><span class="badge warn">ניסיון · נותרו ${esc(a.left)}</span><div class="sub">עד ${esc(Core.fmtDateTime(a.until))}</div></div>`;
+        if (a.state === 'trialEnded') return `<div class="sub"><span class="badge bad">הניסיון הסתיים</span><div class="sub">${esc(Core.fmtDateTime(a.until))}</div></div>`;
         return a.state === 'lifetime' ? '<div class="sub"><span class="badge ok">לכל החיים</span></div>'
             : a.state === 'none' ? '<div class="sub"><span class="badge mute">רישיון לא הוגדר</span></div>'
             : `<div class="sub"><span class="badge ${a.state === 'expired' ? 'bad' : a.state === 'expiring' ? 'warn' : 'ok'}">${a.state === 'expired' ? 'הרישיון הסתיים' : 'רישיון עד ' + Core.fmtDate(a.until)}</span>${t.licReminded ? '<div class="sub">✉️ נשלחה תזכורת חידוש</div>' : ''}</div>`;
@@ -232,6 +235,7 @@
         const kpi = (v, l, s, hl) => `<div class="card kpi${hl ? ' hl' : ''}"><div class="l">${l}</div><div class="n">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
         $('kpis').innerHTML =
             kpi(VENDORS.length, 'ספקים', `${n(v => v.state === 'active')} פעילים · ${n(v => v.state === 'limited')} מוגבלים · ${n(v => v.state === 'suspended')} מושהים`) +
+            kpi(n(v => v.trial && Core.accessStatus(v).state === 'trial'), 'בתקופת ניסיון', `${n(v => v.trial && Core.accessStatus(v).state === 'trialEnded')} סיימו ועוד לא עברו למנוי · ${n(v => v.managed === 'trial' && !v.trial)} עברו למנוי`) +
             kpi(n(v => v.support.state === 'active' || v.support.state === 'expiring'), 'תמיכה פעילה') +
             kpi(n(v => v.support.state === 'expiring'), 'תמיכה מסתיימת', 'בתוך 30 יום') +
             kpi(n(v => v.support.state === 'expired' || v.support.state === 'cancelled'), 'תמיכה שהסתיימה', 'כולל תמיכה שבוטלה') +
@@ -309,6 +313,11 @@
         $('e_lic_now').textContent = s.state === 'none' ? 'לא הוגדר תאריך — אין הגבלת זמן' : s.label + (s.state === 'expired' ? ' · החשבון במצב צפייה בלבד' : s.state === 'expiring' ? ` · נותרו ${s.days} ימים` : '');
         $('e_lic_now').style.color = s.state === 'expired' ? 'var(--bad)' : s.state === 'expiring' ? 'var(--gold)' : s.state === 'none' ? 'var(--muted)' : 'var(--ok)';
     }
+    function trialNow(t){
+        const a = Core.accessStatus(t);
+        $('e_trial_now').textContent = a.state === 'trial' ? `בניסיון · נותרו ${a.left} (עד ${Core.fmtDateTime(a.until)})` : `${a.label} · החשבון במצב צפייה בלבד`;
+        $('e_trial_now').style.color = a.state === 'trial' ? 'var(--gold)' : 'var(--bad)';
+    }
     function supNow(){
         const fake = { supportUntil: $('e_until').value, supportCancelled: cancelSupport, supportCancelledAt: cancelSupport ? Core.toISO(new Date()) : '' };
         const s = Core.supportStatus(fake);
@@ -317,7 +326,30 @@
         $('e_cancel_sup').classList.toggle('hidden', s.state === 'cancelled' || s.state === 'none');
     }
     function initEdit(){
-        $('e_plan').innerHTML = '<option value="">—</option>' + Object.entries(SALES.plans).map(([k, p]) => `<option value="${k}">${esc(p.label)}</option>`).join('');
+        $('e_plan').innerHTML = '<option value="">—</option>' + Object.entries(SALES.plans).map(([k, p]) => `<option value="${k}">${esc(p.label)}</option>`).join('') + '<option value="trial">ניסיון חינם</option>';
+        // תקופת ניסיון: הארכה והמרה למנוי שנתי (נשמר מיד)
+        $('e_trial_ext').addEventListener('click', async e => {
+            const b = e.target.closest('button'), t = VENDORS.find(v => v.id === editing); if (!b || !t) return;
+            const from = Math.max(Date.now(), Core.trialEnd(t).getTime()), until = new Date(from + Number(b.dataset.d) * 864e5);
+            b.disabled = true;
+            try { await fs.updateDoc(fs.doc(db, 'tenants', editing), { trialEnds: fs.Timestamp.fromDate(until), updatedAt: fs.serverTimestamp() });
+                  t.trialEnds = until; trialNow(t); $('e_status').textContent = '✓ הניסיון הוארך עד ' + Core.fmtDateTime(until) + '.'; renderVendors(); }
+            catch(err) { $('e_status').textContent = 'ההארכה נכשלה: ' + (err.code || err.message); }
+            b.disabled = false;
+        });
+        $('e_trial_convert').addEventListener('click', async () => {
+            const t = VENDORS.find(v => v.id === editing); if (!t) return;
+            const price = SALES.plans.regular.price, today = new Date(); today.setHours(0, 0, 0, 0);
+            if (!confirm(`להמיר את "${t.name}" למנוי שנתי (${Core.money(price)}, שנה מהיום)?`)) return;
+            const b = $('e_trial_convert'); b.disabled = true;
+            try {
+                await fs.updateDoc(fs.doc(db, 'tenants', editing), { trial: false, plan: 'regular', pricePaid: price, purchaseDate: Core.toISO(today),
+                    trialEnds: fs.Timestamp.fromDate(Core.trialEnd(t)), convertedAt: fs.serverTimestamp(),
+                    ...Core.accessFields(fs, false, Core.toISO(Core.addMonths(today, 12 * (SALES.licenseYears || 1)))), updatedAt: fs.serverTimestamp() });
+                $('edit-dlg').close(); await renderVendors();
+            } catch(err) { $('e_status').textContent = 'ההמרה נכשלה: ' + (err.code || err.message); }
+            b.disabled = false;
+        });
         $('edit-close').addEventListener('click', () => $('edit-dlg').close());
         $('e_quick').addEventListener('click', e => {
             const b = e.target.closest('button'); if (!b) return;
@@ -433,7 +465,9 @@
         fs.getDoc(privRef(id)).then(s => { if (editing === id && s.exists() && s.data().notes != null) $('e_notes').value = s.data().notes; }).catch(() => {});
         $('e_del_slug').textContent = id; $('e_del_confirm').value = ''; $('e_delete').disabled = true;
         $('e_lic_life').checked = !!t.lifetime; $('e_lic_date').checked = !t.lifetime; $('e_lic_until').value = t.accessUntil || ''; licNow();
-        $('e_cfg_box').classList.toggle('hidden', t.managed !== 'admin');
+        $('e_cfg_box').classList.toggle('hidden', !isManaged(t));
+        $('e_trial_box').classList.toggle('hidden', !t.trial); $('e_lic_box').classList.toggle('hidden', !!t.trial);
+        if (t.trial) trialNow(t);
         $('e_agr_view').classList.add('hidden'); $('e_agr_status').textContent = 'טוען…';
         supNow();
         $('edit-dlg').showModal();
@@ -466,7 +500,7 @@
             await deleteAll(fs.collection(db, 'tenants', id, 'packages')).catch(() => {});
             await deleteAll(fs.query(fs.collection(db, 'vendorIndex'), fs.where('tenant', '==', id)));
             await deleteAll(fs.query(fs.collection(db, 'shortLinks'), fs.where('tenant', '==', id))).catch(() => {});
-            if (t.managed === 'admin') {
+            if (isManaged(t)) {
                 await fs.deleteDoc(fs.doc(db, 'vendorConfigs', id)).catch(() => {});
                 if (t.offerId) await fs.updateDoc(fs.doc(db, 'platformQuotes', t.offerId), { tenant: fs.deleteField() }).catch(() => {});
             }

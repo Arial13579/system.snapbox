@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230d9488'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial'%3E%E2%82%AA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="vendor.css?v=20261012b">
+<link rel="stylesheet" href="vendor.css?v=20261012c">
 <title>לוח ניהול | מחולל הצעות מחיר</title>
 </head>
 <body>
@@ -35,8 +35,8 @@
         <div class="card" id="traffic-card">
           <div class="card-h"><h2>תנועה באתר הראשי</h2><span class="hint">אנונימי · מכשיר נספר פעם אחת ביום</span></div>
           <div class="tbl-wrap"><table class="mini">
-            <thead><tr><th></th><th>כניסות</th><th>מטיקטוק</th><th>לחצו וואטסאפ</th><th>השאירו טלפון</th><th>ניסו הדגמה</th><th>לחצו "כניסת ספקים"</th></tr></thead>
-            <tbody id="traffic"><tr><td colspan="7" class="loading">טוען…</td></tr></tbody>
+            <thead><tr><th></th><th>כניסות</th><th>מטיקטוק</th><th>לחצו וואטסאפ</th><th>השאירו טלפון</th><th>ניסו הדגמה</th><th>לחצו "3 ימים בחינם"</th><th>לחצו "כניסת ספקים"</th></tr></thead>
+            <tbody id="traffic"><tr><td colspan="8" class="loading">טוען…</td></tr></tbody>
           </table></div>
         </div>
         <div class="card" id="quota-card">
@@ -149,6 +149,15 @@
         </div>
       </fieldset>
 
+      <fieldset class="mg hidden" id="e_trial_box">
+        <legend>תקופת ניסיון חינם</legend>
+        <p class="sup-now" id="e_trial_now"></p>
+        <span class="lbl">הארכת הניסיון (מעכשיו או מסוף הניסיון הנוכחי)</span>
+        <div class="quick" id="e_trial_ext"><button type="button" class="btn sm" data-d="1">+ יום</button><button type="button" class="btn sm" data-d="3">+ 3 ימים</button><button type="button" class="btn sm" data-d="7">+ שבוע</button></div>
+        <button type="button" class="btn primary block" id="e_trial_convert" style="margin-top:12px">המרה למנוי שנתי · שנה מהיום</button>
+        <p class="hint">ההמרה מסמנת שהספק שילם על מנוי שנתי, פותחת לו שנה מהיום ומסירה את מצב הניסיון. ההצעות, החבילות וההגדרות שלו נשארות. מבצע השקה או מחיר אחר — אחרי ההמרה משנים ב"פרטים ומנוי" וב"רישיון".</p>
+      </fieldset>
+
       <div class="hidden" id="e_cfg_box"><button type="button" class="btn primary block" id="e_cfg">הגדרות הספק · מחירון, חבילות, מיתוג ותנאים</button></div>
 
       <fieldset class="mg">
@@ -162,7 +171,7 @@
         </div>
       </fieldset>
 
-      <fieldset class="mg">
+      <fieldset class="mg" id="e_lic_box">
         <legend>רישיון שימוש במערכת</legend>
         <p class="sup-now" id="e_lic_now"></p>
         <div class="seg3 two" role="radiogroup" aria-label="סוג הרישיון">
@@ -310,11 +319,12 @@
   <nav aria-label="מסמכים"><a href="../legal/terms.html">תנאי שימוש והסכם שירות</a><a href="../legal/privacy.html">מדיניות פרטיות</a><a href="../legal/accessibility.html">הצהרת נגישות</a></nav>
   <p>Snap Box · לוח ניהול</p>
 </footer>
-<script src="platform.js?v=20261012b"></script>
-<script src="registry.js?v=20261012b"></script>
-<script src="core.js?v=20261012b"></script>
-<script src="vendor-editor.js?v=20261012b"></script>
-<script src="admin.js?v=20261012b"></script>
+<script src="platform.js?v=20261012c"></script>
+<script src="registry.js?v=20261012c"></script>
+<script src="core.js?v=20261012c"></script>
+<script src="templates.js?v=20261012c"></script>
+<script src="vendor-editor.js?v=20261012c"></script>
+<script src="admin.js?v=20261012c"></script>
 <script>window.PRIVACY_URL = '../legal/privacy.html';</script>
 <script src="../common/cookie.js?v=3"></script>
 <script src="../common/a11y.js"></script>

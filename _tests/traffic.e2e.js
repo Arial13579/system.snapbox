@@ -192,7 +192,7 @@ const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.
   await O.p.waitForFunction(() => !document.querySelector('#traffic .loading'), null, { timeout: 15000 });
   const today = (await O.p.textContent('#traffic tr:first-child')).replace(/\s+/g, ' ');
   console.log('   traffic today:', today);
-  check(/היום\s*4\s*2\s*2\s*1\s*1\s*1/.test(today), 'admin traffic: today 4 visits, 2 from TikTok, 2 WhatsApp, 1 lead, 1 demo, 1 vendor login');
+  check(/היום\s*4\s*2\s*2\s*1\s*1\s*0\s*1/.test(today), 'admin traffic: today 4 visits, 2 from TikTok, 2 WhatsApp, 1 lead, 1 demo, 1 vendor login');
   await O.p.click('#quota-btn'); await O.p.waitForSelector('#quota-bars:not([hidden]) .qbar', { timeout: 15000 });
   const qt = (await O.p.textContent('#quota-card')).replace(/\s+/g, ' ');
   console.log('   quota:', qt.slice(0, 200));

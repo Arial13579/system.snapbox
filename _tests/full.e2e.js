@@ -260,18 +260,17 @@ async function draw(p){
   const ap1 = await authParams(L.p);
   check(ap1.prompt === 'select_account' && !ap1.login_hint, 'Google sign-in always shows the account chooser (prompt=select_account)');
   await login(L.p, 'stranger@gmail.com');
-  await L.p.waitForSelector('#err:not(.hidden)', { timeout: 15000 });
-  check((await L.p.textContent('#err')).includes('לא רשום'), 'unregistered account gets a clear message');
-  check(await L.p.isVisible('#other'), '"other Google account" button shown');
-  await L.p.waitForFunction(() => Core.fb().then(f => !f.auth.currentUser), null, { timeout: 10000 }).catch(() => {});
-  check(await L.p.evaluate(() => Core.fb().then(f => !f.auth.currentUser)), 'unregistered account is signed out immediately (not remembered)');
-  check(await L.p.evaluate(() => Core.rememberedEmail()) === '', 'unregistered email is not remembered on the device');
-  await L.p.evaluate(() => { window.__lastAuthParams = null; });
-  await L.p.click('#other');
-  check((await authParams(L.p)).prompt === 'select_account', '"other account" opens the Google account chooser');
+  // חשבון Google חדש → ישר להרשמה (3 ימים בחינם), בלי "לא רשום"
+  await L.p.waitForURL(/trial\.html/, { timeout: 15000 });
+  await L.p.waitForSelector('#s-form:not(.hidden)', { timeout: 15000 });
+  check(true, 'new Google account goes to the 3-day signup form');
+  check(await L.p.evaluate(() => Core.rememberedEmail()) === '', 'not-yet-registered email is not remembered on the device');
+  check(await L.p.evaluate(() => Core.fb().then(f => f.fs.getDoc(f.fs.doc(f.db, 'vendorIndex', 'stranger@gmail.com')).then(() => 'read', e => e.code))) === 'read', 'can only check own index entry');
+  await L.p.evaluate(() => Core.signOutQuiet());
+  await L.p.goto(SYS + '/vendors/');
   await L.p.reload(); await L.p.waitForSelector('#signin:not([disabled])');
-  check(await L.p.isHidden('#err') && (await L.p.textContent('#signin')).includes('התחברות עם Google'), 'next visit starts clean (no "not registered" loop)');
-  await axe(L.p, 'login – not registered');
+  check(await L.p.isHidden('#err') && (await L.p.textContent('#signin')).includes('התחברות עם Google'), 'next visit starts clean');
+  await axe(L.p, 'login page');
   // ספקית שהתחברה פעם אחת — המכשיר זוכר אותה
   const R = await newPage(b, MOB, 'remember');
   await login(R.p, ILANA);
@@ -365,11 +364,12 @@ async function draw(p){
   check(!(await I.p.textContent('#tbody')).includes('פרטים שונים'), 'items-mode signed quote: no tamper warning');
   await I.p.waitForSelector('#tbody .view-file', { timeout: 15000 });
   check((await I.p.textContent('#tbody')).includes('עיצוב שולחן כלה וחתן +2'), 'dashboard shows items summary');
-  const fc = I.p.waitForEvent('filechooser'); await I.p.click('#tbody .upload-file');
-  await (await fc).setFiles(SHOTS + 'offer-signed.pdf');
-  await I.p.waitForTimeout(1500);
-  const replaced = await I.p.evaluate(async () => { const f = await Core.fb(); const s = await f.fs.getDocs(f.fs.collection(f.db, 'tenants', 'ilana', 'quotes')); const d = s.docs[0]; return d.data().pdfData ? d.data().pdfData.length : ((await Core.getPdf(`tenants/ilana/quotes/${d.id}`, d.data())) || '').length; });   // ה-PDF במסמך הנפרד, לא בתוך ההצעה
-  check(replaced === Math.ceil(fs_size_offer() / 3) * 4 || replaced > 1000, 'vendor replaced the signed agreement PDF');
+  // ההסכם החתום נשמר כמו שהוא: לספק אין כפתור החלפה/מחיקה, והשרת חוסם
+  check(await I.p.locator('#tbody tr:has(.pill.signed) .upload-file, #tbody tr:has(.pill.signed) .delete-row').count() === 0, 'vendor has no replace/delete buttons on a signed agreement');
+  const tamperPdf = await I.p.evaluate(async () => { const f = await Core.fb(); const s = await f.fs.getDocs(f.fs.collection(f.db, 'tenants', 'ilana', 'quotes')); const d = s.docs.find(x => x.data().status === 'signed');
+    const r = {}; try { await f.fs.setDoc(f.fs.doc(f.db, `tenants/ilana/quotes/${d.id}/pdf/file`), { pdfData: 'JVBERi0x', at: f.fs.serverTimestamp() }); r.replace = 'ALLOWED'; } catch(e) { r.replace = e.code; }
+    try { await f.fs.deleteDoc(f.fs.doc(f.db, 'tenants', 'ilana', 'quotes', d.id)); r.del = 'ALLOWED'; } catch(e) { r.del = e.code; } return r; });
+  check(tamperPdf.replace === 'permission-denied' && tamperPdf.del === 'permission-denied', 'server blocks vendor replacing the PDF / deleting a signed quote (' + JSON.stringify(tamperPdf) + ')');
   await axe(I.p, 'ilana dashboard');
   await I.p.screenshot({ path: SHOTS + 'ilana-dashboard.png', fullPage: true });
 
@@ -432,8 +432,8 @@ async function draw(p){
   if (await O.p.isVisible('#cookie-ok, #cookie-no')) await O.p.click('#cookie-ok, #cookie-no');
   await axe(O.p, 'admin with deleted vendors');
   await O.p.screenshot({ path: SHOTS + 'admin-deleted.png', fullPage: true });
-  await V.p.goto(SYS + '/vendors/'); await V.p.waitForSelector('#err:not(.hidden)', { timeout: 15000 });
-  check((await V.p.textContent('#err')).includes('לא רשום'), 'deleted vendor can no longer log in');
+  await V.p.goto(SYS + '/vendors/'); await V.p.waitForURL(/trial\.html/, { timeout: 15000 });
+  check(true, 'deleted vendor no longer gets into the old account (sent to signup instead)');
   await O.p.click('#deleted-list button.restore');
   await O.p.waitForSelector('#tbody button.edit[data-id=demo]', { timeout: 20000 });
   check(true, 'restored vendor re-created as an empty account');

@@ -5,21 +5,9 @@
     const $ = id => document.getElementById(id), esc = Core.esc;
     let fs, db, hooks = {}, mode = 'create', slug = '', offer = null, T0 = null;
 
-    const COLORS = ['#0F766E', '#6B21A8', '#9C4668', '#1D4ED8', '#B91C1C', '#92400E', '#166534', '#1F2937'];
-    const DEFAULT_TERMS = [
-        'ההזמנה נכנסת לתוקף עם החתימה על הסכם זה ותשלום המקדמה. עד לתשלום המקדמה התאריך אינו שמור.',
-        'ביטול בתוך 14 יום מהחתימה, ולפחות 7 ימים שאינם ימי מנוחה לפני האירוע — החזר מלא בניכוי 5% או 100 ₪ (הנמוך מביניהם), לפי חוק הגנת הצרכן. ביטול מאוחר יותר — לפי מדיניות הביטול וההחזרים של {name}.',
-        'הארכת זמן מעבר לשעות שסוכמו תחויב לפי מחיר השעה הנוספת, ברבעי שעה.',
-        'הלקוח אחראי לכל נזק שייגרם לציוד במהלך האירוע על ידי האורחים.',
-        'אם השירות לא יסופק עקב כוח עליון, המקדמה תוחזר במלואה ואף צד לא יחויב בפיצוי נוסף.',
-        'יתרת התשלום תועבר במלואה בתום האירוע.'
-    ];
-    const DEFAULT_TIERS = [
-        'ביטול לאחר תקופת הצינון ועד 30 יום לפני האירוע — המקדמה תוחזר בניכוי 10% דמי טיפול.',
-        'ביטול בתוך 30 יום לפני האירוע — המקדמה אינה מוחזרת, כי התאריך נשמר עבורכם.'
-    ];
-    const DEFAULT_POSTPONE = 'אפשר להעביר את האירוע למועד אחר פעם אחת ללא עלות, בהודעה של 30 יום לפחות ובכפוף לזמינות. המקדמה תועבר למועד החדש.';
-    const EVENT_TYPES = 'חתונה, בר מצווה, בת מצווה, חינה, יום הולדת, אירוע חברה, מסיבה פרטית';
+    // ברירות המחדל משותפות עם תקופת הניסיון (templates.js)
+    const VT = window.VendorTemplates, COLORS = VT.COLORS, DEFAULT_TERMS = VT.DEFAULT_TERMS, DEFAULT_TIERS = VT.DEFAULT_TIERS, DEFAULT_POSTPONE = VT.DEFAULT_POSTPONE;
+    const EVENT_TYPES = VT.EVENT_TYPES.join(', ');
 
     // טקסט חופשי שנכנס לדף הלקוח: בלי תגיות, בלי תווים שמפרידים שדות בקישור (|^~), ובאורך סביר
     const txt = (s, n) => String(s == null ? '' : s).replace(/[<>|^~]/g, '').replace(/\s+/g, ' ').trim().slice(0, n || 300);
@@ -129,7 +117,7 @@
             $('vc_dlg').showModal();
             try {
                 const [c, t] = await Promise.all([fs.getDoc(fs.doc(db, 'vendorConfigs', slug)), fs.getDoc(fs.doc(db, 'tenants', slug))]);
-                T0 = c.exists() ? JSON.parse(c.data().config) : { business: { name: t.exists() ? t.data().name : slug } };
+                T0 = c.exists() ? Core.cleanConfig(JSON.parse(c.data().config)) : { business: { name: t.exists() ? t.data().name : slug } };
                 fill(T0, null);
                 $('vc_gmail').value = ((t.exists() && t.data().admins) || [])[0] || '';
                 $('vc_contact').value = (t.exists() && t.data().contactName) || '';

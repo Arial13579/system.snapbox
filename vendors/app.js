@@ -97,8 +97,35 @@
     }
 
     /* ================= רישיון שימוש (לכל החיים / שנתי) ================= */
+    /* ================= תקופת ניסיון ================= */
+    function renderTrial(){
+        const a = Core.accessStatus(tenantData), c = Core.PF.contact || {}, price = Core.money((Core.PF.sales || {}).renewalYearly || 400);
+        if (a.state !== 'trial' && a.state !== 'trialEnded') return false;
+        const wa = 'https://wa.me/' + (c.whatsapp || '') + '?text=' + encodeURIComponent(`היי, אשמח למנוי שנתי 🙂\nהעסק: ${T.business.name}\n${user.email}`);
+        $('support-card').classList.add('hidden');
+        if (a.state === 'trial') {
+            $('trial-bar').classList.remove('hidden');
+            $('trial-left').textContent = a.left; $('trial-until').textContent = '(עד ' + Core.fmtDateTime(a.until) + ')';
+            $('trial-buy').href = wa; $('trial-buy').textContent = 'שדרוג למנוי שנתי · ' + price + ' לשנה';
+            $('trial-sample').classList.toggle('hidden', !T.sample);
+            $('trial-pkgs-name').textContent = MODE === 'items' ? 'המחירון שלי' : 'החבילות שלי';
+            $('trial-pkgs').onclick = e => { e.preventDefault(); showTab('dash'); setTimeout(() => $('pkg-card').scrollIntoView({ behavior: 'smooth', block: 'start' }), 50); };
+            // כשהזמן נגמר בזמן שהדף פתוח — נועלים (גם השרת חוסם)
+            // הספירה לאחור מתעדכנת כל דקה
+            clearInterval(renderTrial.tick);
+            renderTrial.tick = setInterval(() => { const n = Core.accessStatus(tenantData); if (n.state === 'trial') $('trial-left').textContent = n.left; }, 60000);
+            clearTimeout(renderTrial.timer);
+            if (a.ms < 864e5) renderTrial.timer = setTimeout(() => location.reload(), a.ms + 2000);
+        } else {
+            $('trial-over').classList.remove('hidden');
+            $('trial-price').textContent = price + ' לשנה'; $('trial-over-wa').href = wa;
+        }
+        return true;
+    }
+
     function renderLicense(){
         const a = Core.accessStatus(tenantData), c = Core.PF.contact || {}, price = Core.money((Core.PF.sales || {}).renewalYearly || 400);
+        if (renderTrial()) return;
         if (a.state === 'none') return;
         const wa = 'https://wa.me/' + (c.whatsapp || '') + '?text=' + encodeURIComponent(`היי, זה ${T.business.name}. אשמח לחדש את הרישיון השנתי של המערכת 🙂`);
         $('lic-card').classList.remove('hidden');
@@ -124,10 +151,10 @@
         renderAgreement();
         renderLicense();
         // מצב מוגבל או רישיון שהסתיים: צפייה בלבד (נאכף גם בשרת)
-        const expired = Core.accessStatus(tenantData).state === 'expired';
+        const expired = Core.accessOver(tenantData);
         const limited = Core.accountState(tenantData) === 'limited' || expired;
         if (Core.accountState(tenantData) === 'limited') $('limited-note').classList.remove('hidden');
-        if (expired) $('expired-note').classList.remove('hidden');
+        if (expired && !tenantData.trial) $('expired-note').classList.remove('hidden');
         if (limited && !isOwnerView) $('creator-fs').disabled = true;
         // מצב המחולל: מחירון אוטומטי או פריטים
         document.querySelectorAll('.m-classic, .m-items').forEach(el => {
@@ -215,8 +242,8 @@
     function onCalc(){
         const q = computeQuote(), box = $('price-breakdown');
         if (!q) { box.classList.add('hidden'); lastBreakdown = []; return; }
-        const row = (k, v) => `<div class="row"><span>${k}</span><span>₪${v.toLocaleString()}</span></div>`;
-        let h = row(`${esc(q.svc.label)}${q.svc.hours ? ' · עד ' + hoursPlain(q.svc.hours) : ''}`, q.svc.base);
+        const row = (k, v) => `<div class="row"><span>${k}</span><span>₪${(Number(v) || 0).toLocaleString()}</span></div>`;
+        let h = row(`${esc(q.svc.label)}${q.svc.hours ? ' · עד ' + esc(hoursPlain(q.svc.hours)) : ''}`, q.svc.base);
         if (q.sound) h += row(`תוספת לפי גודל האירוע · ${esc(q.soundLabel)}`, q.sound);
         if (q.travel) h += row(`נסיעה · ${esc(q.travelLabel)}`, q.travel);
         if (q.extraCost) h += row(`זמן נוסף · ${fmtDur(q.extraMin)} שעות`, q.extraCost);
@@ -660,11 +687,12 @@
             const signed = q.status === 'signed', sa = fmtTs(q.signedAt);
             const bad = Core.signedMismatch(q, 'quote');
             const pill = signed ? `<span class="pill signed">נחתם</span>${sa ? `<div class="sub">${sa}</div>` : ''}${bad ? '<div class="sub" style="color:#B91C1C;font-weight:700">⚠ נחתם על פרטים שונים מההצעה ששלחתם</div>' : ''}` : '<span class="pill pending">ממתין</span>';
-            const file = Core.hasPdf(q) ? `<div class="acts"><button type="button" class="btn sm view-file" data-id="${q.id}">צפייה</button><button type="button" class="btn sm upload-file" data-id="${q.id}">החלפה</button></div>`
-                                   : `<button type="button" class="btn sm upload-file" data-id="${q.id}">העלאה</button>`;
+            // ההסכם החתום נשמר כמו שהוא: הספק לא מחליף ולא מוחק אותו (רק Snap Box). אם חסר קובץ — אפשר לצרף פעם אחת
+            const file = Core.hasPdf(q) ? `<div class="acts"><button type="button" class="btn sm view-file" data-id="${esc(q.id)}">צפייה</button>${isOwnerView ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">החלפה</button>` : ''}</div>`
+                                   : signed || isOwnerView ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">העלאה</button>` : '<span class="sub">—</span>';
             return `<tr><td>${fmtTs(q.createdAt) || '—'}</td><td class="name">${esc(q.clientName)}</td><td>${esc(q.eventType)}</td><td>${esc(serviceLabel(q))}</td>
                 <td dir="ltr" style="text-align:right">${esc(q.date)}</td><td><b>${Core.money(q.price)}</b></td><td>${pill}</td><td>${file}</td>
-                <td><div class="acts"><button type="button" class="btn sm copy-link" data-id="${q.id}">העתק קישור</button><button type="button" class="btn sm danger delete-row" data-id="${q.id}">מחיקה</button></div></td></tr>`;
+                <td><div class="acts"><button type="button" class="btn sm copy-link" data-id="${esc(q.id)}">העתק קישור</button>${!signed || isOwnerView ? `<button type="button" class="btn sm danger delete-row" data-id="${esc(q.id)}">מחיקה</button>` : ''}</div></td></tr>`;
         }).join('');
     }
     $('search').addEventListener('input', e => { searchTerm = e.target.value.trim().toLowerCase(); renderTable(); });
