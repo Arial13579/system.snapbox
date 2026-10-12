@@ -1,5 +1,5 @@
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp, increment } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp, increment, Timestamp } from 'firebase/firestore';
 import fs from 'fs';
 const env = await initializeTestEnvironment({ projectId: 'check-b2a66', firestore: { rules: fs.readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8085 } });
 const as = (email, verified = true) => env.authenticatedContext(email, { email, email_verified: verified }).firestore();
@@ -98,6 +98,15 @@ await no('limited noa cannot create quote', setDoc(doc(noa, 'tenants/noa/quotes/
 await no('limited noa cannot lift the limit', updateDoc(doc(noa, 'tenants/noa'), { limited: false }));
 await ok('owner can still create quote for limited noa', setDoc(doc(owner, 'tenants/noa/quotes/lim2'), { status: 'pending' }));
 await ok('owner lifts limit', updateDoc(doc(owner, 'tenants/noa'), { limited: false }));
+// רישיון שנתי: אחרי accessEnds — צפייה בלבד (כמו מוגבל); לכל החיים / בתוקף — יוצר הצעות
+await ok('owner sets license that ended yesterday', updateDoc(doc(owner, 'tenants/noa'), { lifetime: false, accessUntil: '2020-01-01', accessEnds: Timestamp.fromMillis(Date.now() - 86400000) }));
+await ok('expired noa still reads quotes', getDocs(collection(noa, 'tenants/noa/quotes')));
+await no('expired noa cannot create quote', setDoc(doc(noa, 'tenants/noa/quotes/exp1'), { status: 'pending' }));
+await no('expired noa cannot extend own license', updateDoc(doc(noa, 'tenants/noa'), { accessEnds: null }));
+await ok('owner renews for a year', updateDoc(doc(owner, 'tenants/noa'), { accessEnds: Timestamp.fromMillis(Date.now() + 365 * 86400000) }));
+await ok('renewed noa creates quote', setDoc(doc(noa, 'tenants/noa/quotes/exp2'), { status: 'pending' }));
+await ok('owner sets lifetime', updateDoc(doc(owner, 'tenants/noa'), { lifetime: true, accessUntil: '', accessEnds: null }));
+await ok('lifetime noa creates quote', setDoc(doc(noa, 'tenants/noa/quotes/exp3'), { status: 'pending' }));
 await ok('noa creates quote again', setDoc(doc(noa, 'tenants/noa/quotes/lim3'), { status: 'pending' }));
 
 console.log('Vendor agreement file');

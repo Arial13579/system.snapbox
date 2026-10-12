@@ -50,8 +50,14 @@
         'עמודי תנאי שימוש, פרטיות ונגישות ממותגים לעסק',
         'כניסה מאובטחת עם חשבון Google, מכל מכשיר'
     ];
+    // רישיון: מבצע ההשקה — לכל החיים; כל השאר — שנה, וחידוש שנתי
+    const lifetime = Core.licenseOf(o.plan) === 'lifetime', renewal = money(PF.sales.renewalYearly || 400);
+    const LICENSE = lifetime ? 'רישיון שימוש במערכת לכל החיים*, ללא תשלום שנתי.'
+        : `רישיון שימוש במערכת לשנה ממועד החתימה. לאחר מכן חידוש ב-${renewal} לשנה (ללא תמיכה טכנית). בלי חידוש — החשבון עובר למצב צפייה בלבד, וההצעות וההסכמים נשמרים.`;
     const TERMS = [
         `ההצעה בתוקף עד ${Core.fmtDate(validUntil)}.`,
+        LICENSE,
+        '* ' + (PF.sales.licenseNote || ''),
         o.deposit ? `מקדמה של ${money(o.deposit)} משולמת עם החתימה, והיתרה (${money(o.total - o.deposit)}) לפני תחילת ההקמה, אלא אם סוכם אחרת בהערות להצעה.`
                   : 'התשלום יבוצע במלואו לפני תחילת ההקמה, אלא אם סוכם אחרת בהערות להצעה.',
         'ההקמה מתחילה לאחר קבלת התשלום וכל הנתונים (פרטי עסק, מחירון, תנאים, לוגו וכתובת Gmail להתחברות), ובדרך כלל מסתיימת בתוך 7 ימי עבודה.',
@@ -63,6 +69,7 @@
     const priceRows = () => {
         const r = [];
         r.push([`מערכת הצעות מחיר וחוזים · ${plan.label}`, money(o.price)]);
+        r.push([lifetime ? 'רישיון שימוש · לכל החיים*' : 'רישיון שימוש · שנה ראשונה*', 'כלול', 'minus']);
         if (o.listPrice > o.price) r.push(['מחיר רגיל', `<s>${money(o.listPrice)}</s>`, 'minus']);
         if (o.freeMonths) r.push([`תמיכה טכנית · ${o.freeMonths} חודשים`, 'כלול במחיר', 'minus']);
         if (o.extraMonths) r.push([`תמיכה טכנית · ${o.extraMonths} חודשים × ${money(o.monthly)}`, money(supportCost)]);
@@ -194,7 +201,7 @@
             if (!CT.email) return resolve(false);
             const f = $('fs-form'); f.action = 'https://formsubmit.co/' + CT.email;
             const fields = { _subject: `הצעה נחתמה — ${o.vendorName}`, _captcha: 'false', _template: 'table', 'עסק': o.vendorName, 'חותם/ת': signer,
-                'איש קשר': o.contactName, 'טלפון': o.phone || '—', 'חבילה': plan.label, 'חודשי תמיכה': String(months), 'סה"כ': o.total + ' ש"ח', 'מקדמה': o.deposit ? o.deposit + ' ש"ח' : '—', 'Gmail להתחברות': o.email || '—', 'מה משפיע על המחיר': o.pricingInfo || '—', 'הערות': o.notes || '—',
+                'איש קשר': o.contactName, 'טלפון': o.phone || '—', 'חבילה': plan.label, 'חודשי תמיכה': String(months), 'רישיון': lifetime ? 'לכל החיים' : 'שנה, חידוש ' + (PF.sales.renewalYearly || 400) + ' ש"ח לשנה', 'סה"כ': o.total + ' ש"ח', 'מקדמה': o.deposit ? o.deposit + ' ש"ח' : '—', 'Gmail להתחברות': o.email || '—', 'מה משפיע על המחיר': o.pricingInfo || '—', 'הערות': o.notes || '—',
                 'נחתם': meta.ts.toLocaleString('he-IL'), 'מזהה הצעה': o.id };
             f.innerHTML = Object.entries(fields).map(([k, v]) => `<input type="hidden" name="${esc(k)}" value="${esc(v)}">`).join('') + '<input type="file" name="attachment" id="fs_files">';
             try { const dt = new DataTransfer(); if (pdfBlob) dt.items.add(new File([pdfBlob], `SnapBox_Offer_${o.id}.pdf`, { type: 'application/pdf' })); $('fs_files').files = dt.files; } catch(e){}

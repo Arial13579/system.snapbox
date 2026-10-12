@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>מחולל הצעות מחיר וחוזים דיגיטליים לספקי אירועים | Snap Box</title>
-<meta name="description" content="מערכת הצעות מחיר וחוזים לספקי אירועים: המחיר מחושב אוטומטית, קישור ללקוח בוואטסאפ, חתימה דיגיטלית, PDF חתום ולוח בקרה. בתשלום חד-פעמי, בלי מנוי.">
+<meta name="description" content="מערכת הצעות מחיר וחוזים לספקי אירועים: המחיר מחושב אוטומטית, קישור ללקוח בוואטסאפ, חתימה דיגיטלית, PDF חתום ולוח בקרה. במבצע ההשקה — תשלום חד-פעמי, לכל החיים.">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://system.snapbox.co.il/">
 <meta name="theme-color" content="#071312">
@@ -12,7 +12,7 @@
 <meta property="og:locale" content="he_IL">
 <meta property="og:site_name" content="Snap Box">
 <meta property="og:title" content="מהצעת מחיר לחוזה חתום, בקישור אחד בוואטסאפ">
-<meta property="og:description" content="מערכת הצעות מחיר וחוזים לספקי אירועים: המחיר מחושב אוטומטית, קישור ללקוח בוואטסאפ, חתימה דיגיטלית, PDF חתום ולוח בקרה. בתשלום חד-פעמי, בלי מנוי.">
+<meta property="og:description" content="מערכת הצעות מחיר וחוזים לספקי אירועים: המחיר מחושב אוטומטית, קישור ללקוח בוואטסאפ, חתימה דיגיטלית, PDF חתום ולוח בקרה. במבצע ההשקה — תשלום חד-פעמי, לכל החיים.">
 <meta property="og:url" content="https://system.snapbox.co.il/">
 <meta property="og:image" content="https://system.snapbox.co.il/og.jpg?v=1">
 <meta property="og:image:secure_url" content="https://system.snapbox.co.il/og.jpg?v=1">
@@ -100,6 +100,7 @@ a{color:var(--accent)}
 .btn.big{padding:14px 24px;font-size:1.05rem}
 .micro{color:var(--muted);font-size:.92rem}
 .micro a{font-weight:700}
+.fine{color:var(--muted);font-size:.82rem;margin-top:14px;max-width:80ch;line-height:1.5}
 @media (max-width:540px){.cta-row .btn{flex:1 1 100%;justify-content:center}.hero .lead{font-size:1.02rem}
   /* בטלפון: מחיר וכפתורים לפני הפסקה הארוכה, כדי שיופיעו במסך הראשון */
   .hero-copy>.eyebrow{order:1}.hero-copy>h1{order:2}.hero-offer{order:3}.hero-copy>.cta-row{order:4}.hero-copy>.micro{order:5}.hero-copy>.lead{order:6}.hero-copy>.proof{order:7}}
@@ -372,12 +373,12 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
         <span class="eyebrow">מערכת הצעות מחיר וחוזים לספקי אירועים</span>
         <h1>מהצעת מחיר לחוזה חתום, <em>בקישור אחד בוואטסאפ</em></h1>
         <p class="lead">ממלאים את פרטי האירוע, המחיר מחושב לבד, והלקוח מקבל קישור לדף מעוצב. הוא קורא, חותם בצ׳יק, וההסכם החתום יורד לו ישר למכשיר. את/ה מקבל/ת עותק במייל ובלוח הבקרה.</p>
-        <a class="hero-offer" href="#pricing" id="hero-offer"><span class="tag" id="hero-tag">מבצע השקה</span><span class="txt"><b class="num" id="hero-price">₪1,499</b> <s class="num" id="hero-was">₪1,999</s> <span id="hero-left">· ל-5 העסקים הראשונים</span></span></a>
+        <a class="hero-offer" href="#pricing" id="hero-offer"><span class="tag" id="hero-tag">מבצע השקה</span><span class="txt"><b class="num" id="hero-price">₪1,499</b> <s class="num" id="hero-was">₪1,999</s> <span id="hero-left">· לכל החיים* · ל-5 העסקים הראשונים</span></span></a>
         <div class="cta-row">
           <a class="btn wa big" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A7%D7%91%D7%9C%20%D7%94%D7%A6%D7%A2%D7%AA%20%D7%9E%D7%97%D7%99%D7%A8%20%D7%9C%D7%93%D7%95%D7%92%D7%9E%D7%94%20%D7%9B%D7%9E%D7%95%20%D7%A9%D7%94%D7%9C%D7%A7%D7%95%D7%97%D7%95%D7%AA%20%D7%A9%D7%9C%D7%99%20%D7%99%D7%A7%D7%91%D7%9C%D7%95%20%F0%9F%99%82%20%D7%94%D7%AA%D7%97%D7%95%D7%9D%20%D7%A9%D7%9C%D7%99%3A%20" target="_blank" rel="noopener noreferrer"><svg aria-hidden="true"><use href="#i-wa"/></svg>שלחו לי הצעה לדוגמה בוואטסאפ</a>
           <a class="btn" id="demo-link" data-demo href="https://arial13579.github.io/hatzaa/demo/?demo=1" target="_blank" rel="noopener">לנסות לחתום בעצמי ←</a>
         </div>
-        <p class="micro">בלי התחייבות · תשלום חד-פעמי, בלי מנוי · <a href="#lead">או השאירו טלפון ונחזור אליכם</a></p>
+        <p class="micro">בלי התחייבות · במבצע ההשקה: תשלום חד-פעמי, לכל החיים* · <a href="#lead">או השאירו טלפון ונחזור אליכם</a></p>
         <div class="proof">
           <div><b>~3 דק׳</b>להכנת הצעה</div>
           <div><b>0</b>הדפסות וסריקות</div>
@@ -566,19 +567,20 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     <div class="wrap">
       <div class="sec-head">
         <span class="eyebrow">מחיר</span>
-        <h2>מערכת מותאמת לעסק שלך, בתשלום חד-פעמי</h2>
-        <p class="lead">המערכת נבנית עם המחירון, החבילות, התנאים והמיתוג שלך. משלמים פעם אחת על המערכת, ותמיכה טכנית חודשית רק למי שרוצה.</p>
+        <h2>מערכת מותאמת לעסק שלך</h2>
+        <p class="lead">המערכת נבנית עם המחירון, החבילות, התנאים והמיתוג שלך. במבצע ההשקה משלמים פעם אחת ומקבלים אותה לכל החיים. תמיכה טכנית חודשית — רק למי שרוצה.</p>
       </div>
       <div class="plans">
         <div class="plan">
           <h3>מחיר רגיל</h3>
-          <div class="price"><span class="amt num">₪1,999</span><span>תשלום חד-פעמי</span></div>
+          <div class="price"><span class="amt num">₪1,999</span><span>כולל שנה ראשונה</span></div>
           <ul>
             <li><svg><use href="#i-check"/></svg>מחולל הצעות עם המחירון והחבילות שלך</li>
             <li><svg><use href="#i-check"/></svg>דף הצעה ללקוח בעיצוב ובצבעים של העסק</li>
             <li><svg><use href="#i-check"/></svg>חתימה דיגיטלית, PDF ומייל אוטומטי</li>
             <li><svg><use href="#i-check"/></svg>לוח בקרה עם סטטוסים והכנסות</li>
             <li><svg><use href="#i-check"/></svg>עמודי תקנון, פרטיות ונגישות</li>
+            <li><svg><use href="#i-check"/></svg>מהשנה השנייה: ₪400 לשנה (בלי תמיכה)</li>
           </ul>
         </div>
         <div class="plan launch" id="launch-card">
@@ -587,12 +589,14 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
           <div class="price"><span class="amt num">₪1,499</span><s>₪1,999</s><span>חוסכים ₪500</span></div>
           <ul>
             <li><svg><use href="#i-check"/></svg>כל מה שכלול במחיר הרגיל</li>
+            <li><svg><use href="#i-check"/></svg><b>לכל החיים* — בלי תשלום שנתי</b></li>
             <li><svg><use href="#i-check"/></svg>חודשיים של תמיכה טכנית</li>
           </ul>
           <div style="display:grid;gap:8px"><small style="color:var(--muted)" id="launch-left">5 מקומות במחיר ההשקה</small><div class="seats" id="launch-seats" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></div></div>
           <a class="btn primary" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A8%20%D7%9E%D7%A7%D7%95%D7%9D%20%D7%91%D7%9E%D7%91%D7%A6%D7%A2%20%D7%94%D7%94%D7%A9%D7%A7%D7%94%20%D7%A9%D7%9C%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" style="justify-self:start" id="launch-btn">שמרו לי מקום בוואטסאפ</a>
         </div>
       </div>
+      <p class="fine">* "לכל החיים" והמנוי השנתי — כל עוד Snap Box מפעילה את השירות. אם הפעילות של Snap Box תיפסק, הרישיון, המנוי והתמיכה יסתיימו. פרטים ב<a href="legal/terms.html#s4">תנאי השימוש</a>.</p>
       <div class="support-line">
         <svg aria-hidden="true"><use href="#i-clock"/></svg>
         <div><b>תמיכה טכנית חודשית</b><span>לכל מי שרוצה ליווי שוטף אחרי ההתקנה</span></div>
@@ -722,7 +726,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 </script>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden><span class="t-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div><b>תודה על הפנייה</b><span class="t-sub">נחזור אליך בהקדם</span></div></div>
 <div class="mbar" id="mbar" aria-hidden="true">
-  <a class="mbar-price" href="#pricing" tabindex="-1"><b class="num" id="mbar-price">₪1,499</b><span id="mbar-sub">מבצע השקה · תשלום חד-פעמי</span></a>
+  <a class="mbar-price" href="#pricing" tabindex="-1"><b class="num" id="mbar-price">₪1,499</b><span id="mbar-sub">מבצע השקה · לכל החיים*</span></a>
   <a class="btn wa" href="https://wa.me/972512440252?text=%D7%94%D7%99%D7%99%21%20%D7%A8%D7%90%D7%99%D7%AA%D7%99%20%D7%90%D7%AA%20%D7%9E%D7%97%D7%95%D7%9C%D7%9C%20%D7%94%D7%A6%D7%A2%D7%95%D7%AA%20%D7%94%D7%9E%D7%97%D7%99%D7%A8%20%D7%95%D7%94%D7%97%D7%95%D7%96%D7%99%D7%9D%20%D7%95%D7%90%D7%A9%D7%9E%D7%97%20%D7%9C%D7%A9%D7%9E%D7%95%D7%A2%20%D7%A4%D7%A8%D7%98%D7%99%D7%9D%20%F0%9F%99%82" target="_blank" rel="noopener noreferrer" tabindex="-1"><svg aria-hidden="true"><use href="#i-wa"/></svg>וואטסאפ</a>
 </div>
 <script>
@@ -747,9 +751,9 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
       document.getElementById('hero-tag').textContent = 'מחיר';
       document.getElementById('hero-price').textContent = '₪1,999';
       document.getElementById('hero-was').remove();
-      document.getElementById('hero-left').textContent = '· תשלום חד-פעמי, בלי מנוי';
+      document.getElementById('hero-left').textContent = '· כולל שנה ראשונה';
       document.getElementById('mbar-price').textContent = '₪1,999';
-      document.getElementById('mbar-sub').textContent = 'תשלום חד-פעמי, בלי מנוי';
+      document.getElementById('mbar-sub').textContent = 'כולל שנה ראשונה';
     } else if (used) {
       document.getElementById('launch-left').textContent = `נשארו ${limit - used} מתוך ${limit} מקומות במחיר ההשקה`;
       document.getElementById('hero-left').textContent = `· נשארו ${limit - used} מתוך ${limit} מקומות`;

@@ -98,6 +98,7 @@ const val = f => f && (f.stringValue !== undefined ? f.stringValue : f.integerVa
   check(val(F.plan) === 'regular' && val(F.pricePaid) === 1999, 'plan "מחיר רגיל", paid ₪1,999');
   check(val(F.purchaseDate) === '2026-10-07', 'purchase date = signing date (7.10.2026)');
   check(val(F.supportUntil) === '', 'support: 0 months → none');
+  check(val(F.accessUntil) === '2027-10-07' && F.lifetime.booleanValue === false && !!F.accessEnds.timestampValue, 'regular plan → license for one year (until 7.10.2027)');
   const agr = F.agreement && F.agreement.mapValue && F.agreement.mapValue.fields;
   check(agr && val(agr.source) === 'offer', 'agreement attached from the signed offer');
   const file = await emu('GET', 'tenants/snapiiii/files/agreement');

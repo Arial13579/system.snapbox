@@ -41,9 +41,10 @@ service cloud.firestore {
         && tenantDoc(t).data.active == true
         && request.auth.token.email in tenantDoc(t).data.admins;
     }
-    // ספק שמותר לו ליצור הצעות חדשות (פעיל ולא מוגבל)
+    // ספק שמותר לו ליצור הצעות חדשות: פעיל, לא מוגבל, והרישיון בתוקף (accessEnds — סוף יום התוקף; בלי ערך = בלי הגבלת זמן)
     function canCreateFor(t) {
-      return isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true;
+      return isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true
+        && (tenantDoc(t).data.get('accessEnds', null) == null || request.time < tenantDoc(t).data.accessEnds);
     }
     // לקוח חותם: רק pending → signed, ורק שדות התיעוד.
     // זמן החתימה = זמן השרת (אי אפשר להקדים/לאחר), לא נשמר IP, ו-signedQ = הפרטים בדיוק כפי שהוצגו לחותם (להשוואה מול המקור).

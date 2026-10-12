@@ -19,15 +19,20 @@ window.PLATFORM = {
     contact: { phone: '051-2440252', whatsapp: '972512440252', email: 'arielkahalani1@gmail.com' },
 
     // גרסת תנאי השימוש לספקים. שינוי הגרסה מחייב כל ספק לאשר מחדש בכניסה הבאה
-    termsVersion: '2026-10-07',
+    termsVersion: '2026-10-12',
 
     // מחירון מכירת המערכת לספקים (משמש את "הצעת מחיר לספק" בלוח הניהול)
     sales: {
         plans: {
-            launch:  { label: 'מחיר השקה', price: 1499, listPrice: 1999, freeSupportMonths: 2, limit: 5 },   // מוגבל ל-5 חתימות
-            regular: { label: 'מחיר רגיל', price: 1999, listPrice: 1999, freeSupportMonths: 0 },
+            launch:  { label: 'מחיר השקה', price: 1499, listPrice: 1999, freeSupportMonths: 2, limit: 5, lifetime: true },   // מוגבל ל-5 חתימות · רישיון לכל החיים
+            regular: { label: 'מחיר רגיל', price: 1999, listPrice: 1999, freeSupportMonths: 0 },              // כולל שנת שימוש ראשונה
             custom:  { label: 'מחיר מותאם', price: 0,    listPrice: 0,    freeSupportMonths: 0 }
         },
-        supportMonthly: 89
+        supportMonthly: 89,
+        // רישיון שימוש: מבצע ההשקה — לכל החיים. כל השאר — שנה מהחתימה, וחידוש ב-renewalYearly לשנה (בלי תמיכה)
+        licenseYears: 1,
+        renewalYearly: 400,
+        // אותיות קטנות — בכל מקום שמופיעה חבילה / רישיון
+        licenseNote: '"לכל החיים" והמנוי השנתי — כל עוד Snap Box מפעילה את השירות. אם הפעילות של Snap Box תיפסק, הרישיון, המנוי והתמיכה יסתיימו.'
     }
 };

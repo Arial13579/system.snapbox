@@ -94,6 +94,20 @@
               : `<div class="v">נותרו ${esc(st.left)}</div><div class="s">${esc(st.label)}</div>${st.state === 'expiring' ? `<a href="${wa}" target="_blank" rel="noopener">לחידוש בוואטסאפ</a>` : ''}`}</div>`;
     }
 
+    /* ================= רישיון שימוש (לכל החיים / שנתי) ================= */
+    function renderLicense(){
+        const a = Core.accessStatus(tenantData), c = Core.PF.contact || {}, price = Core.money((Core.PF.sales || {}).renewalYearly || 400);
+        if (a.state === 'none') return;
+        const wa = 'https://wa.me/' + (c.whatsapp || '') + '?text=' + encodeURIComponent(`היי, זה ${T.business.name}. אשמח לחדש את הרישיון השנתי של המערכת 🙂`);
+        $('lic-card').classList.remove('hidden');
+        $('lic-text').textContent = a.state === 'lifetime' ? 'לכל החיים* ✓' : a.state === 'expired' ? 'הסתיים ב-' + Core.fmtDate(a.until) : 'בתוקף עד ' + Core.fmtDate(a.until) + '*';
+        $('lic-fine').textContent = '* ' + ((Core.PF.sales || {}).licenseNote || '');
+        $('lic-card').classList.toggle('warn', a.state === 'expiring' || a.state === 'expired');
+        const r = $('lic-renew'); r.href = wa; r.classList.toggle('hidden', !(a.state === 'expiring' || a.state === 'expired'));
+        r.textContent = 'חידוש · ' + price + ' לשנה';
+        $('renew-price').textContent = price; $('renew-link').href = wa;
+    }
+
     /* ================= תצוגה כללית ================= */
     function render(){
         const B = T.business || {}, L = Object.assign({ service: 'חבילה' }, T.labels || {});
@@ -106,9 +120,13 @@
         if (isOwnerView) { $('owner-banner').classList.remove('hidden'); $('ob-name').textContent = B.name; }
         renderSupport();
         renderAgreement();
-        // מצב מוגבל: צפייה בלבד (נאכף גם בשרת)
-        const limited = Core.accountState(tenantData) === 'limited';
-        if (limited) { $('limited-note').classList.remove('hidden'); if (!isOwnerView) $('creator-fs').disabled = true; }
+        renderLicense();
+        // מצב מוגבל או רישיון שהסתיים: צפייה בלבד (נאכף גם בשרת)
+        const expired = Core.accessStatus(tenantData).state === 'expired';
+        const limited = Core.accountState(tenantData) === 'limited' || expired;
+        if (Core.accountState(tenantData) === 'limited') $('limited-note').classList.remove('hidden');
+        if (expired) $('expired-note').classList.remove('hidden');
+        if (limited && !isOwnerView) $('creator-fs').disabled = true;
         // מצב המחולל: מחירון אוטומטי או פריטים
         document.querySelectorAll('.m-classic, .m-items').forEach(el => {
             const on = el.classList.contains(MODE === 'items' ? 'm-items' : 'm-classic');
