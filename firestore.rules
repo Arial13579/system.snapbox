@@ -56,11 +56,16 @@ service cloud.firestore {
     // ניסיון 3 ימים (trial) או מנוי שנתי שממתין לאישור הבעלים (pending)
     // ארבעה מסמכים באותה פעולה: trials/{מייל}, tenants/{ספק}, vendorIndex/{מייל}, vendorConfigs/{ספק}
     function trialPath(e) { return /databases/$(database)/documents/trials/$(e); }
+    // אין רישום הרשמה קודם — או שהחשבון שלו נמחק (ואז ה-Gmail נרשם מחדש כמו לקוח חדש)
+    function noLiveSignup(e) {
+      return !exists(trialPath(e))
+        || !exists(/databases/$(database)/documents/tenants/$(get(trialPath(e)).data.tenant));
+    }
     function isTrialSignup(t) {
       let e = request.auth.token.email;
       let d = request.resource.data;
       return signedIn() && e == e.lower()
-        && !exists(trialPath(e))
+        && noLiveSignup(e)
         && !exists(/databases/$(database)/documents/vendorIndex/$(e))
         && !exists(/databases/$(database)/documents/deletedTenants/$(t))
         && t.matches('^v[a-z2-9]{7}$')
@@ -302,8 +307,10 @@ service cloud.firestore {
     // ---- מי כבר פתח תקופת ניסיון: נרשם פעם אחת, יחד עם החשבון. רק הבעלים מוחק (כדי לאפשר ניסיון נוסף) ----
     match /trials/{email} {
       allow get: if isOwner() || (signedIn() && request.auth.token.email == email);
-      allow list, update, delete: if isOwner();
-      allow create: if isOwner() || (signedIn() && request.auth.token.email == email
+      allow list, delete: if isOwner();
+      // רישום חדש, או רישום מחדש אחרי שהחשבון הקודם נמחק
+      allow create, update: if isOwner() || (signedIn() && request.auth.token.email == email
+        && (resource == null || !exists(/databases/$(database)/documents/tenants/$(resource.data.tenant)))
         && request.resource.data.keys().hasOnly(['tenant', 'plan', 'createdAt'])
         && request.resource.data.get('plan', 'trial') in ['trial', 'regular']
         && request.resource.data.tenant is string
@@ -345,7 +352,7 @@ service cloud.firestore {
       allow list, write: if isOwner();
       // תקופת ניסיון: המייל של המשתמש עצמו, יחד עם trials/{מייל} באותה פעולה
       allow create: if signedIn() && request.auth.token.email == email
-        && !exists(/databases/$(database)/documents/trials/$(email))
+        && noLiveSignup(email)
         && request.resource.data.keys().hasOnly(['tenant'])
         && getAfter(/databases/$(database)/documents/trials/$(email)).data.tenant == request.resource.data.tenant;
     }

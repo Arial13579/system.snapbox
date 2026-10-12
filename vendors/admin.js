@@ -273,20 +273,40 @@
         $('deleted-card').classList.toggle('hidden', !DELETED.length || hidden);
         $('deleted-show-row').classList.toggle('hidden', !DELETED.length || !hidden);
         $('deleted-count').textContent = DELETED.length;
-        $('deleted-list').innerHTML = DELETED.map(d => `<div class="del-row"><div><b>${esc(d.name || d.id)}</b> <span class="sub ltr">${esc(d.id)}</span><div class="sub">נמחק ${d.deletedAt && d.deletedAt.toDate ? d.deletedAt.toDate().toLocaleDateString('he-IL') : ''}${d.quotes ? ` · ${d.quotes} הצעות נמחקו` : ''}</div></div>
+        $('deleted-list').innerHTML = DELETED.map(d => `<div class="del-row"><div><b>${esc(d.name || d.id)}</b> <span class="sub ltr">${esc(d.id)}</span>${(d.admins || []).length ? `<div class="sub">Gmail: <bdi>${(d.admins || []).map(esc).join(', ')}</bdi></div>` : ''}<div class="sub">נמחק ${d.deletedAt && d.deletedAt.toDate ? d.deletedAt.toDate().toLocaleDateString('he-IL') : ''}${d.quotes ? ` · ${d.quotes} הצעות נמחקו` : ''}</div></div>
             <button type="button" class="btn sm restore" data-id="${esc(d.id)}">שחזור כחשבון ריק</button></div>`).join('');
     }
     $('deleted-hide').addEventListener('click', () => hideDel.set(true));
     $('deleted-show').addEventListener('click', () => hideDel.set(false));
+    // שחזור (רק הבעלים): חשבון ריק — בלי ההצעות — עם אותו Gmail, כך שהספק מתחבר שוב לחשבון שלו
     $('deleted-list').addEventListener('click', async e => {
         const b = e.target.closest('button.restore'); if (!b) return;
-        if (!confirm('לשחזר את הספק? ייווצר חשבון ריק (בלי ההצעות שנמחקו), והגישה שלו תחזור.')) return;
+        const d = DELETED.find(x => x.id === b.dataset.id); if (!d) return;
+        const emails = (d.admins || []).map(x => String(x).toLowerCase());
+        if (!confirm(`לשחזר את "${d.name || d.id}"? ייווצר חשבון ריק (בלי ההצעות שנמחקו)${emails.length ? ', והספק יוכל להתחבר שוב עם ' + emails.join(', ') : ''}.`)) return;
         b.disabled = true;
         try {
-            await fs.deleteDoc(fs.doc(db, 'deletedTenants', b.dataset.id));
+            const inRegistry = (window.REGISTRY || []).some(r => r.slug === d.id);
+            const free = [], taken = [];
+            for (const em of emails) { const ix = await fs.getDoc(fs.doc(db, 'vendorIndex', em)); (ix.exists() && ix.data().tenant !== d.id ? taken : free).push(em); }
+            if (!inRegistry) {
+                // ספק שנוצר מלוח הניהול / נרשם לבד: ההגדרות מהגיבוי (ואם אין — הגדרות בסיס לעריכה)
+                let cfg = d.config;
+                if (!cfg) cfg = JSON.stringify(VendorTemplates.build('other', { name: d.name || d.id, phone: d.phone || '', email: emails[0] || '' }));
+                await fs.setDoc(fs.doc(db, 'vendorConfigs', d.id), { config: cfg, updatedAt: fs.serverTimestamp() });
+                await fs.setDoc(fs.doc(db, 'tenants', d.id), { slug: d.id, name: d.name || d.id, admins: free, active: true, managed: d.managed && d.managed !== 'trial' && d.managed !== 'signup' ? d.managed : 'admin',
+                    plan: d.plan && d.plan !== 'trial' ? d.plan : '', contactName: d.contactName || '', phone: d.phone || '', businessType: d.businessType || '',
+                    restoredAt: fs.serverTimestamp(), createdAt: fs.serverTimestamp() });
+                await Promise.all(free.map(em => fs.setDoc(fs.doc(db, 'vendorIndex', em), { tenant: d.id })));
+            }
+            await fs.deleteDoc(fs.doc(db, 'deletedTenants', d.id));
             await sync(); await renderVendors();
-            if (!(window.REGISTRY || []).some(r => r.slug === b.dataset.id)) alert('הספק כבר לא ברשימת הספקים, ולכן לא נוצר מחדש. ספק שנוצר מלוח הניהול — אפשר ליצור מחדש מ"הצעות שנשלחו" ← "יצירת משתמש".');
-        } catch(err) { alert('השחזור נכשל: ' + (err.code || err.message)); b.disabled = false; }
+            const notes = [];
+            if (!inRegistry && !d.config) notes.push('לא נשמר גיבוי של ההגדרות (הספק נמחק לפני שהגיבוי התווסף) — עדכן את המיתוג והמחירון ב"ניהול" ← "הגדרות הספק".');
+            if (taken.length) notes.push(`ה-Gmail ${taken.join(', ')} כבר משויך לחשבון אחר, ולכן לא חובר. אפשר לחבר אותו ב"ניהול" ← "הגדרות הספק" אחרי שמוחקים את החשבון האחר.`);
+            notes.push('החשבון חזר פעיל. קבע רישיון ותמיכה בחלון "ניהול" של הספק.');
+            alert('✓ הספק שוחזר.\n' + notes.join('\n'));
+        } catch(err) { console.error(err); alert('השחזור נכשל: ' + (err.code || err.message)); b.disabled = false; }
     });
     $('tbody').addEventListener('click', e => {
         const b = e.target.closest('button'); if (!b) return;
@@ -527,7 +547,13 @@
         if (!confirm(`מחיקה לצמיתות של "${t.name}" וכל הנתונים שלו. אי אפשר לבטל. להמשיך?`)) return;
         const btn = $('e_delete'); btn.disabled = true; btn.textContent = 'מוחק…';
         try {
-            await fs.setDoc(fs.doc(db, 'deletedTenants', id), { name: t.name || id, admins: t.admins || [], quotes: Number(t.total) || 0, deletedAt: fs.serverTimestamp() });
+            // גיבוי לשחזור (רק הבעלים): המיילים, פרטי הקשר וההגדרות (מיתוג, מחירון, תנאים) — בלי ההצעות
+            let cfg = '';
+            if (isManaged(t)) { try { const c = await fs.getDoc(fs.doc(db, 'vendorConfigs', id)); cfg = c.exists() ? c.data().config || '' : ''; } catch(e) {} }
+            await fs.setDoc(fs.doc(db, 'deletedTenants', id), { name: t.name || id, admins: t.admins || [], quotes: Number(t.total) || 0, deletedAt: fs.serverTimestamp(),
+                managed: t.managed || '', plan: t.plan || '', contactName: t.contactName || '', phone: t.phone || '', businessType: t.businessType || '', config: cfg });
+            // ה-Gmail משתחרר: מעכשיו הוא נרשם כמו לקוח חדש (רישום ההרשמה הקודם נמחק)
+            await Promise.all((t.admins || []).map(e => fs.deleteDoc(fs.doc(db, 'trials', String(e).toLowerCase())).catch(() => {})));
             const qs = await fs.getDocs(fs.collection(db, 'tenants', id, 'quotes'));
             await Promise.all(qs.docs.map(d => Core.deletePdf(`tenants/${id}/quotes/${d.id}`)));
             await deleteAll(fs.collection(db, 'tenants', id, 'quotes'));
