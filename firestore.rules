@@ -48,9 +48,12 @@ service cloud.firestore {
       return isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true
         && (tenantDoc(t).data.get('accessEnds', null) == null || request.time < tenantDoc(t).data.accessEnds)
         && (tenantDoc(t).data.get('trial', false) != true
-            || request.time < tenantDoc(t).data.get('trialEnds', tenantDoc(t).data.createdAt + duration.value(3, 'd')));
+            || request.time < tenantDoc(t).data.get('trialEnds', tenantDoc(t).data.createdAt + duration.value(3, 'd')))
+        // מנוי שנתי שנפתח בהרשמה עצמית: נכנסים לחשבון, אבל שולחים הצעות רק אחרי שהבעלים אישר (pending=false)
+        && tenantDoc(t).data.get('pending', false) != true;
     }
-    // ---- תקופת ניסיון: ספק חדש פותח לעצמו חשבון (בלי הבעלים), פעם אחת לכל Gmail ----
+    // ---- הרשמה עצמית: ספק חדש פותח לעצמו חשבון (בלי הבעלים), פעם אחת לכל Gmail ----
+    // ניסיון 3 ימים (trial) או מנוי שנתי שממתין לאישור הבעלים (pending)
     // ארבעה מסמכים באותה פעולה: trials/{מייל}, tenants/{ספק}, vendorIndex/{מייל}, vendorConfigs/{ספק}
     function trialPath(e) { return /databases/$(database)/documents/trials/$(e); }
     function isTrialSignup(t) {
@@ -62,9 +65,12 @@ service cloud.firestore {
         && !exists(/databases/$(database)/documents/deletedTenants/$(t))
         && t.matches('^v[a-z2-9]{7}$')
         && getAfter(trialPath(e)).data.tenant == t
-        && d.keys().hasOnly(['slug', 'name', 'admins', 'active', 'managed', 'trial', 'plan', 'phone', 'contactName', 'businessType', 'createdAt'])
+        && d.keys().hasOnly(['slug', 'name', 'admins', 'active', 'managed', 'trial', 'plan', 'pending', 'phone', 'contactName', 'businessType', 'pricingInfo', 'createdAt'])
         && d.slug == t && d.admins == [e] && d.active == true
-        && d.managed == 'trial' && d.trial == true && d.plan == 'trial'
+        && ((d.managed == 'trial' && d.trial == true && d.plan == 'trial' && d.get('pending', false) == false)
+            || (d.managed == 'signup' && d.trial == false && d.plan == 'regular' && d.pending == true))
+        && getAfter(trialPath(e)).data.get('plan', 'trial') == d.plan
+        && strMax(d, 'pricingInfo', 1500)
         && d.createdAt == request.time
         && d.name is string && d.name.size() > 0 && d.name.size() <= 80
         && d.phone is string && d.phone.size() <= 30
@@ -285,11 +291,11 @@ service cloud.firestore {
       // תקופת ניסיון: נוצר רק יחד עם כרטיס הספק החדש (באותה פעולה), בלי לוגו כבד
       allow create: if signedIn() && slug.matches('^v[a-z2-9]{7}$')
         && !exists(/databases/$(database)/documents/tenants/$(slug))
-        && getAfter(/databases/$(database)/documents/tenants/$(slug)).data.get('trial', false) == true
+        && getAfter(/databases/$(database)/documents/tenants/$(slug)).data.get('managed', '') in ['trial', 'signup']
         && getAfter(/databases/$(database)/documents/tenants/$(slug)).data.admins == [request.auth.token.email]
         && request.resource.data.keys().hasOnly(['config', 'updatedAt'])
         && request.resource.data.config is string
-        && request.resource.data.config.size() < 40000
+        && request.resource.data.config.size() < 100000
         && request.resource.data.updatedAt == request.time;
     }
 
@@ -298,12 +304,13 @@ service cloud.firestore {
       allow get: if isOwner() || (signedIn() && request.auth.token.email == email);
       allow list, update, delete: if isOwner();
       allow create: if isOwner() || (signedIn() && request.auth.token.email == email
-        && request.resource.data.keys().hasOnly(['tenant', 'createdAt'])
+        && request.resource.data.keys().hasOnly(['tenant', 'plan', 'createdAt'])
+        && request.resource.data.get('plan', 'trial') in ['trial', 'regular']
         && request.resource.data.tenant is string
         && request.resource.data.createdAt == request.time
         && !exists(/databases/$(database)/documents/vendorIndex/$(email))
         && !exists(/databases/$(database)/documents/tenants/$(request.resource.data.tenant))
-        && getAfter(/databases/$(database)/documents/tenants/$(request.resource.data.tenant)).data.get('trial', false) == true
+        && getAfter(/databases/$(database)/documents/tenants/$(request.resource.data.tenant)).data.get('managed', '') in ['trial', 'signup']
         && getAfter(/databases/$(database)/documents/vendorIndex/$(email)).data.tenant == request.resource.data.tenant);
     }
 

@@ -128,7 +128,7 @@
             // כל הספקים במקביל, וכותבים רק מה שהשתנה (כך הסנכרון מהיר)
             const idxP = fs.getDocs(fs.collection(db, 'vendorIndex'));
             // ספקים שנוצרו מלוח הניהול (לא ב-registry.js): הגישה שלהם נשמרת לפי הכרטיס
-            const managed = await fs.getDocs(fs.query(fs.collection(db, 'tenants'), fs.where('managed', 'in', ['admin', 'trial'])));
+            const managed = await fs.getDocs(fs.query(fs.collection(db, 'tenants'), fs.where('managed', 'in', ['admin', 'trial', 'signup'])));
             managed.docs.forEach(d => { if (!gone.has(d.id)) (d.data().admins || []).forEach(e => { wanted[String(e).toLowerCase()] = d.id; }); });
             await Promise.all((window.REGISTRY || []).map(async r => {
                 const slug = String(r.slug || '').toLowerCase();
@@ -174,7 +174,7 @@
 
     let VENDORS = [];
     const planLabel = k => k === 'trial' ? 'ניסיון חינם' : (SALES.plans[k] || {}).label || (k ? k : '—');
-    const isManaged = t => t.managed === 'admin' || t.managed === 'trial';   // נוצר בלי קובץ באתר (לוח הניהול / תקופת ניסיון)
+    const isManaged = t => ['admin', 'trial', 'signup'].includes(t.managed);   // נוצר בלי קובץ באתר (לוח הניהול / ניסיון / הרשמה למנוי)
     async function loadVendor(d){
         const t = { id: d.id, ...d.data() }, col = fs.collection(db, 'tenants', d.id, 'quotes');
         try {
@@ -201,6 +201,7 @@
     const STATE_BADGE = { active: '<span class="badge ok">פעיל</span>', limited: '<span class="badge lim">מוגבל</span>', suspended: '<span class="badge bad">מושהה</span>' };
     function licCell(t){
         const a = Core.accessStatus(t);
+        if (a.state === 'pending') return '<div class="sub"><span class="badge warn">ממתין לאישור שלך</span></div>';
         if (a.state === 'trial') return `<div class="sub"><span class="badge warn">ניסיון · נותרו ${esc(a.left)}</span><div class="sub">עד ${esc(Core.fmtDateTime(a.until))}</div></div>`;
         if (a.state === 'trialEnded') return `<div class="sub"><span class="badge bad">הניסיון הסתיים</span><div class="sub">${esc(Core.fmtDateTime(a.until))}</div></div>`;
         return a.state === 'lifetime' ? '<div class="sub"><span class="badge ok">לכל החיים</span></div>'
@@ -235,6 +236,7 @@
         const kpi = (v, l, s, hl) => `<div class="card kpi${hl ? ' hl' : ''}"><div class="l">${l}</div><div class="n">${v}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
         $('kpis').innerHTML =
             kpi(VENDORS.length, 'ספקים', `${n(v => v.state === 'active')} פעילים · ${n(v => v.state === 'limited')} מוגבלים · ${n(v => v.state === 'suspended')} מושהים`) +
+            kpi(n(v => v.pending), 'מנוי שנתי · ממתינים לאישור', 'נרשמו לבד, עוד לא אושרו', n(v => v.pending) > 0) +
             kpi(n(v => v.trial && Core.accessStatus(v).state === 'trial'), 'בתקופת ניסיון', `${n(v => v.trial && Core.accessStatus(v).state === 'trialEnded')} סיימו ועוד לא עברו למנוי · ${n(v => v.managed === 'trial' && !v.trial)} עברו למנוי`) +
             kpi(n(v => v.support.state === 'active' || v.support.state === 'expiring'), 'תמיכה פעילה') +
             kpi(n(v => v.support.state === 'expiring'), 'תמיכה מסתיימת', 'בתוך 30 יום') +
@@ -315,6 +317,7 @@
     }
     function trialNow(t){
         const a = Core.accessStatus(t);
+        if (a.state === 'pending') { $('e_trial_now').textContent = 'נרשם/ה למנוי שנתי בעצמו/ה. החשבון פתוח לצפייה, ושליחת הצעות נפתחת אחרי האישור.'; $('e_trial_now').style.color = 'var(--gold)'; return; }
         $('e_trial_now').textContent = a.state === 'trial' ? `בניסיון · נותרו ${a.left} (עד ${Core.fmtDateTime(a.until)})` : `${a.label} · החשבון במצב צפייה בלבד`;
         $('e_trial_now').style.color = a.state === 'trial' ? 'var(--gold)' : 'var(--bad)';
     }
@@ -340,11 +343,11 @@
         $('e_trial_convert').addEventListener('click', async () => {
             const t = VENDORS.find(v => v.id === editing); if (!t) return;
             const price = SALES.plans.regular.price, today = new Date(); today.setHours(0, 0, 0, 0);
-            if (!confirm(`להמיר את "${t.name}" למנוי שנתי (${Core.money(price)}, שנה מהיום)?`)) return;
+            if (!confirm(t.pending ? `לאשר את המנוי השנתי של "${t.name}" (${Core.money(price)}, שנה מהיום)? מיד אחרי האישור הספק יוכל לשלוח הצעות.` : `להמיר את "${t.name}" למנוי שנתי (${Core.money(price)}, שנה מהיום)?`)) return;
             const b = $('e_trial_convert'); b.disabled = true;
             try {
-                await fs.updateDoc(fs.doc(db, 'tenants', editing), { trial: false, plan: 'regular', pricePaid: price, purchaseDate: Core.toISO(today),
-                    trialEnds: fs.Timestamp.fromDate(Core.trialEnd(t)), convertedAt: fs.serverTimestamp(),
+                await fs.updateDoc(fs.doc(db, 'tenants', editing), { trial: false, pending: false, plan: 'regular', pricePaid: price, purchaseDate: Core.toISO(today),
+                    ...(t.trial ? { trialEnds: fs.Timestamp.fromDate(Core.trialEnd(t)) } : {}), convertedAt: fs.serverTimestamp(),
                     ...Core.accessFields(fs, false, Core.toISO(Core.addMonths(today, 12 * (SALES.licenseYears || 1)))), updatedAt: fs.serverTimestamp() });
                 $('edit-dlg').close(); await renderVendors();
             } catch(err) { $('e_status').textContent = 'ההמרה נכשלה: ' + (err.code || err.message); }
@@ -466,8 +469,13 @@
         $('e_del_slug').textContent = id; $('e_del_confirm').value = ''; $('e_delete').disabled = true;
         $('e_lic_life').checked = !!t.lifetime; $('e_lic_date').checked = !t.lifetime; $('e_lic_until').value = t.accessUntil || ''; licNow();
         $('e_cfg_box').classList.toggle('hidden', !isManaged(t));
-        $('e_trial_box').classList.toggle('hidden', !t.trial); $('e_lic_box').classList.toggle('hidden', !!t.trial);
-        if (t.trial) trialNow(t);
+        const tp = !!(t.trial || t.pending);
+        $('e_trial_box').classList.toggle('hidden', !tp); $('e_lic_box').classList.toggle('hidden', tp);
+        $('e_trial_legend').textContent = t.pending ? 'מנוי שנתי · ממתין לאישור' : 'תקופת ניסיון חינם';
+        $('e_trial_extwrap').classList.toggle('hidden', !t.trial);
+        $('e_trial_convert').textContent = t.pending ? 'אישור המנוי (שולם) · שנה מהיום' : 'המרה למנוי שנתי · שנה מהיום';
+        if (tp) trialNow(t);
+        $('e_pinfo').textContent = t.pricingInfo ? 'מה משפיע על המחיר (מההרשמה): ' + t.pricingInfo : '';
         $('e_agr_view').classList.add('hidden'); $('e_agr_status').textContent = 'טוען…';
         supNow();
         $('edit-dlg').showModal();

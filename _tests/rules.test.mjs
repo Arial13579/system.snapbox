@@ -311,7 +311,7 @@ await no('trial: must be plan trial', trialBatch(dana, 'dana@gmail.com', 'vdanaa
 await no('trial: cannot backdate createdAt', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { tenant: { createdAt: Timestamp.fromMillis(Date.now() + 864e5 * 30) } }));
 await no('trial: cannot claim another email', trialBatch(dana, 'rina@gmail.com', 'vdanaaaa', {}));
 await no('trial: index must point to the new tenant', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { indexTenant: 'noa' }));
-await no('trial: huge config refused', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { cfg: 'x'.repeat(50000) }));
+await no('trial: huge config refused', trialBatch(dana, 'dana@gmail.com', 'vdanaaaa', { cfg: 'x'.repeat(120000) }));
 await no('trial: uppercase email refused', trialBatch(Dana, 'Dana.X@gmail.com', 'vdxxxxxx', {}));
 await no('trial: cannot take an existing tenant', trialBatch(dana, 'dana@gmail.com', 'noa', {}));
 await ok('owner indexes noa', setDoc(doc(owner, 'vendorIndex/noa@gmail.com'), { tenant: 'noa' }));
@@ -383,6 +383,22 @@ await ok('vendor-to-be signs the offer as sent', updateDoc(doc(anon, 'platformQu
 const eve = as('eve@gmail.com');
 await no('trial cannot pick a chosen name like "check"', trialBatch(eve, 'eve@gmail.com', 'check', {}));
 await no('trial cannot point trials/index at someone else\'s trial', (async () => { const b = writeBatch(eve); b.set(doc(eve, 'trials/eve@gmail.com'), { tenant: 'vrinaaaa', createdAt: serverTimestamp() }); b.set(doc(eve, 'vendorIndex/eve@gmail.com'), { tenant: 'vrinaaaa' }); return b.commit(); })());
+
+// הרשמה למנוי שנתי: נכנסים לחשבון, אבל שולחים הצעות רק אחרי אישור הבעלים
+const yael = as('yael@gmail.com');
+const annualTenant = { slug: 'vyaelaaa', name: 'יעל', admins: ['yael@gmail.com'], active: true, managed: 'signup', trial: false, plan: 'regular', pending: true, phone: '050', contactName: 'יעל', businessType: 'DJ', pricingInfo: 'לפי שעות', createdAt: serverTimestamp() };
+const annualBatch = (t, trialPlan) => { const b = writeBatch(yael); b.set(doc(yael, 'trials/yael@gmail.com'), { tenant: 'vyaelaaa', plan: trialPlan || 'regular', createdAt: serverTimestamp() }); b.set(doc(yael, 'tenants/vyaelaaa'), t); b.set(doc(yael, 'vendorIndex/yael@gmail.com'), { tenant: 'vyaelaaa' }); b.set(doc(yael, 'vendorConfigs/vyaelaaa'), { config: '{}', updatedAt: serverTimestamp() }); return b.commit(); };
+await no('annual signup cannot skip approval', annualBatch({ ...annualTenant, pending: false }));
+await no('annual signup cannot claim a license', annualBatch({ ...annualTenant, lifetime: true }));
+await no('annual signup must match the signup record', annualBatch(annualTenant, 'trial'));
+await no('annual signup: pricing note size limit', annualBatch({ ...annualTenant, pricingInfo: 'x'.repeat(2000) }));
+await ok('annual signup (pending approval)', annualBatch(annualTenant));
+await ok('pending vendor reads own account', getDoc(doc(yael, 'tenants/vyaelaaa')));
+await no('pending vendor cannot send quotes', setDoc(doc(yael, 'tenants/vyaelaaa/quotes/a1'), { status: 'pending', price: 1 }));
+await no('pending vendor cannot approve itself', updateDoc(doc(yael, 'tenants/vyaelaaa'), { pending: false }));
+await ok('pending vendor can prepare packages? no — blocked too', assertFails(setDoc(doc(yael, 'tenants/vyaelaaa/packages/p1'), pk)));
+await ok('owner approves the subscription', updateDoc(doc(owner, 'tenants/vyaelaaa'), { pending: false, accessEnds: Timestamp.fromMillis(Date.now() + 365 * 864e5), accessUntil: '2027-10-12', lifetime: false }));
+await ok('approved vendor sends quotes', setDoc(doc(yael, 'tenants/vyaelaaa/quotes/a2'), { status: 'pending', price: 1 }));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
