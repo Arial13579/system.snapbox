@@ -107,6 +107,15 @@ await ok('owner renews for a year', updateDoc(doc(owner, 'tenants/noa'), { acces
 await ok('renewed noa creates quote', setDoc(doc(noa, 'tenants/noa/quotes/exp2'), { status: 'pending' }));
 await ok('owner sets lifetime', updateDoc(doc(owner, 'tenants/noa'), { lifetime: true, accessUntil: '', accessEnds: null }));
 await ok('lifetime noa creates quote', setDoc(doc(noa, 'tenants/noa/quotes/exp3'), { status: 'pending' }));
+// תזכורות חידוש המנוי השנתי (חודש / שבוע לפני)
+await ok('owner sets yearly license', updateDoc(doc(owner, 'tenants/noa'), { lifetime: false, accessUntil: '2027-01-01', accessEnds: Timestamp.fromMillis(Date.now() + 30 * 86400000) }));
+await ok('vendor records 30-day reminder', setDoc(doc(noa, 'tenants/noa/notices/lic30-2027-01-01'), { type: 'licenseReminder', until: '2027-01-01', stage: 30, sentAt: serverTimestamp(), by: 'noa@gmail.com' }));
+await no('reminder cannot be sent twice', setDoc(doc(noa, 'tenants/noa/notices/lic30-2027-01-01'), { type: 'licenseReminder', until: '2027-01-01', stage: 30, sentAt: serverTimestamp(), by: 'noa@gmail.com' }));
+await ok('vendor records 7-day reminder', setDoc(doc(noa, 'tenants/noa/notices/lic7-2027-01-01'), { type: 'licenseReminder', until: '2027-01-01', stage: 7, sentAt: serverTimestamp(), by: 'noa@gmail.com' }));
+await no('reminder for another date', setDoc(doc(noa, 'tenants/noa/notices/lic30-2028-01-01'), { type: 'licenseReminder', until: '2028-01-01', stage: 30, sentAt: serverTimestamp(), by: 'noa@gmail.com' }));
+await no('reminder with an unknown stage', setDoc(doc(noa, 'tenants/noa/notices/lic15-2027-01-01'), { type: 'licenseReminder', until: '2027-01-01', stage: 15, sentAt: serverTimestamp(), by: 'noa@gmail.com' }));
+await no('reminder id must match stage', setDoc(doc(noa, 'tenants/noa/notices/lic7-2027-01-01x'), { type: 'licenseReminder', until: '2027-01-01', stage: 30, sentAt: serverTimestamp(), by: 'noa@gmail.com' }));
+await ok('owner sets lifetime again', updateDoc(doc(owner, 'tenants/noa'), { lifetime: true, accessUntil: '', accessEnds: null }));
 await ok('noa creates quote again', setDoc(doc(noa, 'tenants/noa/quotes/lim3'), { status: 'pending' }));
 
 console.log('Vendor agreement file');

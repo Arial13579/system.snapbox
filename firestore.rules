@@ -120,6 +120,15 @@ service cloud.firestore {
         && request.resource.data.type == 'supportReminder'
         && request.resource.data.until == tenantDoc(t).data.supportUntil
         && n == 'support-' + request.resource.data.until
+        && request.resource.data.sentAt == request.time)
+        // תזכורת חידוש המנוי השנתי: חודש / שבוע לפני accessUntil הנוכחי
+        || (isVendorOf(t)
+        && request.resource.data.keys().hasOnly(['type', 'until', 'stage', 'sentAt', 'by'])
+        && request.resource.data.type == 'licenseReminder'
+        && request.resource.data.stage in [30, 7]
+        && request.resource.data.until == tenantDoc(t).data.get('accessUntil', '')
+        && request.resource.data.until != ''
+        && n == 'lic' + string(request.resource.data.stage) + '-' + request.resource.data.until
         && request.resource.data.sentAt == request.time);
       allow update, delete: if isOwner();
     }

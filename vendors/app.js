@@ -52,7 +52,9 @@
         $('kicked-btn').onclick = () => { location.href = sameBrowser ? location.href : './'; };
     }).catch(() => {}); };
     // שבוע אחרון של התמיכה → מייל תזכורת אחד (אם עוד לא נשלח לתאריך הזה)
-    const remindSupport = () => Core.supportReminder(slug, tenantData, (tenantData.admins || []).concat(T.business.email || []), T.business.name).catch(() => {});
+    const remindSupport = () => { const to = (tenantData.admins || []).concat(T.business.email || []);
+        Core.supportReminder(slug, tenantData, to, T.business.name).catch(() => {});
+        Core.licenseReminder(slug, tenantData, to, T.business.name).catch(() => {}); };
 
     /* ================= אישור תנאי שימוש ================= */
     const consentId = () => (user.email || '').toLowerCase() + '|' + Core.PF.termsVersion;

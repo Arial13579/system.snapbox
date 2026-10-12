@@ -312,6 +312,38 @@
         return true;
     }
 
+    /* ---- תזכורת חידוש המנוי השנתי: חודש לפני ושבוע לפני (sales.renewalReminderDays) ----
+       פעם אחת לכל שלב ולכל תאריך: tenants/{slug}/notices/lic<ימים>-<YYYY-MM-DD>. חידוש = תאריך חדש = תזכורות חדשות בבוא הזמן.
+       אם הגיע שלב השבוע לפני שנשלחה תזכורת החודש — נשלחת רק של השבוע. */
+    function licenseReminderDue(t){
+        const a = accessStatus(t);
+        if (!t || t.active === false || !(a.state === 'expiring' || a.state === 'active') || a.days < 0) return null;
+        const stages = ((PF.sales || {}).renewalReminderDays || [30, 7]).slice().sort((x, y) => x - y);
+        const stage = stages.find(d => a.days <= d);
+        return stage ? Object.assign({ stage, id: 'lic' + stage + '-' + t.accessUntil }, a) : null;
+    }
+    async function licenseReminder(slug, t, emails, bizName){
+        const due = licenseReminderDue(t); if (!due || !slug) return false;
+        const f = await fb(), ref = f.fs.doc(f.db, 'tenants', slug, 'notices', due.id);
+        try { if ((await f.fs.getDoc(ref)).exists()) return false; } catch(e) { return false; }
+        try { await f.fs.setDoc(ref, { type: 'licenseReminder', until: t.accessUntil, stage: due.stage, sentAt: f.fs.serverTimestamp(), by: ((f.auth.currentUser || {}).email || '').toLowerCase() }); }
+        catch(e) { return false; }   // כבר נשלחה (מדף אחר) או שאין הרשאה
+        const c = PF.contact || {}, name = bizName || t.name || slug, price = money((PF.sales || {}).renewalYearly || 400);
+        const cc = [...new Set((emails || []).map(e => String(e || '').trim().toLowerCase()).filter(e => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e) && e !== String(c.email).toLowerCase()))];
+        const wa = 'https://wa.me/' + c.whatsapp + '?text=' + encodeURIComponent(`היי, זה ${name}. אשמח לחדש את המנוי השנתי של המערכת 🙂`);
+        const left = due.days === 0 ? 'היום' : due.days === 1 ? 'מחר' : `בעוד ${due.days} ימים`;
+        const body = { _subject: `${due.stage <= 7 ? 'נשאר שבוע: ' : ''}המנוי השנתי למערכת הצעות המחיר מסתיים ב-${fmtDate(t.accessUntil)}`, _template: 'box', _captcha: 'false',
+            'עסק': name,
+            'הודעה': `שלום! המנוי השנתי שלך למערכת הצעות המחיר מסתיים ב-${fmtDate(t.accessUntil)} (${left}). חידוש לשנה נוספת: ${price} (בלי תמיכה טכנית). `
+                + (due.stage <= 7 ? 'אם המנוי לא יחודש, החשבון יעבור למצב צפייה בלבד: ההצעות וההסכמים נשמרים, אבל לא יהיה אפשר ליצור הצעות חדשות. ' : '')
+                + `לחידוש — וואטסאפ ${c.phone}.`,
+            'לחידוש בוואטסאפ': wa };
+        if (cc.length) body._cc = cc.join(',');
+        try { await fetch('https://formsubmit.co/ajax/' + c.email, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) }); }
+        catch(e) { console.warn('license reminder mail failed', e); }
+        return true;
+    }
+
     /* ---- חיבור אחד בלבד לכל ספק (הבעלים פטור) ----
        כל פתיחה של חשבון הספק רושמת sessions/{email} = { sid, bid } (sid חדש בכל טעינת דף, bid קבוע לדפדפן).
        כל דף פתוח מאזין למסמך: אם נרשם sid אחר — החשבון נפתח במקום אחר, והדף הזה מתנתק.
@@ -353,5 +385,5 @@
     }
     const clearUsageToken = () => { try { sessionStorage.removeItem('sb.mon'); } catch(e) {} };
 
-    window.Core = { accessStatus, accessFields, licenseOf, isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { licenseReminderDue, licenseReminder, accessStatus, accessFields, licenseOf, isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();
