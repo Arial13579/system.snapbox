@@ -267,6 +267,25 @@
         return { state: days <= 30 ? 'expiring' : 'active', until, days, months: Math.max(0, months), left, label: 'פעילה עד ' + fmtDate(until) };
     }
 
+    /* רישיון השימוש במערכת: lifetime (מבצע ההשקה) או accessUntil (YYYY-MM-DD; regular/מותאם — שנה, וחידוש שנתי).
+       אחרי התאריך החשבון במצב צפייה בלבד (נאכף בכללים לפי accessEnds). בלי שדות בכלל = לא הוגדר (לא מוגבל). */
+    const licenseOf = plan => ((PF.sales || {}).plans || {})[plan] && PF.sales.plans[plan].lifetime ? 'lifetime' : 'year';
+    function accessStatus(t){
+        if (t && t.lifetime) return { state: 'lifetime', label: 'רישיון לכל החיים' };
+        const until = parseISO(t && t.accessUntil);
+        if (!until) return { state: 'none', label: 'לא הוגדר' };
+        const today = new Date(); today.setHours(0, 0, 0, 0);
+        const days = Math.round((until - today) / 86400000);
+        if (days < 0) return { state: 'expired', until, days, label: 'הרישיון הסתיים ב-' + fmtDate(until) };
+        return { state: days <= 30 ? 'expiring' : 'active', until, days, label: 'בתוקף עד ' + fmtDate(until) };
+    }
+    // השדות לכרטיס הספק: accessUntil לתצוגה, accessEnds (סוף היום) לאכיפה בכללים
+    function accessFields(fs, lifetime, untilISO){
+        if (lifetime) return { lifetime: true, accessUntil: '', accessEnds: null };
+        const d = parseISO(untilISO);
+        return { lifetime: false, accessUntil: untilISO || '', accessEnds: d ? fs.Timestamp.fromDate(new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59)) : null };
+    }
+
     /* ---- תזכורת במייל בשבוע האחרון של התמיכה הטכנית ----
        פעם אחת לכל תאריך סיום: נרשם tenants/{slug}/notices/support-<YYYY-MM-DD> (כשהבעלים מאריך — תאריך חדש, תזכורת חדשה בבוא הזמן).
        נשלחת מהדף הראשון שנפתח (לוח הניהול או חשבון הספק) — אל הבעלים, עם עותק לספק (FormSubmit _cc, כך שלא צריך הפעלה אצל הספק). */
@@ -334,5 +353,5 @@
     }
     const clearUsageToken = () => { try { sessionStorage.removeItem('sb.mon'); } catch(e) {} };
 
-    window.Core = { isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { accessStatus, accessFields, licenseOf, isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();

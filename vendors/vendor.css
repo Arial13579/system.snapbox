@@ -350,3 +350,6 @@ table.mini td:first-child, table.mini th:first-child{ text-align:right; font-wei
 .vc-logo #vc_logo_prev img{ max-height:64px; max-width:180px; border-radius:8px; background:#fff; }
 .vc-done{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .bad-text{ color:var(--bad) !important; font-weight:700; }
+
+.lic-card.warn{ border-color:#F0C982; background:#FFFBF2; }
+.lic-card .fine{ font-size:11px; color:var(--muted); line-height:1.4; max-width:260px; margin-top:2px; }

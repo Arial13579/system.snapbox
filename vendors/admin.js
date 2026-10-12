@@ -140,6 +140,8 @@
                 if (!snap.exists()) await fs.setDoc(ref, { slug, name: r.name || slug, admins, active: true, createdAt: fs.serverTimestamp() });
                 else if (t.name !== (r.name || slug) || JSON.stringify(t.admins || []) !== JSON.stringify(admins)) await fs.updateDoc(ref, { name: r.name || slug, admins });
                 if (!t.pricePaid && !t.purchaseDate && !t.agreement) await fillFromOffer(slug, r.offerName || r.name || slug, await signedOffers());
+                // ספק קיים בלי רישיון מוגדר: לפי החבילה ותאריך הרכישה (פעם אחת; אחר כך רק הבעלים משנה)
+                else if (t.plan && t.purchaseDate && t.lifetime === undefined && t.accessUntil === undefined) await fs.updateDoc(ref, licenseFor(t.plan, Core.parseISO(t.purchaseDate)));
             }));
             const idx = await idxP, have = {};
             await Promise.all(idx.docs.map(d => { have[d.id] = d.data().tenant; return wanted[d.id] !== d.data().tenant ? fs.deleteDoc(d.ref) : null; }));
@@ -148,6 +150,9 @@
         } catch(e) { console.error(e); st.textContent = Core.isQuota(e) ? '⚠ ' + Core.QUOTA_MSG : 'הסנכרון נכשל: ' + (e.code || e.message); if (Core.isQuota(e)) QUOTA = true; }
     }
 
+    // רישיון לפי החבילה: מבצע השקה — לכל החיים; כל השאר — שנה (licenseYears) מתאריך הרכישה
+    const licenseFor = (plan, day) => Core.licenseOf(plan) === 'lifetime' ? Core.accessFields(fs, true)
+        : Core.accessFields(fs, false, Core.toISO(Core.addMonths(day, 12 * (SALES.licenseYears || 1))));
     // ספק חדש: איש קשר, טלפון, חבילה, סכום, תאריך רכישה, תמיכה וההסכם החתום — מההצעה החתומה האחרונה עם אותו שם עסק
     // (name ב-registry, או offerName אם בהצעה נכתב שם אחר)
     const normName = s => String(s || '').replace(/\s+/g, '').toLowerCase();
@@ -160,7 +165,7 @@
         await fs.updateDoc(fs.doc(db, 'tenants', slug), {
             contactName: o.contactName || '', phone: o.phone || '', plan: o.plan || '', pricePaid: Number(o.total) || 0,
             purchaseDate: Core.toISO(day), supportUntil: months ? Core.toISO(Core.addMonths(day, months)) : '',
-            updatedAt: fs.serverTimestamp() });
+            ...licenseFor(o.plan, day), updatedAt: fs.serverTimestamp() });
         if (Core.hasPdf(o)) await saveAgreement(slug, await Core.getPdf('platformQuotes/' + o.id, o), { source: 'offer', offerId: o.id, label: `הצעה חתומה · ${o.vendorName || ''}`, signedAt: o.signedAt || null });
     }
 
@@ -191,6 +196,12 @@
         return t;
     }
     const STATE_BADGE = { active: '<span class="badge ok">פעיל</span>', limited: '<span class="badge lim">מוגבל</span>', suspended: '<span class="badge bad">מושהה</span>' };
+    function licCell(t){
+        const a = Core.accessStatus(t);
+        return a.state === 'lifetime' ? '<div class="sub"><span class="badge ok">לכל החיים</span></div>'
+            : a.state === 'none' ? '<div class="sub"><span class="badge mute">רישיון לא הוגדר</span></div>'
+            : `<div class="sub"><span class="badge ${a.state === 'expired' ? 'bad' : a.state === 'expiring' ? 'warn' : 'ok'}">${a.state === 'expired' ? 'הרישיון הסתיים' : 'רישיון עד ' + Core.fmtDate(a.until)}</span></div>`;
+    }
     function supportCell(s){
         return s.state === 'none' ? '<span class="badge mute">לא הוגדרה</span>'
             : s.state === 'cancelled' ? `<span class="badge bad">בוטלה</span>`
@@ -231,7 +242,7 @@
                 : '<span class="badge mute">אין</span>';
             return `<tr>
                 <td class="vend-cell"><b>${esc(t.name)}</b><span>${[esc(t.contactName || ''), t.phone ? '<span class="ltr">' + esc(t.phone) + '</span>' : ''].filter(Boolean).join(' · ')}</span><span>${loginEmails(t).map(e => '<bdi>' + esc(e) + '</bdi>').join(', ') || 'אין עדיין Gmail להתחברות'}</span>${t.inRegistry ? '' : '<span>⚠ ספק ישן שלא בשימוש · אפשר למחוק ב"ניהול"</span>'}</td>
-                <td>${esc(planLabel(t.plan))}<div class="sub">${[t.purchaseDate ? Core.fmtDate(t.purchaseDate) : '', t.pricePaid ? Core.money(t.pricePaid) : ''].filter(Boolean).join(' · ')}</div></td>
+                <td>${esc(planLabel(t.plan))}<div class="sub">${[t.purchaseDate ? Core.fmtDate(t.purchaseDate) : '', t.pricePaid ? Core.money(t.pricePaid) : ''].filter(Boolean).join(' · ')}</div>${licCell(t)}</td>
                 <td>${supportCell({ ...t.support, reminded: t.reminded })}</td>
                 <td>${agr}</td>
                 <td class="num">${t.total}<div class="sub">${t.signed} נחתמו</div></td>
@@ -288,6 +299,12 @@
     /* ---- חלון ניהול ספק ---- */
     let editing = null, cancelSupport = false, SIGNED_OFFERS = null;
     const stateRadios = () => [...document.querySelectorAll('input[name="e_state"]')];
+    function licNow(){
+        const life = $('e_lic_life').checked, s = Core.accessStatus(life ? { lifetime: true } : { accessUntil: $('e_lic_until').value });
+        $('e_lic_until').disabled = life; $('e_lic_year').disabled = life;
+        $('e_lic_now').textContent = s.state === 'none' ? 'לא הוגדר תאריך — אין הגבלת זמן' : s.label + (s.state === 'expired' ? ' · החשבון במצב צפייה בלבד' : s.state === 'expiring' ? ` · נותרו ${s.days} ימים` : '');
+        $('e_lic_now').style.color = s.state === 'expired' ? 'var(--bad)' : s.state === 'expiring' ? 'var(--gold)' : s.state === 'none' ? 'var(--muted)' : 'var(--ok)';
+    }
     function supNow(){
         const fake = { supportUntil: $('e_until').value, supportCancelled: cancelSupport, supportCancelledAt: cancelSupport ? Core.toISO(new Date()) : '' };
         const s = Core.supportStatus(fake);
@@ -308,6 +325,14 @@
             supNow(); $('e_status').textContent = 'לא נשמר עדיין — לחצו "שמירת השינויים".';
         });
         $('e_until').addEventListener('input', () => { cancelSupport = false; supNow(); });
+        [$('e_lic_life'), $('e_lic_date')].forEach(r => r.addEventListener('change', licNow));
+        $('e_lic_until').addEventListener('input', () => { $('e_lic_date').checked = true; licNow(); });
+        $('e_lic_year').addEventListener('click', () => {   // חידוש: שנה מהיום או מסוף התקופה הנוכחית
+            const today = new Date(); today.setHours(0, 0, 0, 0);
+            const cur = Core.parseISO($('e_lic_until').value), from = cur && cur >= today ? cur : today;
+            $('e_lic_date').checked = true; $('e_lic_until').value = Core.toISO(Core.addMonths(from, 12)); licNow();
+            $('e_status').textContent = 'לא נשמר עדיין — לחצו "שמירת השינויים".';
+        });
         $('e_cancel_sup').addEventListener('click', () => {
             if (!confirm('לבטל את התמיכה הטכנית של הספק? הספק יראה בחשבון שהתמיכה בוטלה.')) return;
             cancelSupport = true; $('e_until').value = ''; supNow();
@@ -322,6 +347,7 @@
                 pricePaid: Number($('e_paid').value) || 0, purchaseDate: $('e_purchase').value || '', supportUntil: cancelSupport ? '' : ($('e_until').value || ''),
                 supportCancelled: cancelSupport, supportCancelledAt: cancelSupport ? Core.toISO(new Date()) : '',
                 active: state !== 'suspended', limited: state === 'limited',
+                ...Core.accessFields(fs, $('e_lic_life').checked, $('e_lic_until').value),
                 notes: fs.deleteField(), updatedAt: fs.serverTimestamp() };   // ההערות הפנימיות נשמרות בנפרד (הספק לא רואה)
             const t = VENDORS.find(v => v.id === editing);
             if (t && t.supportCancelled && cancelSupport) data.supportCancelledAt = t.supportCancelledAt || data.supportCancelledAt;
@@ -402,6 +428,7 @@
         $('e_notes').value = t.notes || ''; $('e_status').textContent = '';
         fs.getDoc(privRef(id)).then(s => { if (editing === id && s.exists() && s.data().notes != null) $('e_notes').value = s.data().notes; }).catch(() => {});
         $('e_del_slug').textContent = id; $('e_del_confirm').value = ''; $('e_delete').disabled = true;
+        $('e_lic_life').checked = !!t.lifetime; $('e_lic_date').checked = !t.lifetime; $('e_lic_until').value = t.accessUntil || ''; licNow();
         $('e_cfg_box').classList.toggle('hidden', t.managed !== 'admin');
         $('e_agr_view').classList.add('hidden'); $('e_agr_status').textContent = 'טוען…';
         supNow();
@@ -457,6 +484,7 @@
         return { plan, planKey: $('o_plan').value, price, listPrice: plan.listPrice || price, free, extra, monthly, supportCost, discount,
                  total, deposit, months: free + extra };
     }
+    const licNote = k => (Core.licenseOf(k) === 'lifetime' ? 'רישיון שימוש לכל החיים*.' : `רישיון שימוש לשנה מהחתימה*. אחר כך חידוש ב-${Core.money(SALES.renewalYearly || 400)} לשנה (בלי תמיכה).`) + `<br><small>* ${esc(SALES.licenseNote || '')}</small>`;
     function renderSummary(){
         const o = offerCalc(), r = (k, v, cls) => `<div class="row ${cls || ''}"><span>${k}</span><span>${v}</span></div>`;
         let h = r(`מערכת · ${esc(o.plan.label)}`, Core.money(o.price));
@@ -466,7 +494,7 @@
         if (o.discount) h += r('הנחה', '−' + Core.money(o.discount), 'minus');
         h += `<div class="total"><span>סה"כ לתשלום</span><b>${Core.money(o.total)}</b></div>`;
         if (o.deposit) h += r('מקדמה בחתימה', Core.money(o.deposit)) + r('יתרה', Core.money(o.total - o.deposit));
-        h += `<p class="note">${o.months ? `סה"כ ${o.months} חודשי תמיכה טכנית ממועד מסירת המערכת.` : 'ללא תמיכה טכנית חודשית.'}</p>`;
+        h += `<p class="note">${licNote(o.planKey)} ${o.months ? `סה"כ ${o.months} חודשי תמיכה טכנית ממועד מסירת המערכת.` : 'ללא תמיכה טכנית חודשית.'}</p>`;
         $('o_summary').innerHTML = h;
     }
     function applyPlan(){

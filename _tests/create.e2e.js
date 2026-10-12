@@ -138,6 +138,7 @@ const LOGO = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQV
   check(val(tn.managed) === 'admin' && val(tn.admins.arrayValue.values[0]) === VENDOR && tn.active.booleanValue === true, 'vendor card created (managed from the admin, active)');
   check(val(tn.pricePaid) === 1499 && val(tn.plan) === 'launch' && val(tn.purchaseDate) === '2026-10-11' && val(tn.supportUntil) === '2026-12-11', 'purchase + 2 months support from the offer');
   check(!!(tn.agreement && tn.agreement.mapValue), 'signed agreement attached');
+  check(tn.lifetime && tn.lifetime.booleanValue === true && !(tn.accessEnds && tn.accessEnds.timestampValue), 'launch plan → lifetime license');
   check(val((await emu('GET', 'vendorIndex/' + VENDOR)).body.fields.tenant) === 'roydj', 'Gmail gets access');
   await O.p.click('#vc_close');
   await O.p.waitForSelector('#otbody button.vc-edit[data-id=offer-roy]', { timeout: 10000 });
@@ -217,6 +218,29 @@ const LOGO = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQV
   await V.p.reload(); await V.p.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 });
   check((await V.p.textContent('#in_service')).includes('3,800'), 'vendor sees the new price');
   await O.p.click('#vc_close');
+
+  console.log('6b. License: lifetime → owner sets an end date in the past → vendor is view-only → renew');
+  await O.p.click('#tbody button.edit[data-id=roydj]');
+  await O.p.waitForSelector('#edit-dlg[open]');
+  check(await O.p.isChecked('#e_lic_life') && (await O.p.textContent('#e_lic_now')).includes('לכל החיים'), 'manage dialog: lifetime license');
+  await O.p.click('label:has(#e_lic_date)'); await O.p.fill('#e_lic_until', '2020-01-01');
+  check((await O.p.textContent('#e_lic_now')).includes('הסתיים'), 'dialog shows "ended"');
+  await O.p.click('#e_save'); await O.p.waitForFunction(() => !document.getElementById('edit-dlg').open, null, { timeout: 15000 });
+  await O.p.waitForFunction(() => /הרישיון הסתיים/.test(document.getElementById('tbody').textContent), null, { timeout: 15000 });
+  check(true, 'vendor list shows "הרישיון הסתיים"');
+  await V.p.reload(); await V.p.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 });
+  check(await V.p.isVisible('#expired-note') && (await V.p.textContent('#expired-note')).includes('₪400'), 'vendor sees "license ended" + renewal price');
+  check(await V.p.$eval('#creator-fs', e => e.disabled) && await V.p.locator('#in_clientName').isDisabled(), 'generator disabled');
+  check((await V.p.textContent('#lic-text')).includes('הסתיים') && await V.p.isVisible('#lic-renew'), 'license card: ended + renew button');
+  const denied = await V.p.evaluate(async () => { const f = await Core.fb(); try { await f.fs.setDoc(f.fs.doc(f.db, 'tenants', 'roydj', 'quotes', 'hack1'), { status: 'pending', clientName: 'x', createdAt: f.fs.serverTimestamp() }); return 'written'; } catch(e) { return e.code; } });
+  check(denied === 'permission-denied', 'server blocks new quotes after the license ended (' + denied + ')');
+  await O.p.click('#tbody button.edit[data-id=roydj]');
+  await O.p.click('#e_lic_year');
+  const until = await O.p.inputValue('#e_lic_until');
+  check(until > new Date().toISOString().slice(0, 10), 'renew for a year → ' + until);
+  await O.p.click('#e_save'); await O.p.waitForFunction(() => !document.getElementById('edit-dlg').open, null, { timeout: 15000 });
+  await V.p.reload(); await V.p.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 });
+  check(!(await V.p.isVisible('#expired-note')) && !(await V.p.locator('#in_clientName').isDisabled()) && (await V.p.textContent('#lic-text')).includes('בתוקף עד'), 'after renewal the vendor can create quotes again');
 
   console.log('7. Delete the vendor');
   await O.p.click('#tbody button.edit[data-id=roydj]');
