@@ -4,7 +4,7 @@
    ההסבר:      פעם אחת לכל חשבון ומייל (tenants/{t}/prefs/{email}.welcomeSeen; גם במכשיר), כך שמעבר מניסיון למנוי לא מציג אותו שוב. */
 (function(){
     const $ = id => document.getElementById(id);
-    let C = null, SIGNED = [], EXP = [], unsubSigned = null, unsubExp = null, calMonth = null, calDay = null, booksChart = null, started = { cal: false, books: false };
+    let C = null, SIGNED = [], EXP = [], INC = [], unsubSigned = null, unsubExp = null, unsubInc = null, calMonth = null, calDay = null, booksChart = null, started = { cal: false, books: false };
 
     const pad = n => String(n).padStart(2, '0');
     const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
@@ -153,31 +153,70 @@
         });
         $('bk-year').addEventListener('change', renderBooks);
         $('bk-csv').addEventListener('click', downloadCsv);
+        // ייבוא מאקסל: הכנסות (tenants/{t}/incomes) והוצאות
+        let impKind = 'expense';
+        $('imp-inc').addEventListener('click', () => { impKind = 'income'; $('imp-file').click(); });
+        $('imp-exp').addEventListener('click', () => { impKind = 'expense'; $('imp-file').click(); });
+        $('imp-sample').addEventListener('click', e => { e.preventDefault(); const a = document.createElement('a'); a.href = URL.createObjectURL(SheetImport.sample('expense')); a.download = 'דוגמה-הכנסות-הוצאות.csv'; document.body.appendChild(a); a.click(); a.remove(); });
+        $('imp-file').addEventListener('change', async e => { const f = e.target.files[0]; e.target.value = ''; if (f) await importFile(f, impKind); });
+        $('inc-list').addEventListener('click', async e => {
+            const b = e.target.closest('button.inc-del'); if (!b || !confirm('למחוק את ההכנסה?')) return;
+            try { await fs.deleteDoc(fs.doc(C.fb.db, 'tenants', C.slug, 'incomes', b.dataset.id)); } catch(err){ alert('המחיקה נכשלה.'); }
+        });
+        unsubInc = fs.onSnapshot(fs.query(fs.collection(C.fb.db, 'tenants', C.slug, 'incomes'), fs.orderBy('date', 'desc'), fs.limit(2000)), snap => {
+            INC = snap.docs.map(d => ({ id: d.id, ...d.data() })); renderBooks();
+        }, err => { console.warn('incomes', err); });
         unsubExp = fs.onSnapshot(fs.query(fs.collection(C.fb.db, 'tenants', C.slug, 'expenses'), fs.orderBy('date', 'desc'), fs.limit(1000)), snap => {
             EXP = snap.docs.map(d => ({ id: d.id, ...d.data() })); renderBooks();
         }, err => { console.warn('expenses', err); $('ex-list').innerHTML = `<p class="hint">${C.esc(C.isQuota(err) ? C.QUOTA_MSG : 'טעינת ההוצאות נכשלה.')}</p>`; });
         listenSigned(); renderBooks();
     }
-    const incomeRows = () => SIGNED.map(q => ({ q, d: tsDate(q.signedAt) })).filter(x => x.d).map(x => ({ id: x.q.id, date: iso(x.d), amount: Number(x.q.price) || 0, label: `${x.q.clientName || ''} · ${x.q.eventType || ''}`, eventDate: x.q.date || '' }));
+    const incomeRows = () => SIGNED.map(q => ({ q, d: tsDate(q.signedAt) })).filter(x => x.d).map(x => ({ id: x.q.id, date: iso(x.d), amount: Number(x.q.price) || 0, label: `${x.q.clientName || ''} · ${x.q.eventType || ''}`, eventDate: x.q.date || '' }))
+        .concat(INC.map(r => ({ id: r.id, date: String(r.date), amount: Number(r.amount) || 0, label: r.label || '', eventDate: '', manual: true, category: r.category || '' })));
+    async function importFile(file, kind){
+        const msg = $('imp-msg'), fs = C.fb.fs, name = kind === 'income' ? 'הכנסות' : 'הוצאות';
+        msg.textContent = 'קורא את הקובץ…';
+        let res;
+        try { res = await SheetImport.parse(file, kind); } catch(e) { msg.textContent = SheetImport.message(e); return; }
+        const have = new Set((kind === 'income' ? INC : EXP).map(SheetImport.key));
+        const fresh = res.items.filter(x => !have.has(SheetImport.key(x))), dup = res.items.length - fresh.length;
+        if (!fresh.length) { msg.textContent = res.items.length ? `כל ${res.items.length} השורות כבר קיימות — לא נוסף כלום.` : `לא נמצאו שורות עם תאריך וסכום. ${res.skipped ? '(' + res.skipped + ' שורות דולגו)' : ''} אפשר להוריד קובץ דוגמה.`; return; }
+        const sum = fresh.reduce((s, x) => s + x.amount, 0);
+        const lines = [`נמצאו ${fresh.length} ${name} בסך ${money(sum)}.`, dup ? `${dup} שורות כבר קיימות ולא ייובאו שוב.` : '', res.skipped ? `${res.skipped} שורות בלי תאריך או סכום דולגו (למשל שורת סה"כ).` : '',
+            '', 'לדוגמה:', ...fresh.slice(0, 3).map(x => `• ${x.date.split('-').reverse().join('/')} · ${x.label} · ${money(x.amount)}`), '', 'לייבא?'].filter((x, i, a) => x !== '' || (a[i - 1] !== ''));
+        if (!confirm(lines.join('\n'))) { msg.textContent = 'הייבוא בוטל.'; return; }
+        const col = fs.collection(C.fb.db, 'tenants', C.slug, kind === 'income' ? 'incomes' : 'expenses');
+        try {
+            for (let i = 0; i < fresh.length; i += 400) {
+                const b = fs.writeBatch(C.fb.db);
+                fresh.slice(i, i + 400).forEach(x => b.set(fs.doc(col), { date: x.date, amount: x.amount, label: x.label, category: x.category, createdAt: fs.serverTimestamp() }));
+                await b.commit();
+                msg.textContent = `מייבא… ${Math.min(i + 400, fresh.length)}/${fresh.length}`;
+            }
+            msg.textContent = `✓ יובאו ${fresh.length} ${name} (${money(sum)}).`;
+            const y = fresh[0].date.slice(0, 4); if ($('bk-year').value !== y && [...$('bk-year').options].some(o => o.value === y)) { $('bk-year').value = y; }
+            renderBooks();
+        } catch(err) { msg.textContent = err.code === 'permission-denied' ? 'אין הרשאה לשמור — פנו לתמיכה.' : 'הייבוא נכשל (' + (err.code || err.message) + ').'; }
+    }
     function years(){
         const ys = new Set([new Date().getFullYear()]);
-        incomeRows().forEach(r => ys.add(+r.date.slice(0, 4))); EXP.forEach(r => ys.add(+String(r.date).slice(0, 4)));
+        incomeRows().forEach(r => ys.add(+String(r.date).slice(0, 4))); EXP.forEach(r => ys.add(+String(r.date).slice(0, 4)));
         return [...ys].filter(Boolean).sort((a, b) => b - a);
     }
     function renderBooks(){
         if (!started.books) return;
         const esc = C.esc, sel = $('bk-year'), cur = sel.value || String(new Date().getFullYear());
         sel.innerHTML = years().map(y => `<option value="${y}"${String(y) === cur ? ' selected' : ''}>${y}</option>`).join('');
-        const Y = sel.value, inc = incomeRows().filter(r => r.date.startsWith(Y)), exp = EXP.filter(r => String(r.date).startsWith(Y));
+        const Y = sel.value, inc = incomeRows().filter(r => String(r.date).startsWith(Y)), exp = EXP.filter(r => String(r.date).startsWith(Y));
         const sum = l => l.reduce((s, r) => s + (Number(r.amount) || 0), 0);
         const now = new Date(), thisM = now.getFullYear() + '-' + pad(now.getMonth() + 1);
-        const mInc = sum(incomeRows().filter(r => r.date.startsWith(thisM))), mExp = sum(EXP.filter(r => String(r.date).startsWith(thisM)));
+        const mInc = sum(incomeRows().filter(r => String(r.date).startsWith(thisM))), mExp = sum(EXP.filter(r => String(r.date).startsWith(thisM)));
         const yInc = sum(inc), yExp = sum(exp);
         const k = (n, l, s, cls) => `<div class="card kpi${cls ? ' ' + cls : ''}"><div class="l">${l}</div><div class="n">${n}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
-        $('bk-kpis').innerHTML = k(money(mInc), 'הכנסות החודש', 'מחוזים שנחתמו') + k(money(mExp), 'הוצאות החודש') + k(money(mInc - mExp), 'רווח החודש', '', mInc - mExp >= 0 ? 'hl' : 'neg')
+        $('bk-kpis').innerHTML = k(money(mInc), 'הכנסות החודש', 'חוזים חתומים + ייבוא') + k(money(mExp), 'הוצאות החודש') + k(money(mInc - mExp), 'רווח החודש', '', mInc - mExp >= 0 ? 'hl' : 'neg')
             + k(money(yInc), 'הכנסות ' + Y) + k(money(yExp), 'הוצאות ' + Y) + k(money(yInc - yExp), 'רווח ' + Y, '', yInc - yExp >= 0 ? '' : 'neg');
-        $('inc-list').innerHTML = inc.length ? `<table class="mini-t"><thead><tr><th>נחתם</th><th>לקוח · אירוע</th><th>תאריך האירוע</th><th>סכום</th></tr></thead><tbody>${inc.sort((a, b) => b.date.localeCompare(a.date)).map(r =>
-            `<tr><td>${C.Core.fmtDate(r.date)}</td><td>${esc(r.label)}</td><td>${esc(r.eventDate)}</td><td class="num">${money(r.amount)}</td></tr>`).join('')}</tbody></table>`
+        $('inc-list').innerHTML = inc.length ? `<table class="mini-t"><thead><tr><th>תאריך</th><th>תיאור</th><th>מקור</th><th>סכום</th><th></th></tr></thead><tbody>${inc.sort((a, b) => b.date.localeCompare(a.date)).map(r =>
+            `<tr><td>${C.Core.fmtDate(r.date)}</td><td>${esc(r.label)}</td><td>${r.manual ? esc(r.category || 'ייבוא') : 'חוזה חתום' + (r.eventDate ? ' · ' + esc(r.eventDate) : '')}</td><td class="num">${money(r.amount)}</td><td>${r.manual ? `<button type="button" class="btn sm danger inc-del" data-id="${esc(r.id)}">מחיקה</button>` : ''}</td></tr>`).join('')}</tbody></table>`
             : '<p class="hint">עדיין אין הכנסות בשנה הזו. כל הסכם שהלקוח חותם נכנס לכאן לבד.</p>';
         $('ex-list').innerHTML = exp.length ? `<table class="mini-t"><thead><tr><th>תאריך</th><th>תיאור</th><th>קטגוריה</th><th>סכום</th><th></th></tr></thead><tbody>${exp.map(r =>
             `<tr><td>${C.Core.fmtDate(r.date)}</td><td>${esc(r.label)}</td><td>${esc(r.category || '')}</td><td class="num">${money(r.amount)}</td><td><button type="button" class="btn sm danger ex-del" data-id="${esc(r.id)}">מחיקה</button></td></tr>`).join('')}</tbody></table>`
@@ -203,7 +242,7 @@
     function downloadCsv(){
         const Y = $('bk-year').value, q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
         const rows = [['סוג', 'תאריך', 'תיאור', 'קטגוריה', 'סכום']];
-        incomeRows().filter(r => r.date.startsWith(Y)).forEach(r => rows.push(['הכנסה', r.date, r.label, 'חוזה חתום', r.amount]));
+        incomeRows().filter(r => String(r.date).startsWith(Y)).forEach(r => rows.push(['הכנסה', r.date, r.label, r.manual ? (r.category || 'ייבוא') : 'חוזה חתום', r.amount]));
         EXP.filter(r => String(r.date).startsWith(Y)).forEach(r => rows.push(['הוצאה', r.date, r.label, r.category || '', r.amount]));
         const a = document.createElement('a');
         a.href = URL.createObjectURL(new Blob(['\ufeff' + rows.map(r => r.map(q).join(',')).join('\r\n')], { type: 'text/csv;charset=utf-8' }));

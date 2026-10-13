@@ -414,3 +414,7 @@ dialog.modal.wl{ width:min(440px, calc(100vw - 24px)); }
 .wl-dots span{ width:8px; height:8px; border-radius:50%; background:var(--line); }
 .wl-dots span.on{ background:var(--accent); width:22px; border-radius:999px; }
 .wl-acts{ display:flex; justify-content:center; gap:8px; flex-wrap:wrap; }
+
+.imp-card{ margin-bottom:14px; }
+.imp-row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+@media(max-width:420px){ .kpi .n{ font-size:clamp(16px, 5.4vw, 24px); } }
