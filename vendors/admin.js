@@ -133,10 +133,11 @@
             await Promise.all((window.REGISTRY || []).map(async r => {
                 const slug = String(r.slug || '').toLowerCase();
                 if (!/^[a-z0-9-]{2,40}$/.test(slug) || gone.has(slug)) return;
-                const admins = (r.admins || []).map(e => String(e).trim().toLowerCase()).filter(Boolean);
-                admins.forEach(e => { wanted[e] = slug; });
                 const ref = fs.doc(db, 'tenants', slug), snap = await fs.getDoc(ref);
                 const t = snap.exists() ? snap.data() : {};
+                // בלי admins ב-registry (הקובץ ציבורי — לא כותבים בו מיילים): נשארים המיילים שכבר בכרטיס, והבעלים משנה אותם מלוח הניהול
+                const admins = (Array.isArray(r.admins) ? r.admins : (t.admins || [])).map(e => String(e).trim().toLowerCase()).filter(Boolean);
+                admins.forEach(e => { wanted[e] = slug; });
                 if (!snap.exists()) await fs.setDoc(ref, { slug, name: r.name || slug, admins, active: true, createdAt: fs.serverTimestamp() });
                 else if (t.name !== (r.name || slug) || JSON.stringify(t.admins || []) !== JSON.stringify(admins)) await fs.updateDoc(ref, { name: r.name || slug, admins });
                 if (!t.pricePaid && !t.purchaseDate && !t.agreement) await fillFromOffer(slug, r.offerName || r.name || slug, await signedOffers());

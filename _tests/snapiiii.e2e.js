@@ -84,6 +84,9 @@ const val = f => f && (f.stringValue !== undefined ? f.stringValue : f.integerVa
     status: str('signed'), createdAt: { timestampValue: '2026-10-07T09:50:00Z' }, signedAt: { timestampValue: '2026-10-07T10:12:00Z' },
     ip: str('1.2.3.4'), userAgent: str('test'), pdfData: str(pdf) } });
   check(seeded.status === 200, 'signed offer for SNAPIIII exists');
+  // registry.js is public, so it lists no Gmail; the login Gmail already lives on the vendor card in Firebase (as in production)
+  check(!/@/.test(REG.replace(/\/\*[\s\S]*?\*\//g, '')), 'public registry.js has no email addresses');
+  await emu('PATCH', 'tenants/snapiiii', { fields: { slug: str('snapiiii'), name: str('SNAPIIII'), active: { booleanValue: true }, admins: { arrayValue: { values: [str(VENDOR)] } } } });
 
   console.log('2. Owner opens the admin: the new vendor is created and filled from the signed offer');
   const O = await newPage(b, 'owner');
@@ -94,6 +97,7 @@ const val = f => f && (f.stringValue !== undefined ? f.stringValue : f.integerVa
   for (let i = 0; i < 20; i++) { t = await emu('GET', 'tenants/snapiiii'); if (t.body.fields && t.body.fields.agreement) break; await new Promise(r => setTimeout(r, 300)); }
   const F = t.body.fields || {};
   check(val(F.name) === 'SNAPIIII' && val(F.active) !== false, 'vendor card created: SNAPIIII');
+  check(JSON.stringify((F.admins.arrayValue.values || []).map(val)) === JSON.stringify([VENDOR]) && (await emu('GET', 'vendorIndex/' + VENDOR)).body.fields.tenant.stringValue === 'snapiiii', 'sync keeps the Gmail from the card (not from the public file)');
   check(val(F.contactName) === 'אלירן לבייב' && val(F.phone) === '0546056180', 'contact + phone from the offer');
   check(val(F.plan) === 'regular' && val(F.pricePaid) === 1999, 'plan "מחיר רגיל", paid ₪1,999');
   check(val(F.purchaseDate) === '2026-10-07', 'purchase date = signing date (7.10.2026)');
