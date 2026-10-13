@@ -16,7 +16,7 @@ let failures = 0;
 const check = (cond, msg) => { console.log((cond ? '  ✓ ' : '  ✗ ') + msg); if (!cond) failures++; };
 
 async function setup(ctx){
-  await ctx.addInitScript(() => { window.__EMU__ = { firestore: 8085, auth: 9099 }; });
+  await ctx.addInitScript(() => { window.__EMU__ = { firestore: 8085, auth: 9099, noWelcome: true }; });
   await ctx.route('**/*', async route => {
     const u = route.request().url();
     const m = u.match(/gstatic\.com\/firebasejs\/([\d.]+)\/(firebase-(app|auth|firestore)\.js)$/);
@@ -165,6 +165,8 @@ const b64 = s => Buffer.from(s).toString('base64url');
   await O.p.click('.tabs button[data-tab=new]').catch(() => {});
   await sweep(O.p, 'vendor app: new quote');
   await O.p.click('.tabs button[data-tab=dash]'); await O.p.waitForTimeout(800); await sweep(O.p, 'vendor app: dashboard');
+  await O.p.click('.tabs button[data-tab=cal]'); await O.p.waitForTimeout(800); await sweep(O.p, 'vendor app: calendar');
+  await O.p.click('.tabs button[data-tab=books]'); await O.p.waitForTimeout(800); await sweep(O.p, 'vendor app: income & expenses');
   await O.p.goto(SYS + '/vendors/app.html?t=ilana'); await O.p.waitForSelector('#main-app:not(.hidden)', { timeout: 20000 });
   await O.p.click('.tabs button[data-tab=new]').catch(() => {}); await O.p.click('#catalog button >> nth=0').catch(() => {});
   await sweep(O.p, 'vendor app: items mode');

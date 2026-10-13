@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230d9488'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial'%3E%E2%82%AA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="vendor.css?v=20261012g">
+<link rel="stylesheet" href="vendor.css?v=20261013a">
 <title>החשבון שלי | מחולל הצעות מחיר</title>
 </head>
 <body>
@@ -56,10 +56,12 @@
     <div class="limited-note hidden" id="trial-over" role="note"><b>תקופת הניסיון הסתיימה.</b> ההצעות וההסכמים נשמרים ואפשר לראות אותם בלוח הבקרה, ולקוחות עדיין יכולים לחתום על הצעות שכבר נשלחו. כדי להמשיך ליצור הצעות חדשות: <b>מנוי שנתי <span id="trial-price"></span></b>. <a href="#" id="trial-over-wa" class="btn sm primary" target="_blank" rel="noopener">שדרוג למנוי שנתי בוואטסאפ</a></div>
     <div class="limited-note hidden" id="expired-note" role="note"><b>הרישיון השנתי הסתיים.</b> אפשר לראות את ההצעות וההסכמים בלוח הבקרה, אבל לא ליצור הצעות חדשות. חידוש לשנה: <b id="renew-price"></b> (בלי תמיכה). <a href="#" id="renew-link" target="_blank" rel="noopener">לחידוש בוואטסאפ</a>.</div>
     <div class="limited-note hidden" id="limited-note" role="note"><b>החשבון במצב צפייה בלבד.</b> אפשר לראות את ההצעות וההסכמים בלוח הבקרה, אבל לא ליצור הצעות חדשות. לפרטים: <a href="#" class="wa-support-link">וואטסאפ לתמיכה</a>.</div>
-    <div class="tabs" role="tablist">
+    <div class="tabs-row"><div class="tabs" role="tablist">
       <button type="button" class="on" data-tab="new" role="tab">הצעה חדשה</button>
+      <button type="button" data-tab="cal" role="tab">יומן</button>
+      <button type="button" data-tab="books" role="tab">הכנסות והוצאות</button>
       <button type="button" data-tab="dash" role="tab">לוח בקרה</button>
-    </div>
+    </div><button type="button" class="btn sm help-btn" id="help-btn">❔ איך זה עובד?</button></div>
 
     <!-- ===== הצעה חדשה ===== -->
     <section id="tab-new" class="card">
@@ -127,6 +129,45 @@
       </div>
     </section>
 
+    <!-- ===== יומן: כל הסכם חתום נכנס לבד לפי תאריך האירוע ===== -->
+    <section id="tab-cal" class="hidden">
+      <div class="card">
+        <div class="card-h cal-h">
+          <h2 id="cal-title">יומן</h2>
+          <div class="cal-nav"><button type="button" class="btn sm" id="cal-next" aria-label="החודש הבא">›</button><button type="button" class="btn sm" id="cal-today">היום</button><button type="button" class="btn sm" id="cal-prev" aria-label="החודש הקודם">‹</button></div>
+        </div>
+        <div class="card-b"><div class="cal-grid" id="cal-grid"></div><p class="hint" style="margin:10px 0 0">כל הצעה שהלקוח חותם עליה נכנסת ליומן לבד, לפי תאריך האירוע. לחיצה על יום מציגה את האירועים שלו.</p></div>
+      </div>
+      <div class="card">
+        <div class="card-h"><h2 id="cal-list-h">האירועים הקרובים</h2><button type="button" class="btn sm hidden" id="cal-ics">הורדת כל האירועים ליומן</button></div>
+        <div class="card-b"><div class="ev-list" id="cal-list"><p class="loading">טוען…</p></div></div>
+      </div>
+    </section>
+
+    <!-- ===== הכנסות והוצאות ===== -->
+    <section id="tab-books" class="hidden">
+      <div class="toolbar bk-bar"><label class="lbl" for="bk-year" style="margin:0">שנה</label><select id="bk-year" class="field"></select><button type="button" class="btn sm" id="bk-csv">הורדה לאקסל (CSV)</button></div>
+      <div class="kpis" id="bk-kpis"></div>
+      <div class="card"><div class="card-h"><h2>הכנסות והוצאות לפי חודש</h2></div><div class="card-b"><div class="chart-box"><canvas id="booksChart" role="img" aria-label="גרף הכנסות, הוצאות ורווח לפי חודש"></canvas></div></div></div>
+      <div class="card">
+        <div class="card-h"><h2>הוספת הוצאה</h2></div>
+        <div class="card-b">
+          <form id="ex-form" class="ex-form" autocomplete="off" novalidate>
+            <div><label class="lbl" for="ex-amount">סכום (₪) *</label><input id="ex-amount" type="number" min="0" step="0.01" max="10000000" inputmode="decimal" class="field" placeholder="250"></div>
+            <div><label class="lbl" for="ex-label">תיאור *</label><input id="ex-label" type="text" maxlength="120" class="field" placeholder="למשל: דלק, הדפסות, פרסום"></div>
+            <div><label class="lbl" for="ex-cat">קטגוריה</label><select id="ex-cat" class="field"></select></div>
+            <div><label class="lbl" for="ex-date">תאריך</label><input id="ex-date" type="date" class="field"></div>
+            <div class="ex-go"><button type="submit" class="btn primary block" id="ex-add">הוספה</button></div>
+          </form>
+          <p class="hint" id="ex-msg" role="status"></p>
+        </div>
+      </div>
+      <div class="books2">
+        <div class="card"><div class="card-h"><h2>הכנסות מחוזים חתומים</h2></div><div class="card-b tbl-scroll" id="inc-list" tabindex="0" role="region" aria-label="הכנסות"><p class="loading">טוען…</p></div></div>
+        <div class="card"><div class="card-h"><h2>הוצאות</h2></div><div class="card-b tbl-scroll" id="ex-list" tabindex="0" role="region" aria-label="הוצאות"><p class="loading">טוען…</p></div></div>
+      </div>
+    </section>
+
     <!-- ===== לוח בקרה ===== -->
     <section id="tab-dash" class="hidden">
       <div class="kpis" id="kpis"></div>
@@ -170,11 +211,21 @@
     </div>
   </form>
 </dialog>
+<dialog class="modal wl" id="wl-dlg" aria-labelledby="wl-h">
+  <div class="card-b wl-b">
+    <div class="wl-ic" id="wl-ic" aria-hidden="true"></div>
+    <h2 id="wl-h"></h2>
+    <p id="wl-p"></p>
+    <div class="wl-dots" id="wl-dots" aria-hidden="true"></div>
+    <div class="wl-acts"><button type="button" class="btn primary" id="wl-next">הבא ←</button><button type="button" class="btn" id="wl-prev">→ הקודם</button><button type="button" class="btn link" id="wl-skip">דילוג</button></div>
+  </div>
+</dialog>
 <input type="file" id="fileUploadInput" accept="application/pdf" style="display:none">
 
-<script src="platform.js?v=20261012g"></script>
-<script src="core.js?v=20261012g"></script>
-<script src="app.js?v=20261012g"></script>
+<script src="platform.js?v=20261013a"></script>
+<script src="core.js?v=20261013a"></script>
+<script src="extras.js?v=20261013a"></script>
+<script src="app.js?v=20261013a"></script>
 <script>window.PRIVACY_URL = '../legal/privacy.html';</script>
 <script src="../common/cookie.js?v=3"></script>
 <script src="../common/a11y.js"></script>

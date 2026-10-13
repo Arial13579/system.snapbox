@@ -362,3 +362,55 @@ table.mini td:first-child, table.mini th:first-child{ text-align:right; font-wei
 
 .lic-card.warn{ border-color:#F0C982; background:#FFFBF2; }
 .lic-card .fine{ font-size:11px; color:var(--muted); line-height:1.4; max-width:260px; margin-top:2px; }
+
+/* ===== טאבים: יומן, הכנסות והוצאות, הסבר ===== */
+.tabs-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:18px; }
+.tabs-row .tabs{ margin-bottom:0; flex-wrap:wrap; border-radius:18px; }
+.help-btn{ font-weight:700; }
+@media(max-width:560px){ .tabs-row .tabs{ width:100%; display:grid; grid-template-columns:1fr 1fr; } .tabs button{ padding:9px 8px; } }
+#tab-cal > .card, #tab-books > .card{ margin-bottom:14px; }
+.cal-nav{ display:flex; gap:6px; }
+.cal-nav .btn{ min-width:40px; justify-content:center; }
+.cal-grid{ display:grid; grid-template-columns:repeat(7, minmax(0,1fr)); gap:4px; }
+.cal-dow{ text-align:center; font-size:12px; font-weight:800; color:var(--muted); padding:4px 0; }
+.cal-cell{ min-height:74px; min-width:0; display:flex; flex-direction:column; align-items:stretch; gap:2px; padding:5px; border:1px solid var(--line); border-radius:10px; background:#fff; font:inherit; text-align:right; cursor:pointer; color:var(--fg); overflow:hidden; }
+.cal-cell.empty{ border:0; background:transparent; cursor:default; }
+.cal-cell .n{ font-weight:800; font-size:13px; }
+.cal-cell.today .n{ background:var(--accent); color:var(--accent-ink); border-radius:999px; width:24px; height:24px; display:grid; place-items:center; }
+.cal-cell.has{ background:var(--accent-soft); border-color:rgba(15,118,110,.4); }
+.cal-cell.sel{ outline:2px solid var(--accent); outline-offset:1px; }
+.cal-cell .ev{ font-size:11px; line-height:1.25; background:var(--accent); color:var(--accent-ink); border-radius:5px; padding:1px 4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.cal-cell .ev.more{ background:transparent; color:var(--accent-strong); font-weight:800; padding:0; }
+@media(max-width:560px){ .cal-cell{ min-height:46px; padding:3px; align-items:center; } .cal-cell .ev{ font-size:0; width:8px; height:8px; padding:0; border-radius:50%; } .cal-cell .ev.more{ display:none; } }
+.ev-list{ display:flex; flex-direction:column; gap:10px; }
+.ev-card{ display:flex; gap:14px; border:1px solid var(--line); border-radius:14px; padding:12px; background:#fff; }
+.ev-date{ flex:none; width:64px; border-radius:12px; background:var(--accent); color:var(--accent-ink); display:flex; flex-direction:column; align-items:center; justify-content:center; padding:8px 4px; text-align:center; }
+.ev-date b{ font-size:24px; line-height:1; }
+.ev-date span{ font-size:12.5px; font-weight:700; }
+.ev-date small{ font-size:11px; }
+.ev-body{ flex:1; min-width:0; }
+.ev-body h3{ margin:0 0 6px; font-size:16px; overflow-wrap:anywhere; }
+.ev-meta, .ev-money{ display:flex; flex-wrap:wrap; gap:6px 14px; font-size:13.5px; color:var(--muted); }
+.ev-money{ color:var(--fg); margin-top:6px; }
+.ev-card .acts{ display:flex; flex-wrap:wrap; gap:6px; margin-top:10px; }
+@media(max-width:420px){ .ev-card{ flex-direction:column; gap:10px; } .ev-date{ flex-direction:row; width:auto; gap:8px; } }
+.bk-bar .field{ flex:0 0 auto; width:auto; min-width:100px; }
+.kpi.neg .n{ color:var(--bad); }
+.ex-form{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:10px; align-items:end; }
+.books2{ display:grid; grid-template-columns:1fr; gap:14px; }
+@media(min-width:860px){ .books2{ grid-template-columns:1fr 1fr; } }
+.books2 > *{ min-width:0; }
+.tbl-scroll{ overflow-x:auto; }
+table.mini-t{ width:100%; border-collapse:collapse; }
+table.mini-t th, table.mini-t td{ padding:8px 10px; white-space:normal; overflow-wrap:anywhere; }
+table.mini-t td.num, table.mini-t td:first-child{ white-space:nowrap; }
+table.mini-t td.num{ font-weight:800; }
+dialog.modal.wl{ width:min(440px, calc(100vw - 24px)); }
+.wl-b{ text-align:center; padding:26px 22px 20px; }
+.wl-ic{ font-size:44px; line-height:1; margin-bottom:8px; }
+.wl-b h2{ margin:0 0 8px; font-family:var(--f-display, inherit); }
+.wl-b p{ margin:0 auto; color:var(--muted); line-height:1.7; min-height:5.1em; max-width:340px; }
+.wl-dots{ display:flex; justify-content:center; gap:6px; margin:14px 0; }
+.wl-dots span{ width:8px; height:8px; border-radius:50%; background:var(--line); }
+.wl-dots span.on{ background:var(--accent); width:22px; border-radius:999px; }
+.wl-acts{ display:flex; justify-content:center; gap:8px; flex-wrap:wrap; }

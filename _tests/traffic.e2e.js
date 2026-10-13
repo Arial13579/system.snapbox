@@ -15,7 +15,7 @@ let failures = 0;
 const check = (cond, msg) => { console.log((cond ? '  ✓ ' : '  ✗ ') + msg); if (!cond) failures++; };
 
 async function setup(ctx){
-  await ctx.addInitScript(() => { window.__EMU__ = { firestore: 8085, auth: 9099 }; try { localStorage.removeItem('sb.pdfMigrated.v1'); } catch(e) {} });   // הבדיקה מוסיפה קבצים ישנים אחרי הכניסה הראשונה
+  await ctx.addInitScript(() => { window.__EMU__ = { firestore: 8085, auth: 9099, noWelcome: true }; try { localStorage.removeItem('sb.pdfMigrated.v1'); } catch(e) {} });   // הבדיקה מוסיפה קבצים ישנים אחרי הכניסה הראשונה
   // keepalive fetch (המונה) לא עובר דרך יירוט של Playwright — לכן בקשות לאמולטור Firestore לא מיורטות כאן
   await ctx.route(url => !url.href.includes('127.0.0.1:8085'), async route => {
     const u = route.request().url();
