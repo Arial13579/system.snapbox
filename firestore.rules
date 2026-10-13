@@ -197,6 +197,19 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time);
     }
 
+    // ---- הכנסות שהספק ייבא מאקסל (ההכנסות מחוזים חתומים מחושבות מההצעות). אותם תנאים כמו הוצאות ----
+    match /tenants/{t}/incomes/{e} {
+      allow read: if isOwner() || isVendorOf(t);
+      allow delete: if isOwner() || (isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true);
+      allow create, update: if isOwner() || (isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true
+        && request.resource.data.keys().hasOnly(['date', 'amount', 'label', 'category', 'createdAt'])
+        && request.resource.data.date is string && request.resource.data.date.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.amount is number && request.resource.data.amount > 0 && request.resource.data.amount <= 10000000
+        && request.resource.data.label is string && request.resource.data.label.size() > 0 && request.resource.data.label.size() <= 120
+        && strMax(request.resource.data, 'category', 40)
+        && request.resource.data.createdAt == request.time);
+    }
+
     // ---- העדפות של משתמש בחשבון (ההסבר החד-פעמי כבר הוצג) — כל מייל רק את שלו ----
     match /tenants/{t}/prefs/{email} {
       allow get: if isOwner() || (isVendorOf(t) && request.auth.token.email == email);

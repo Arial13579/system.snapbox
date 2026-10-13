@@ -422,6 +422,13 @@ await no('expense with long label rejected', setDoc(doc(noa, 'tenants/noa/expens
 await no('expense with backdated createdAt rejected', setDoc(doc(noa, 'tenants/noa/expenses/e3'), { ...ex, createdAt: new Date('2020-01-01') }));
 await ok('vendor deletes own expense', deleteDoc(doc(noa, 'tenants/noa/expenses/e1')));
 await ok('owner reads vendor expenses', getDocs(collection(owner, 'tenants/noa/expenses')));
+await ok('vendor imports an income', setDoc(doc(noa, 'tenants/noa/incomes/i1'), { ...ex, label: 'אירוע', category: 'ייבוא' }));
+await ok('vendor lists own incomes', getDocs(collection(noa, 'tenants/noa/incomes')));
+await no('other vendor cannot read incomes', getDocs(collection(yossi, 'tenants/noa/incomes')));
+await no('other vendor cannot add income', setDoc(doc(yossi, 'tenants/noa/incomes/i2'), ex));
+await no('income with negative amount rejected', setDoc(doc(noa, 'tenants/noa/incomes/i3'), { ...ex, amount: -5 }));
+await no('income with extra field rejected', setDoc(doc(noa, 'tenants/noa/incomes/i3'), { ...ex, quoteId: 'x' }));
+await ok('vendor deletes own income', deleteDoc(doc(noa, 'tenants/noa/incomes/i1')));
 await ok('vendor marks welcome seen', setDoc(doc(noa, 'tenants/noa/prefs/noa@gmail.com'), { welcomeSeen: true, updatedAt: serverTimestamp() }));
 await ok('vendor reads own prefs', getDoc(doc(noa, 'tenants/noa/prefs/noa@gmail.com')));
 await no('vendor cannot write prefs of another email', setDoc(doc(noa, 'tenants/noa/prefs/x@gmail.com'), { welcomeSeen: true, updatedAt: serverTimestamp() }));
