@@ -408,6 +408,27 @@ await ok('owner deletes sam account (tenant + index, trials record stays)', (asy
 await ok('deleted vendor signs up again as a new customer', trialBatch(sam, 'sam@gmail.com', 'vsamcccc', {}));
 await no('someone else cannot take over sam signup record', setDoc(doc(rina, 'trials/sam@gmail.com'), { tenant: 'vxxxxxxx', plan: 'trial', createdAt: serverTimestamp() }));
 
+// הכנסות והוצאות: הספק מזין הוצאות רק בחשבון שלו; העדפות (ההסבר החד-פעמי) — כל מייל רק את שלו
+const ex = { date: '2026-10-12', amount: 250, label: 'דלק', category: 'נסיעות ודלק', createdAt: serverTimestamp() };
+await ok('vendor adds an expense', setDoc(doc(noa, 'tenants/noa/expenses/e1'), ex));
+await ok('vendor lists own expenses', getDocs(collection(noa, 'tenants/noa/expenses')));
+await no('other vendor cannot read expenses', getDocs(collection(yossi, 'tenants/noa/expenses')));
+await no('other vendor cannot add expense', setDoc(doc(yossi, 'tenants/noa/expenses/e2'), ex));
+await no('anon cannot read expenses', getDocs(collection(anon, 'tenants/noa/expenses')));
+await no('expense with zero amount rejected', setDoc(doc(noa, 'tenants/noa/expenses/e3'), { ...ex, amount: 0 }));
+await no('expense with bad date rejected', setDoc(doc(noa, 'tenants/noa/expenses/e3'), { ...ex, date: '12/10/2026' }));
+await no('expense with extra field rejected', setDoc(doc(noa, 'tenants/noa/expenses/e3'), { ...ex, x: 1 }));
+await no('expense with long label rejected', setDoc(doc(noa, 'tenants/noa/expenses/e3'), { ...ex, label: 'x'.repeat(121) }));
+await no('expense with backdated createdAt rejected', setDoc(doc(noa, 'tenants/noa/expenses/e3'), { ...ex, createdAt: new Date('2020-01-01') }));
+await ok('vendor deletes own expense', deleteDoc(doc(noa, 'tenants/noa/expenses/e1')));
+await ok('owner reads vendor expenses', getDocs(collection(owner, 'tenants/noa/expenses')));
+await ok('vendor marks welcome seen', setDoc(doc(noa, 'tenants/noa/prefs/noa@gmail.com'), { welcomeSeen: true, updatedAt: serverTimestamp() }));
+await ok('vendor reads own prefs', getDoc(doc(noa, 'tenants/noa/prefs/noa@gmail.com')));
+await no('vendor cannot write prefs of another email', setDoc(doc(noa, 'tenants/noa/prefs/x@gmail.com'), { welcomeSeen: true, updatedAt: serverTimestamp() }));
+await no('prefs with extra field rejected', setDoc(doc(noa, 'tenants/noa/prefs/noa@gmail.com'), { welcomeSeen: true, updatedAt: serverTimestamp(), admin: true }));
+await no('other vendor cannot read prefs', getDoc(doc(yossi, 'tenants/noa/prefs/noa@gmail.com')));
+await no('vendor cannot list prefs', getDocs(collection(noa, 'tenants/noa/prefs')));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);

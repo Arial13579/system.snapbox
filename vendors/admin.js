@@ -562,6 +562,8 @@
             await deleteAll(fs.collection(db, 'tenants', id, 'private')).catch(() => {});
             await deleteAll(fs.collection(db, 'tenants', id, 'notices')).catch(() => {});
             await deleteAll(fs.collection(db, 'tenants', id, 'packages')).catch(() => {});
+            await deleteAll(fs.collection(db, 'tenants', id, 'expenses')).catch(() => {});
+            await deleteAll(fs.collection(db, 'tenants', id, 'prefs')).catch(() => {});
             await deleteAll(fs.query(fs.collection(db, 'vendorIndex'), fs.where('tenant', '==', id)));
             await deleteAll(fs.query(fs.collection(db, 'shortLinks'), fs.where('tenant', '==', id))).catch(() => {});
             if (isManaged(t)) {

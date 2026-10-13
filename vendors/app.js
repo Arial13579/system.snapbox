@@ -182,7 +182,11 @@
         $('loading').classList.add('hidden');
         $('main-app').classList.remove('hidden');
         document.querySelectorAll('.tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
-        if (location.hash === '#dash' || (limited && !isOwnerView)) showTab('dash');
+        if (window.AppExtras) AppExtras.init({ fb, slug, user, isOwnerView, esc, money: Core.money, clean: Core.clean, isQuota: Core.isQuota, QUOTA_MSG: Core.QUOTA_MSG, Core, serviceLabel, loadChartJs });
+        const h = location.hash.slice(1);
+        if (['dash', 'cal', 'books'].includes(h)) showTab(h);
+        else if (limited && !isOwnerView) showTab('dash');
+        if (window.AppExtras) AppExtras.maybeWelcome();
     }
 
     /* ================= ההסכם של הספק מול Snap Box ================= */
@@ -206,10 +210,10 @@
     let dashStarted = false;
     function showTab(t){
         document.querySelectorAll('.tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === t));
-        $('tab-new').classList.toggle('hidden', t !== 'new');
-        $('tab-dash').classList.toggle('hidden', t !== 'dash');
-        history.replaceState(null, '', location.pathname + location.search + (t === 'dash' ? '#dash' : ''));
+        ['new', 'cal', 'books', 'dash'].forEach(x => $('tab-' + x).classList.toggle('hidden', t !== x));
+        history.replaceState(null, '', location.pathname + location.search + (t === 'new' ? '' : '#' + t));
         if (t === 'dash' && !dashStarted) { dashStarted = true; startDashboard(); }
+        if (window.AppExtras) AppExtras.show(t);
     }
 
     /* ================= מחולל ההצעות ================= */

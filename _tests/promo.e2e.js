@@ -10,7 +10,7 @@ const REG = fs.readFileSync('/home/user/system.snapbox/vendors/registry.js', 'ut
 const errors = []; let failures = 0;
 const check = (c, m) => { console.log((c ? '  ✓ ' : '  ✗ ') + m); if (!c) failures++; };
 async function setup(ctx){
-  await ctx.addInitScript(() => { window.__EMU__ = { firestore: 8085, auth: 9099 }; });
+  await ctx.addInitScript(() => { window.__EMU__ = { firestore: 8085, auth: 9099, noWelcome: true }; });
   await ctx.route('**/*', async route => {
     const u = route.request().url(), H = { 'Access-Control-Allow-Origin': '*' };
     const m = u.match(/gstatic\.com\/firebasejs\/([\d.]+)\/(firebase-(app|auth|firestore)\.js)$/);
