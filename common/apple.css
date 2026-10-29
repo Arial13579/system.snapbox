@@ -1,0 +1,62 @@
+/* שכבת תנועה וחומרים בסגנון Apple (לפי הסקיל ‎.claude/skills/apple-design).
+   CSS בלבד, בלי שינוי בתוכן או בפריסה. נטען אחרי שאר העיצוב בכל דף. */
+
+:root {
+  /* קפיץ בלי קפיצה (damping 1.0): מגיע מהר ונעצר רך, בלי overshoot */
+  --spring: linear(0, 0.079, 0.236, 0.403, 0.551, 0.671, 0.764, 0.833, 0.883, 0.919, 0.944, 0.962, 0.974, 0.983, 0.988, 0.992, 0.995, 1);
+}
+
+/* תגובה מיידית במגע: בלי השהיית ההקשה הכפולה ובלי ההבהוב האפור של הדפדפן */
+html { -webkit-tap-highlight-color: transparent; }
+a, button, [role="button"], label, summary { touch-action: manipulation; }
+
+/* משוב על הלחיצה עצמה, לא על השחרור. scale (ולא transform) כדי לא לבטל את אפקט ה-hover הקיים */
+:is(.btn, button, [role="button"]):not(:disabled):active { scale: 0.97; }
+.btn { transition-timing-function: var(--spring); }
+.mbar { transition-timing-function: var(--spring); }
+
+/* טיפוגרפיה: כותרות צפופות מעט יותר ושבירת שורות מאוזנת. :where כדי שכל עיצוב קיים יגבר */
+:where(h1, h2) { letter-spacing: -0.01em; text-wrap: balance; }
+:where(h3) { text-wrap: balance; }
+:where(p, li) { text-wrap: pretty; }
+
+/* חלונות קופצים: מופיעים כחומר שמגיע (שקיפות + הגדלה קטנה), לא קופצים בבת אחת */
+@media (prefers-reduced-motion: no-preference) {
+  dialog.modal { transition: opacity .3s var(--spring), scale .3s var(--spring), overlay .3s allow-discrete, display .3s allow-discrete; }
+  dialog.modal::backdrop { transition: opacity .3s var(--spring), overlay .3s allow-discrete, display .3s allow-discrete; }
+  dialog.modal:not([open]) { opacity: 0; scale: .96; }
+  dialog.modal:not([open])::backdrop { opacity: 0; }
+  @starting-style {
+    dialog.modal[open] { opacity: 0; scale: .96; }
+    dialog.modal[open]::backdrop { opacity: 0; }
+  }
+}
+
+/* קצה גלילה: הקו הקשה מתחת לתפריט מתחלף בצל שמופיע רק כשיש תוכן שגולל מתחתיו */
+@supports (animation-timeline: scroll()) {
+  header.top, header.bar {
+    border-bottom-color: transparent;
+    animation: sb-edge linear both;
+    animation-timeline: scroll(root);
+    animation-range: 0 96px;
+  }
+  @keyframes sb-edge {
+    from { border-bottom-color: transparent; box-shadow: none; }
+    to   { border-bottom-color: var(--line); box-shadow: 0 10px 28px -20px rgba(7, 19, 18, .45); }
+  }
+}
+
+/* מי שביקש פחות שקיפות או ניגודיות גבוהה: התפריט העליון אטום */
+@media (prefers-reduced-transparency: reduce) {
+  header.top, header.bar { background: var(--bg) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+  dialog.modal::backdrop { backdrop-filter: none; }
+}
+@media (prefers-contrast: more) {
+  header.top, header.bar { background: var(--bg) !important; backdrop-filter: none !important; -webkit-backdrop-filter: none !important; animation: none; border-bottom: 1px solid var(--fg); }
+}
+
+/* מי שביקש פחות תנועה: בלי אפקט הלחיצה ובלי צל שזז עם הגלילה */
+@media (prefers-reduced-motion: reduce) {
+  :is(.btn, button, [role="button"]):active { scale: none; }
+  header.top, header.bar { animation: none; border-bottom-color: var(--line); }
+}
