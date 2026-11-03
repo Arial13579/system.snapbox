@@ -149,22 +149,21 @@ const stat = async () => { const j = await (await fetch(REST + 'stats/d' + Math.
   check(await D.p.isVisible('#mbar.show'), 'bottom bar shows after scrolling past the hero');
   await D.p.evaluate(() => document.getElementById('contact').scrollIntoView()); await D.p.waitForTimeout(600);
   check(!(await D.p.isVisible('#mbar.show')), 'bottom bar hides at the contact section');
-  const leads = [];
-  let leadOk = true;
-  await D.ctx.route('**/formsubmit.co/ajax/**', r => { leads.push(r.request().postData() || ''); r.fulfill(leadOk ? { body: '{"success":"true"}', contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' } } : { body: '{"success":"false","message":"activate"}', contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' } }); });
+  // טופס "חזרו אליי" פותח וואטסאפ ישירות (אמין) במקום שליחה דרך formsubmit
+  await D.p.evaluate(() => { window.__wa = []; window.open = (u) => { window.__wa.push(u); return null; }; });
   await D.p.click('#lf-send');
-  check(/שם/.test(await D.p.textContent('#lf-msg')) && leads.length === 0, 'lead form: empty name → error, nothing sent');
+  check(/שם/.test(await D.p.textContent('#lf-msg')) && (await D.p.evaluate(() => window.__wa.length)) === 0, 'lead form: empty name → error, nothing sent');
   await D.p.fill('#lf-name', 'דני'); await D.p.fill('#lf-phone', '050-1234567'); await D.p.selectOption('#lf-field', 'DJ'); await D.p.click('#lf-send');
-  await D.p.waitForSelector('#toast:not([hidden])', { timeout: 8000 });
-  check(/תודה על הפנייה/.test(await D.p.textContent('#toast')) && /נחזור אליך בהקדם/.test(await D.p.textContent('#toast')) && !/🙂/.test(await D.p.textContent('#toast, #lf-msg')), 'thank-you toast shown (no emoji)');
+  await D.p.waitForFunction(() => window.__wa && window.__wa.length === 1, { timeout: 8000 });
+  const waUrl = decodeURIComponent(await D.p.evaluate(() => window.__wa[0]));
+  check(/wa\.me\/972512440252/.test(waUrl) && /דני/.test(waUrl) && /050-?1234567/.test(waUrl) && /DJ/.test(waUrl), 'lead form opens WhatsApp with name, phone and field');
   check(await D.p.inputValue('#lf-name') === '', 'form cleared after sending');
-  await D.p.waitForSelector('#toast', { state: 'hidden', timeout: 8000 });
-  check(true, 'toast hides by itself');
-  check(leads.length === 1 && /דני/.test(leads[0]) && /050-1234567/.test(leads[0]) && /DJ/.test(leads[0]), 'lead form sent (name, phone, field)');
-  leadOk = false;
-  await D.p.fill('#lf-name', 'רוני'); await D.p.fill('#lf-phone', '0521234567'); await D.p.click('#lf-send');
-  await D.p.waitForSelector('#lf-msg.bad a[href*="wa.me"]', { timeout: 8000 });
-  check(/%D7%A8%D7%95%D7%A0%D7%99|רוני/.test(await D.p.getAttribute('#lf-msg a', 'href')), 'lead form failure → WhatsApp link with the details');
+  check(/נפתח וואטסאפ/.test(await D.p.textContent('#lf-msg')) && (await D.p.locator('#lf-msg.ok').count()) === 1, 'success message shown (green)');
+  // honeypot: a filled hidden field submits nothing
+  await D.p.fill('#lf-name', 'בוט'); await D.p.fill('#lf-phone', '0521234567'); await D.p.fill('.lead-form .hp', 'x');
+  await D.p.click('#lf-send');
+  await D.p.waitForTimeout(150);
+  check((await D.p.evaluate(() => window.__wa.length)) === 1, 'honeypot: filled trap → nothing opened');
   const sentBefore = sent.length;
   const [demo] = await Promise.all([D.ctx.waitForEvent('page'), D.p.click('#demo-link')]);
   await demo.waitForSelector('.demo-note', { timeout: 20000 });
