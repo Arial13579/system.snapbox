@@ -1034,29 +1034,16 @@ window.MARKETING = { tiktokPixel: 'DB57MPRC77U074LG2QFG' };</script>
     if(name.length < 2){ nameEl.parentNode.classList.add("is-invalid"); say("נא לכתוב שם", true); nameEl.focus(); return; }
     if(phone.replace(/\D/g,"").length < 9){ phoneEl.parentNode.classList.add("is-invalid"); say("נא לכתוב מספר טלפון תקין", true); phoneEl.focus(); return; }
 
-    btn.disabled=true; btn.textContent="שולח…"; say("", false); msg.textContent="";
-    var body = { "שם":name, "טלפון":phone, "תחום":"פופאפ באתר", _subject:"פנייה חדשה מהפופאפ: "+name, _template:"table", _captcha:"false" };
-    var done = function(ok){
-      btn.disabled=false; btn.textContent="חזרו אליי";
-      if(ok){
-        say("✔ קיבלנו! נחזור אליכם בהקדם.", false);
-        if(window.SBTrack) try{ SBTrack.event('f','SubmitForm'); }catch(_){}
-        sent=true; setTimeout(close, 1400); return;
-      }
-      var a=document.createElement("a");
-      a.href="https://wa.me/"+WA_NUMBER+"?text="+encodeURIComponent("היי! אשמח שתחזרו אליי. "+name+", "+phone);
-      a.target="_blank"; a.rel="noopener"; a.textContent="לשלוח את הפרטים בוואטסאפ";
-      var s=document.createElement("span"); s.append("השליחה לא הצליחה. ", a); say(s, true);
-    };
-    var ctl = "AbortController" in window ? new AbortController() : null;
-    var t = setTimeout(function(){ if(ctl) ctl.abort(); }, 12000);
-    fetch(window.LEAD_URL || "https://formsubmit.co/ajax/arielkahalani1@gmail.com", {
-      method:"POST", headers:{ "Content-Type":"application/json", "Accept":"application/json" },
-      body: JSON.stringify(body), signal: ctl && ctl.signal
-    })
-    .then(function(r){ return r.ok ? r.json() : null; })
-    .then(function(j){ clearTimeout(t); done(!!(j && String(j.success)==="true")); })
-    .catch(function(){ clearTimeout(t); done(false); });
+    // שליחה ישירה בוואטסאפ — אמין, תמיד עובד (בלי תלות בשירות אימייל חיצוני)
+    var text = "היי! אשמח שתחזרו אליי 🙂\n\n"+
+               "👤 שם: "+name+"\n"+
+               "📞 טלפון: "+phone+"\n"+
+               "📍 מקור: פופאפ באתר מחולל ההצעות";
+    window.open("https://wa.me/"+WA_NUMBER+"?text="+encodeURIComponent(text), "_blank", "noopener,noreferrer");
+    if(window.SBTrack) try{ SBTrack.event('f','SubmitForm'); }catch(_){}
+    sent=true;
+    say("✔ נפתח וואטסאפ — רק ללחוץ שליחה ונחזור אליכם.", false);
+    setTimeout(close, 1200);
   });
 
   /* גרירה לסגירה בנייד */
@@ -1082,17 +1069,10 @@ window.MARKETING = { tiktokPixel: 'DB57MPRC77U074LG2QFG' };</script>
   grab.addEventListener("pointerup", endDrag);
   grab.addEventListener("pointercancel", endDrag);
 
-  /* הפעלה: 10 שניות + יציאת עכבר במחשב, פעם אחת לכל טעינה */
+  /* הפעלה: רק 10 שניות אחרי כניסה לאתר, פעם אחת לכל טעינה (בלי קפיצות אקראיות) */
   var tries=0;
   function timer(){ if(open()) return; if(++tries<6) setTimeout(timer, 8000); }
   setTimeout(timer, DELAY_MS);
-  setTimeout(function(){
-    if(window.matchMedia("(hover: hover) and (pointer: fine)").matches){
-      document.addEventListener("mouseout", function onOut(ev){
-        if(!ev.relatedTarget && ev.clientY<=0){ if(open()) document.removeEventListener("mouseout", onOut); }
-      });
-    }
-  }, 4000);
 })();
 </script>
 <!-- ===== סוף פופאפ Snap Box ===== -->
