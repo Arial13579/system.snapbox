@@ -862,5 +862,240 @@ window.MARKETING = { tiktokPixel: 'DB57MPRC77U074LG2QFG' };</script>
 <script src="common/track.js?v=7"></script>
 <script src="common/cookie.js?v=3"></script>
 <script src="common/a11y.js"></script>
+
+<!-- ===== Snap Box · פופאפ "חזרו אליי" (שם + טלפון) · קופץ אחרי 10 שניות ===== -->
+<div class="sbx-pop" id="sbxPop" hidden dir="rtl">
+  <div class="sbx-pop__scrim" data-sbx-close></div>
+  <div class="sbx-pop__card" role="dialog" aria-modal="true" aria-labelledby="sbxPopTitle" aria-describedby="sbxPopDesc" tabindex="-1">
+    <button type="button" class="sbx-pop__x" data-sbx-close aria-label="סגירה">&#10005;</button>
+    <div class="sbx-pop__grab" data-sbx-grab>
+      <span class="sbx-pop__handle" aria-hidden="true"></span>
+      <p class="sbx-pop__eyebrow">SNAP BOX</p>
+      <h2 class="sbx-pop__title" id="sbxPopTitle">מעדיפים שנחזור אליכם?</h2>
+      <p class="sbx-pop__desc" id="sbxPopDesc">השאירו שם וטלפון, ונראה לכם איך מחולל הצעות המחיר והחוזים יעבוד אצלכם.</p>
+    </div>
+    <form class="sbx-pop__form" id="sbxPopForm" novalidate>
+      <div class="sbx-pop__field">
+        <label for="sbxPopName">שם</label>
+        <input type="text" id="sbxPopName" required minlength="2" maxlength="60" autocomplete="name" placeholder="איך קוראים לכם?">
+      </div>
+      <div class="sbx-pop__field">
+        <label for="sbxPopPhone">טלפון</label>
+        <input type="tel" id="sbxPopPhone" required maxlength="20" autocomplete="tel" inputmode="tel" dir="ltr" placeholder="050-0000000">
+      </div>
+      <input type="text" id="sbxPopHoney" tabindex="-1" autocomplete="off" class="sbx-pop__hp" aria-hidden="true">
+      <button type="submit" class="sbx-pop__submit" id="sbxPopSend">חזרו אליי</button>
+      <p class="sbx-pop__msg" id="sbxPopMsg" role="status" aria-live="polite"></p>
+      <p class="sbx-pop__note">הפרטים נשלחים אלינו רק כדי לחזור אליכם.</p>
+    </form>
+  </div>
+</div>
+
+<style>
+  .sbx-pop, .sbx-pop *{ box-sizing:border-box; }
+  .sbx-pop{
+    position:fixed; inset:0; z-index:9999; display:flex; align-items:center; justify-content:center;
+    padding:16px; pointer-events:none;
+    font-family:'Assistant','Segoe UI',system-ui,sans-serif;
+  }
+  .sbx-pop[hidden]{ display:none; }
+  .sbx-pop.is-open{ pointer-events:auto; }
+  .sbx-pop__scrim{ position:absolute; inset:0; background:rgba(4,12,11,.62); opacity:0; transition:opacity .35s ease; }
+  .sbx-pop.is-open .sbx-pop__scrim{ opacity:1; }
+  .sbx-pop__card{
+    position:relative; width:min(420px,100%); max-height:calc(100vh - 32px); overflow-y:auto;
+    background:#0d1f1d; border:1px solid #1f4540; border-radius:24px; padding:32px 26px 22px; text-align:center;
+    box-shadow:0 40px 90px -30px rgba(0,0,0,.7); color:#e8f3f1;
+    opacity:0; transform:scale(.94) translateY(10px); transition:opacity .3s ease, transform .5s cubic-bezier(.32,.72,0,1);
+    will-change:transform,opacity;
+  }
+  .sbx-pop.is-open .sbx-pop__card{ opacity:1; transform:none; }
+  .sbx-pop__card:focus{ outline:none; }
+  .sbx-pop__x{
+    position:absolute; top:14px; left:14px; width:34px; height:34px; border:none; border-radius:50%;
+    background:#143029; color:#e8f3f1; font-size:15px; line-height:1; cursor:pointer;
+    display:grid; place-items:center; transition:transform .1s ease, background .2s ease;
+  }
+  .sbx-pop__x:hover{ background:#1f4540; }
+  .sbx-pop__x:active{ transform:scale(.9); }
+  .sbx-pop__handle{ display:none; }
+  .sbx-pop__eyebrow{ margin:0 0 8px; font-size:11px; font-weight:800; letter-spacing:.3em; color:#2dd4bf; }
+  .sbx-pop__title{
+    margin:0 0 8px; font-family:'Secular One','Assistant',system-ui,sans-serif; font-weight:400;
+    font-size:27px; line-height:1.2; color:#fff;
+  }
+  .sbx-pop__desc{ margin:0 0 22px; font-size:15.5px; line-height:1.55; color:#93b3ae; }
+  .sbx-pop__field{ text-align:right; margin-bottom:14px; }
+  .sbx-pop__field label{ display:block; font-size:12px; font-weight:700; color:#2dd4bf; margin-bottom:5px; }
+  .sbx-pop__field input{
+    width:100%; border:1px solid #1f4540; background:#071312; border-radius:12px; padding:12px 14px;
+    font-family:inherit; font-size:16px; color:#e8f3f1; outline:none; text-align:right;
+    transition:border-color .2s ease;
+  }
+  .sbx-pop__field input[dir="ltr"]{ text-align:left; }
+  .sbx-pop__field input:focus{ border-color:#2dd4bf; }
+  .sbx-pop__field input::placeholder{ color:#5c7873; }
+  .sbx-pop__field.is-invalid input{ border-color:#fca5a5; }
+  .sbx-pop__hp{ position:absolute!important; right:-10000px; width:1px; height:1px; overflow:hidden; }
+  .sbx-pop__submit{
+    width:100%; margin-top:4px; padding:14px; border:none; border-radius:14px;
+    background:#2dd4bf; color:#04211d; font-family:inherit; font-size:17px; font-weight:800; cursor:pointer;
+    transition:transform .1s ease, background .2s ease;
+  }
+  .sbx-pop__submit:hover{ background:#5eead4; }
+  .sbx-pop__submit:active{ transform:scale(.98); }
+  .sbx-pop__submit[disabled]{ opacity:.7; cursor:progress; }
+  .sbx-pop__msg{ margin:12px 0 0; font-size:14px; min-height:1px; color:#fca5a5; }
+  .sbx-pop__msg.ok{ color:#5eead4; }
+  .sbx-pop__msg a{ color:#5eead4; }
+  .sbx-pop__note{ margin:12px 0 0; font-size:12.5px; color:#6f8c87; }
+  .sbx-pop__x:focus-visible, .sbx-pop__submit:focus-visible, .sbx-pop__field input:focus-visible{ outline:2px solid #2dd4bf; outline-offset:3px; }
+  @media (max-width:600px){
+    .sbx-pop{ align-items:flex-end; padding:0; }
+    .sbx-pop__card{
+      width:100%; max-height:92vh; border-radius:22px 22px 0 0; padding-bottom:calc(22px + env(safe-area-inset-bottom));
+      transform:translateY(100%); transition:transform .5s cubic-bezier(.32,.72,0,1); opacity:1;
+    }
+    .sbx-pop.is-open .sbx-pop__card{ transform:translateY(0); }
+    .sbx-pop__grab{ cursor:grab; touch-action:none; }
+    .sbx-pop__handle{ display:block; width:42px; height:5px; margin:-12px auto 16px; border-radius:3px; background:#1f4540; }
+  }
+  @media (prefers-reduced-motion:reduce){
+    .sbx-pop__card, .sbx-pop.is-open .sbx-pop__card{ transform:none!important; transition:opacity .2s ease!important; }
+    .sbx-pop__card{ opacity:0!important; }
+    .sbx-pop.is-open .sbx-pop__card{ opacity:1!important; }
+  }
+</style>
+
+<script>
+(function(){
+  "use strict";
+  var WA_NUMBER = "972512440252";   // אותו מספר וואטסאפ של המערכת
+  var DELAY_MS  = 10000;            // 10 שניות
+
+  var pop = document.getElementById("sbxPop");
+  if(!pop) return;
+  var card = pop.querySelector(".sbx-pop__card");
+  var scrim = pop.querySelector(".sbx-pop__scrim");
+  var form = document.getElementById("sbxPopForm");
+  var nameEl = document.getElementById("sbxPopName");
+  var phoneEl = document.getElementById("sbxPopPhone");
+  var btn = document.getElementById("sbxPopSend");
+  var msg = document.getElementById("sbxPopMsg");
+  var grab = pop.querySelector("[data-sbx-grab]");
+  var reduce = window.matchMedia("(prefers-reduced-motion: reduce)");
+  var mobile = window.matchMedia("(max-width: 600px)");
+  var isOpen=false, openedThisLoad=false, lastFocus=null, closeTimer=null, sent=false;
+
+  function typing(){ var a=document.activeElement; return a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName); }
+  function say(t, bad){ msg.className = "sbx-pop__msg" + (bad ? "" : " ok"); if(typeof t==="string"){ msg.textContent=t; } else { msg.textContent=""; msg.appendChild(t); } }
+
+  function open(){
+    if(isOpen || openedThisLoad) return true;
+    if(typing()) return false;
+    isOpen=true; openedThisLoad=true;
+    clearTimeout(closeTimer);
+    lastFocus=document.activeElement;
+    pop.hidden=false; void pop.offsetWidth;
+    pop.classList.add("is-open");
+    card.focus({preventScroll:true});
+    document.addEventListener("keydown", onKey);
+    return true;
+  }
+  function close(){
+    if(!isOpen) return;
+    isOpen=false;
+    pop.classList.remove("is-open");
+    if(mobile.matches) card.style.transform="";
+    document.removeEventListener("keydown", onKey);
+    closeTimer=setTimeout(function(){ pop.hidden=true; card.style.transform=""; }, reduce.matches?200:520);
+    if(lastFocus && lastFocus.focus) lastFocus.focus({preventScroll:true});
+  }
+  function onKey(e){
+    if(e.key==="Escape"){ close(); return; }
+    if(e.key!=="Tab") return;
+    var f=card.querySelectorAll("button, input, a[href]");
+    if(!f.length) return;
+    var first=f[0], last=f[f.length-1];
+    if(e.shiftKey && (document.activeElement===first||document.activeElement===card)){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+  }
+  pop.querySelectorAll("[data-sbx-close]").forEach(function(el){ el.addEventListener("click", close); });
+
+  [nameEl,phoneEl].forEach(function(el){
+    el.addEventListener("input", function(){ el.parentNode.classList.remove("is-invalid"); });
+  });
+
+  form.addEventListener("submit", function(e){
+    e.preventDefault();
+    if(document.getElementById("sbxPopHoney").value) return; // bot
+    var name = nameEl.value.trim();
+    var phone = phoneEl.value.trim();
+    if(name.length < 2){ nameEl.parentNode.classList.add("is-invalid"); say("נא לכתוב שם", true); nameEl.focus(); return; }
+    if(phone.replace(/\D/g,"").length < 9){ phoneEl.parentNode.classList.add("is-invalid"); say("נא לכתוב מספר טלפון תקין", true); phoneEl.focus(); return; }
+
+    btn.disabled=true; btn.textContent="שולח…"; say("", false); msg.textContent="";
+    var body = { "שם":name, "טלפון":phone, "תחום":"פופאפ באתר", _subject:"פנייה חדשה מהפופאפ: "+name, _template:"table", _captcha:"false" };
+    var done = function(ok){
+      btn.disabled=false; btn.textContent="חזרו אליי";
+      if(ok){
+        say("✔ קיבלנו! נחזור אליכם בהקדם.", false);
+        if(window.SBTrack) try{ SBTrack.event('f','SubmitForm'); }catch(_){}
+        sent=true; setTimeout(close, 1400); return;
+      }
+      var a=document.createElement("a");
+      a.href="https://wa.me/"+WA_NUMBER+"?text="+encodeURIComponent("היי! אשמח שתחזרו אליי. "+name+", "+phone);
+      a.target="_blank"; a.rel="noopener"; a.textContent="לשלוח את הפרטים בוואטסאפ";
+      var s=document.createElement("span"); s.append("השליחה לא הצליחה. ", a); say(s, true);
+    };
+    var ctl = "AbortController" in window ? new AbortController() : null;
+    var t = setTimeout(function(){ if(ctl) ctl.abort(); }, 12000);
+    fetch(window.LEAD_URL || "https://formsubmit.co/ajax/arielkahalani1@gmail.com", {
+      method:"POST", headers:{ "Content-Type":"application/json", "Accept":"application/json" },
+      body: JSON.stringify(body), signal: ctl && ctl.signal
+    })
+    .then(function(r){ return r.ok ? r.json() : null; })
+    .then(function(j){ clearTimeout(t); done(!!(j && String(j.success)==="true")); })
+    .catch(function(){ clearTimeout(t); done(false); });
+  });
+
+  /* גרירה לסגירה בנייד */
+  var drag=null;
+  grab.addEventListener("pointerdown", function(e){
+    if(!isOpen || !mobile.matches) return;
+    if(e.target.closest("button,a,input")) return;
+    card.style.transition="none"; drag={id:e.pointerId, y0:e.clientY};
+    grab.setPointerCapture(e.pointerId);
+  });
+  grab.addEventListener("pointermove", function(e){
+    if(!drag||e.pointerId!==drag.id) return;
+    var dy=Math.max(0, e.clientY-drag.y0);
+    card.style.transform="translateY("+dy+"px)";
+    scrim.style.opacity=String(Math.max(0, 1-dy/(card.offsetHeight||1)));
+  });
+  function endDrag(e){
+    if(!drag||e.pointerId!==drag.id) return;
+    var dy=Math.max(0, e.clientY-drag.y0); drag=null;
+    card.style.transition=""; scrim.style.opacity="";
+    if(dy > (card.offsetHeight||300)*0.35){ close(); } else { card.style.transform="translateY(0)"; }
+  }
+  grab.addEventListener("pointerup", endDrag);
+  grab.addEventListener("pointercancel", endDrag);
+
+  /* הפעלה: 10 שניות + יציאת עכבר במחשב, פעם אחת לכל טעינה */
+  var tries=0;
+  function timer(){ if(open()) return; if(++tries<6) setTimeout(timer, 8000); }
+  setTimeout(timer, DELAY_MS);
+  setTimeout(function(){
+    if(window.matchMedia("(hover: hover) and (pointer: fine)").matches){
+      document.addEventListener("mouseout", function onOut(ev){
+        if(!ev.relatedTarget && ev.clientY<=0){ if(open()) document.removeEventListener("mouseout", onOut); }
+      });
+    }
+  }, 4000);
+})();
+</script>
+<!-- ===== סוף פופאפ Snap Box ===== -->
+
 </body>
 </html>
