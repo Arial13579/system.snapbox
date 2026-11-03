@@ -822,7 +822,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   new IntersectionObserver(function(e){ atContact = e[0].isIntersecting; upd(); }).observe(contact);
 })();
 
-/* טופס "חזרו אליי": נשלח במייל לבעלים (FormSubmit). אם נכשל — מציעים לשלוח את אותם פרטים בוואטסאפ */
+/* טופס "חזרו אליי": פותח וואטסאפ עם השם, הטלפון והתחום — אמין, תמיד מגיע (בלי תלות בשירות אימייל חיצוני) */
 (function(){
   var form = document.getElementById('lead'); if (!form) return;
   var msg = document.getElementById('lf-msg'), btn = document.getElementById('lf-send');
@@ -838,21 +838,16 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
     if (form.querySelector('.hp').value) return;
     if (!name) { say('נא לכתוב שם', true); $('lf-name').focus(); return; }
     if (phone.replace(/\D/g, '').length < 9) { say('נא לכתוב מספר טלפון תקין', true); $('lf-phone').focus(); return; }
-    btn.disabled = true; btn.textContent = 'שולח…';
-    var body = { 'שם': name, 'טלפון': phone, 'תחום': field || '—', _subject: 'פנייה חדשה מהאתר: ' + name + (field ? ' (' + field + ')' : ''), _template: 'table', _captcha: 'false' };
-    var done = function(ok){
-      btn.disabled = false; btn.textContent = 'חזרו אליי';
-      if (ok) { form.reset(); msg.textContent = ''; msg.className = 'lf-msg'; toast(); if (window.SBTrack) SBTrack.event('f', 'SubmitForm'); return; }
-      var a = document.createElement('a');
-      a.href = 'https://wa.me/972512440252?text=' + encodeURIComponent('היי! אשמח שתחזרו אליי. ' + name + ', ' + phone + (field ? ', ' + field : ''));
-      a.target = '_blank'; a.rel = 'noopener'; a.textContent = 'לשלוח את הפרטים בוואטסאפ';
-      var s = document.createElement('span'); s.append('השליחה לא הצליחה. ', a); say(s, true);
-    };
-    var ctl = 'AbortController' in window ? new AbortController() : null, t = setTimeout(function(){ if (ctl) ctl.abort(); }, 12000);
-    fetch(window.LEAD_URL || 'https://formsubmit.co/ajax/arielkahalani1@gmail.com', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify(body), signal: ctl && ctl.signal })
-      .then(function(r){ return r.ok ? r.json() : null; })
-      .then(function(j){ clearTimeout(t); done(!!(j && String(j.success) === 'true')); })
-      .catch(function(){ clearTimeout(t); done(false); });
+    // שליחה ישירה בוואטסאפ — אמין, תמיד עובד (בלי תלות בשירות אימייל חיצוני)
+    var text = 'היי! אשמח שתחזרו אליי 🙂\n\n'+
+               '👤 שם: ' + name + '\n'+
+               '📞 טלפון: ' + phone +
+               (field ? '\n🏷️ תחום: ' + field : '') + '\n'+
+               '📍 מקור: טופס באתר';
+    window.open('https://wa.me/972512440252?text=' + encodeURIComponent(text), '_blank', 'noopener,noreferrer');
+    form.reset(); msg.textContent = ''; msg.className = 'lf-msg';
+    say('✔ נפתח וואטסאפ — רק ללחוץ שליחה ונחזור אליכם.', false);
+    if (window.SBTrack) SBTrack.event('f', 'SubmitForm');
   });
 })();
 </script>
