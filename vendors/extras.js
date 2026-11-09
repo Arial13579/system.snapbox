@@ -157,7 +157,7 @@
         let impKind = 'expense';
         $('imp-inc').addEventListener('click', () => { impKind = 'income'; $('imp-file').click(); });
         $('imp-exp').addEventListener('click', () => { impKind = 'expense'; $('imp-file').click(); });
-        $('imp-sample').addEventListener('click', e => { e.preventDefault(); const a = document.createElement('a'); a.href = URL.createObjectURL(SheetImport.sample('expense')); a.download = 'דוגמה-הכנסות-הוצאות.csv'; document.body.appendChild(a); a.click(); a.remove(); });
+        $('imp-sample').addEventListener('click', async e => { e.preventDefault(); try { await loadSheetImport(); } catch(err) { $('imp-msg').textContent = 'הטעינה נכשלה. נסו שוב.'; return; } const a = document.createElement('a'); a.href = URL.createObjectURL(SheetImport.sample('expense')); a.download = 'דוגמה-הכנסות-הוצאות.csv'; document.body.appendChild(a); a.click(); a.remove(); });
         $('imp-file').addEventListener('change', async e => { const f = e.target.files[0]; e.target.value = ''; if (f) await importFile(f, impKind); });
         $('inc-list').addEventListener('click', async e => {
             const b = e.target.closest('button.inc-del'); if (!b || !confirm('למחוק את ההכנסה?')) return;
@@ -173,9 +173,24 @@
     }
     const incomeRows = () => SIGNED.map(q => ({ q, d: tsDate(q.signedAt) })).filter(x => x.d).map(x => ({ id: x.q.id, date: iso(x.d), amount: Number(x.q.price) || 0, label: `${x.q.clientName || ''} · ${x.q.eventType || ''}`, eventDate: x.q.date || '' }))
         .concat(INC.map(r => ({ id: r.id, date: String(r.date), amount: Number(r.amount) || 0, label: r.label || '', eventDate: '', manual: true, category: r.category || '' })));
+    // קוד הייבוא מאקסל נטען רק כשבאמת מייבאים (לא מאט את פתיחת המערכת)
+    let sheetP = null;
+    const ownSrc = (document.currentScript && document.currentScript.src) || '';
+    function loadSheetImport(){
+        if (window.SheetImport) return Promise.resolve();
+        if (sheetP) return sheetP;
+        sheetP = new Promise((res, rej) => {
+            const s = document.createElement('script');
+            s.src = 'sheet-import.js' + (ownSrc.split('?')[1] ? '?' + ownSrc.split('?')[1] : '');
+            s.onload = () => res(); s.onerror = () => { sheetP = null; s.remove(); rej(new Error('load')); };
+            document.head.appendChild(s);
+        });
+        return sheetP;
+    }
     async function importFile(file, kind){
         const msg = $('imp-msg'), fs = C.fb.fs, name = kind === 'income' ? 'הכנסות' : 'הוצאות';
         msg.textContent = 'קורא את הקובץ…';
+        try { await loadSheetImport(); } catch(e) { msg.textContent = 'הטעינה נכשלה. נסו שוב.'; return; }
         let res;
         try { res = await SheetImport.parse(file, kind); } catch(e) { msg.textContent = SheetImport.message(e); return; }
         const have = new Set((kind === 'income' ? INC : EXP).map(SheetImport.key));
