@@ -191,7 +191,7 @@
     async function geocode(P){
         if (!P.ORIGIN || P.ORIGIN.lat) return true;
         try {
-            const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=' + encodeURIComponent(P.ORIGIN.name + ', ישראל'), { headers: { 'Accept-Language': 'he' } });
+            const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=' + encodeURIComponent(P.ORIGIN.name + ', ישראל'), { headers: { 'Accept-Language': 'he' }, signal: Core.timeout(4000) });
             const j = await r.json();
             if (j && j[0]) { P.ORIGIN.lat = Number(j[0].lat); P.ORIGIN.lon = Number(j[0].lon); return true; }
         } catch(e) {}

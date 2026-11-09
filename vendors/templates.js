@@ -209,7 +209,7 @@
         if (!name) return null;
         if (CITIES[name]) return { name, lat: CITIES[name][0], lon: CITIES[name][1] };
         try {
-            const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=' + encodeURIComponent(name + ', ישראל'), { headers: { 'Accept-Language': 'he' } });
+            const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=' + encodeURIComponent(name + ', ישראל'), { headers: { 'Accept-Language': 'he' }, signal: (window.Core && Core.timeout) ? Core.timeout(4000) : undefined });
             const j = await r.json();
             if (j && j[0] && Number.isFinite(+j[0].lat)) return { name, lat: +j[0].lat, lon: +j[0].lon };
         } catch(e) {}
