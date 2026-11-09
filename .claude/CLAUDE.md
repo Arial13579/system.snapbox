@@ -549,3 +549,11 @@
 - הכנסות מיובאות: `tenants/{slug}/incomes/{id}` = `{date, amount, label, category, createdAt}` (כמו expenses, אותם כללים). מוצגות ליד החוזים החתומים ("מקור"), נמחקות, נכללות במדדים/גרף/CSV. נמחקות במחיקת ספק.
 - ⚠️ **הכללים עודכנו** (incomes) — להדביק `firestore.rules` מחדש. גרסת מטמון `?v=20261013c`. בדיקות: rules 347/347, books (+ 3b: xlsx עם/בלי כותרת, CSV בנק עברי, כפולים, xls ישן, מחיקה).
 - מספרי המדדים קטנים יותר ב-≤420px (סכום כמו ₪10,919.5 גלש ב-320px).
+
+## עדכון 2026-11-09: מהירות (לפי סרטון טיפים ששלח הבעלים)
+- **Firebase נטען במקביל לדף:** `<link rel="modulepreload">` ל-firebase-app/auth/firestore 10.12.0 ב-`vendors/{app,admin,index,trial}.html` וב-`offer/index.html`. ⚠️ כשמשנים את `V` ב-`core.js` — לעדכן גם את הקישורים האלה.
+- **הגבלת זמן לבקשות:** `Core.timeout(ms)` (AbortSignal.timeout, בדפדפן ישן — בלי הגבלה). חיפוש מקום/מרחק (nominatim, osrm) 4 שניות, FormSubmit 8 שניות, מבצע ההשקה באתר המכירה 4 שניות. `Core.withRetry(fn, tries, ms)` — ניסיון שנתקע 10 שניות (ברירת מחדל) מנוסה שוב; `getPdf` מקבל 45 שניות.
+- **מטמון מקומות:** `app.js geocode` שומר תוצאות ב-`localStorage sb.geo.v1` (עד ~200), כך שעיר שכבר חיפשו לא פונה שוב לשרת המפות.
+- **שלד טעינה:** טבלת ההצעות והיומן מציגים פסים מהבהבים (`.skel`, `.skel-row`, `.sr-only` ב-`vendor.css`) במקום "טוען…".
+- **`sheet-import.js` נטען רק בייבוא** (`loadSheetImport` ב-`extras.js`, עם אותו `?v=` של extras) — לא ב-`app.html`.
+- גרסת מטמון `?v=20261109a`. בדיקות: dash, speed (25.0s → 3.7s), full (כמו לפני השינוי — 121 ✓, אותן 5 בדיקות כללים שנכשלות גם בלי השינוי), books (הייבוא עובד; קבצי הדוגמה של הבדיקה לא נמצאים ב-repository).

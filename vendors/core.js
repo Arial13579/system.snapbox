@@ -60,12 +60,16 @@
         f.authMod.onAuthStateChanged(f.auth, cb);
     }
 
+    // הגבלת זמן לבקשה חיצונית: אחרי ms מוותרים (ולא נתקעים). בדפדפן ישן בלי AbortSignal.timeout — בלי הגבלה
+    const timeout = ms => (window.AbortSignal && AbortSignal.timeout) ? AbortSignal.timeout(ms) : undefined;
+    // מבטיח שהבטחה לא תחכה יותר מ-ms (בשביל ניסיון חוזר מהיר ברשת תקועה)
+    const within = (p, ms) => new Promise((res, rej) => { const t = setTimeout(() => rej(Object.assign(new Error('timeout'), { code: 'deadline-exceeded' })), ms); p.then(v => { clearTimeout(t); res(v); }, e => { clearTimeout(t); rej(e); }); });
     // לאיזה ספק שייך המשתמש (לפי vendorIndex/{email})
     // ניסיון חוזר בתקלת רשת (לא בחסימת הרשאות) — כדי שאינטרנט איטי לא ייראה כמו "לא רשום"
-    async function withRetry(fn, tries){
+    async function withRetry(fn, tries, ms){
         let last;
         for (let i = 0; i < (tries || 4); i++) {
-            try { return await fn(); }
+            try { return await within(Promise.resolve().then(fn), ms || 10000); }   // ניסיון שנתקע (ברירת מחדל 10 שניות) — מנסים שוב
             catch(e) { last = e; if (e && (e.code === 'permission-denied' || isQuota(e))) throw e; await new Promise(r => setTimeout(r, 700 * (i + 1))); }
         }
         throw last;
@@ -92,7 +96,7 @@
     const hasPdf = d => !!(d && (d.hasPdf || d.pdfData));
     async function getPdf(path, d){
         if (d && d.pdfData && !d.hasPdf) return d.pdfData;
-        const f = await fb(), s = await withRetry(() => f.fs.getDoc(f.fs.doc(f.db, path + '/pdf/file')));
+        const f = await fb(), s = await withRetry(() => f.fs.getDoc(f.fs.doc(f.db, path + '/pdf/file')), 4, 45000);   // קובץ PDF גדול — יותר זמן לכל ניסיון
         return s.exists() ? s.data().pdfData : null;
     }
     async function putPdf(path, pdfData, noFallback){
@@ -408,7 +412,7 @@
             'הודעה': `שלום! התמיכה הטכנית במערכת הצעות המחיר שלך מסתיימת ב-${fmtDate(until)} (נותרו ${st.left}). המערכת ממשיכה לעבוד כרגיל. כדי להמשיך לקבל תמיכה, שינויים ועדכונים — אפשר לחדש בכל רגע מולי בוואטסאפ ${c.phone}.`,
             'לחידוש בוואטסאפ': wa };
         if (cc.length) body._cc = cc.join(',');
-        try { await fetch('https://formsubmit.co/ajax/' + c.email, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) }); }
+        try { await fetch('https://formsubmit.co/ajax/' + c.email, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body), signal: timeout(8000) }); }
         catch(e) { console.warn('reminder mail failed', e); }
         return true;
     }
@@ -440,7 +444,7 @@
                 + `לחידוש — וואטסאפ ${c.phone}.`,
             'לחידוש בוואטסאפ': wa };
         if (cc.length) body._cc = cc.join(',');
-        try { await fetch('https://formsubmit.co/ajax/' + c.email, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body) }); }
+        try { await fetch('https://formsubmit.co/ajax/' + c.email, { method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify(body), signal: timeout(8000) }); }
         catch(e) { console.warn('license reminder mail failed', e); }
         return true;
     }
@@ -486,5 +490,5 @@
     }
     const clearUsageToken = () => { try { sessionStorage.removeItem('sb.mon'); } catch(e) {} };
 
-    window.Core = { cleanConfig, trialEnd, leftText, fmtDateTime, accessOver, startTrial, trialUsed, licenseReminderDue, licenseReminder, accessStatus, accessFields, licenseOf, isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { cleanConfig, trialEnd, leftText, fmtDateTime, accessOver, startTrial, trialUsed, licenseReminderDue, licenseReminder, accessStatus, accessFields, licenseOf, isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, timeout, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();

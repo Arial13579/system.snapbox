@@ -6,9 +6,11 @@
 <meta name="theme-color" content="#F3F8F7">
 <meta name="robots" content="noindex, nofollow">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230d9488'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial'%3E%E2%82%AA%3C/text%3E%3C/svg%3E">
+<!-- מורידים את Firebase כבר עכשיו, במקביל לשאר הדף -->
+<link rel="preconnect" href="https://www.gstatic.com" crossorigin><link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"><link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"><link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="vendor.css?v=20261013c">
+<link rel="stylesheet" href="vendor.css?v=20261109a">
 <title>החשבון שלי | מחולל הצעות מחיר</title>
 </head>
 <body>
@@ -140,7 +142,7 @@
       </div>
       <div class="card">
         <div class="card-h"><h2 id="cal-list-h">האירועים הקרובים</h2><button type="button" class="btn sm hidden" id="cal-ics">הורדת כל האירועים ליומן</button></div>
-        <div class="card-b"><div class="ev-list" id="cal-list"><p class="loading">טוען…</p></div></div>
+        <div class="card-b"><div class="ev-list" id="cal-list"><p class="sr-only">טוען…</p><span class="skel skel-line"></span><span class="skel skel-line"></span><span class="skel skel-line"></span></div></div>
       </div>
     </section>
 
@@ -192,7 +194,7 @@
       <div class="card tbl-wrap" tabindex="0" role="region" aria-label="טבלת ההצעות">
         <table>
           <thead><tr><th>נשלח</th><th>לקוח</th><th>אירוע</th><th id="th-service">חבילה</th><th>תאריך אירוע</th><th>מחיר</th><th>סטטוס</th><th>הסכם חתום</th><th>פעולות</th></tr></thead>
-          <tbody id="tbody"><tr><td colspan="9" class="loading">טוען נתונים…</td></tr></tbody>
+          <tbody id="tbody"><tr><td colspan="9" class="sr-only">טוען נתונים…</td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td></tr></tbody>
         </table>
       </div>
       <div class="load-more" id="load-more" hidden><p class="hint" id="more-note"></p><button type="button" class="btn" id="more-quotes">טעינת הצעות קודמות</button></div>
@@ -228,11 +230,10 @@
 </dialog>
 <input type="file" id="fileUploadInput" accept="application/pdf" style="display:none">
 
-<script src="platform.js?v=20261013c"></script>
-<script src="core.js?v=20261013c"></script>
-<script src="sheet-import.js?v=20261013c"></script>
-<script src="extras.js?v=20261013c"></script>
-<script src="app.js?v=20261013c"></script>
+<script src="platform.js?v=20261109a"></script>
+<script src="core.js?v=20261109a"></script>
+<script src="extras.js?v=20261109a"></script>
+<script src="app.js?v=20261109a"></script>
 <script>window.PRIVACY_URL = '../legal/privacy.html';</script>
 <script src="../common/cookie.js?v=3"></script>
 <script src="../common/a11y.js"></script>

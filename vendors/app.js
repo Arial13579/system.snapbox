@@ -273,18 +273,29 @@
     const ORIGIN = () => P.ORIGIN || { name: 'תל אביב', lat: 32.0853, lon: 34.7818 };
     function haversineKm(a, b){ const R = 6371, r = d => d * Math.PI / 180, dLat = r(b.lat - a.lat), dLon = r(b.lon - a.lon);
         const s = Math.sin(dLat / 2) ** 2 + Math.cos(r(a.lat)) * Math.cos(r(b.lat)) * Math.sin(dLon / 2) ** 2; return R * 2 * Math.atan2(Math.sqrt(s), Math.sqrt(1 - s)); }
+    // תוצאות חיפוש מקום נשמרות במכשיר (אותן ערים חוזרות שוב ושוב) — בלי לחכות לשרת המפות בכל הצעה
+    const GEO_KEY = 'sb.geo.v1';
+    const geoCache = () => { try { return JSON.parse(localStorage.getItem(GEO_KEY) || '{}'); } catch(e){ return {}; } };
+    function geoSave(k, v){ try { const m = geoCache(), ks = Object.keys(m); if (ks.length > 200) delete m[ks[0]]; m[k] = v; localStorage.setItem(GEO_KEY, JSON.stringify(m)); } catch(e){} }
     async function geocode(raw){
+        const ck = raw.trim().toLowerCase(), hit = geoCache()[ck];
+        if (hit) return hit;
+        const found = await geocodeLive(raw);
+        if (found) geoSave(ck, found);
+        return found;
+    }
+    async function geocodeLive(raw){
         const clean = raw.replace(/,?\s*ישראל\s*$/, '').replace(/[,،]/g, ' ').trim(), w = clean.split(/\s+/).filter(Boolean), c = [];
         const push = s => { s = (s || '').trim(); if (s && !c.includes(s)) c.push(s); };
         if (w.length >= 2) push(w.slice(-2).join(' ')); if (w.length) push(w.slice(-1).join(' ')); push(clean); if (w.length >= 2) push(w.slice(1).join(' '));
         for (let i = 0; i < Math.min(c.length, 4); i++) {
-            try { const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=' + encodeURIComponent(c[i] + ', ישראל'), { headers: { 'Accept-Language': 'he' } });
+            try { const r = await fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=il&q=' + encodeURIComponent(c[i] + ', ישראל'), { headers: { 'Accept-Language': 'he' }, signal: Core.timeout(4000) });
                 const j = await r.json(); if (j && j[0]) return { lat: +j[0].lat, lon: +j[0].lon, name: (j[0].display_name || '').split(',').slice(0, 2).join(', ') }; } catch(e){}
             if (i < c.length - 1) await new Promise(r => setTimeout(r, 1100));
         }
         return null;
     }
-    async function drivingKm(a, b){ try { const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`); const j = await r.json(); if (j && j.routes && j.routes[0]) return j.routes[0].distance / 1000; } catch(e){} return null; }
+    async function drivingKm(a, b){ try { const r = await fetch(`https://router.project-osrm.org/route/v1/driving/${a.lon},${a.lat};${b.lon},${b.lat}?overview=false`, { signal: Core.timeout(4000) }); const j = await r.json(); if (j && j.routes && j.routes[0]) return j.routes[0].distance / 1000; } catch(e){} return null; }
     async function autoDistance(){
         const loc = $('in_location').value.trim(), st = $('distance-status');
         if (!loc || distanceTouched || loc === lastGeo) return;

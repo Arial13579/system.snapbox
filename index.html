@@ -764,7 +764,7 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 /* מבצע ההשקה: כמה מקומות נשארו (public/promo, מתעדכן מלוח הניהול אחרי כל חתימה) */
 (async function(){
   try {
-    const r = await fetch('https://firestore.googleapis.com/v1/projects/check-b2a66/databases/default/documents/public/promo');
+    const r = await fetch('https://firestore.googleapis.com/v1/projects/check-b2a66/databases/default/documents/public/promo', { signal: (window.AbortSignal && AbortSignal.timeout) ? AbortSignal.timeout(4000) : undefined });
     if (!r.ok) return;
     const f = (await r.json()).fields || {}, n = k => Number((f[k] || {}).integerValue || 0);
     const limit = n('launchLimit') || 5, used = Math.min(n('launchSigned'), limit), out = !!(f.soldOut && f.soldOut.booleanValue);
