@@ -2,7 +2,7 @@
 (async () => {
     const $ = id => document.getElementById(id), esc = Core.esc;
     const slug = (new URLSearchParams(location.search).get('t') || '').toLowerCase();
-    let fb, T, P, user, tenantData = {}, isOwnerView = false, MODE = 'classic';
+    let fb, T, P, user, tenantData = {}, isOwnerView = false, MODE = 'classic', canEditEvents = true;
 
     function block(msg){ $('loading').classList.add('hidden'); $('main-app').classList.add('hidden'); $('consent').classList.add('hidden'); $('blocked').classList.remove('hidden'); $('blocked-msg').textContent = msg; }
     $('signout').addEventListener('click', () => Core.signOut());
@@ -160,7 +160,7 @@
         // מצב מוגבל או רישיון שהסתיים: צפייה בלבד (נאכף גם בשרת)
         const expired = Core.accessOver(tenantData);
         const limited = Core.accountState(tenantData) === 'limited' || expired;
-        if (Core.accountState(tenantData) === 'limited') $('limited-note').classList.remove('hidden');
+        if (Core.accountState(tenantData) === 'limited') { $('limited-note').classList.remove('hidden'); canEditEvents = isOwnerView; }
         if (expired && !tenantData.trial && !tenantData.pending) $('expired-note').classList.remove('hidden');
         if (limited && !isOwnerView) $('creator-fs').disabled = true;
         // מצב המחולל: מחירון אוטומטי או פריטים
@@ -652,6 +652,7 @@
         if (unsubQuotes) unsubQuotes();
         unsubQuotes = fb.fs.onSnapshot(fb.fs.query(qCol(), fb.fs.orderBy('createdAt', 'desc'), fb.fs.limit(qLimit)), snap => {
             QUOTES = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            if (evDlg.open && !evEditing) renderEvent();
             $('more-quotes').disabled = false;
             renderAll(); clearTimeout(statsTimer); statsTimer = setTimeout(refreshStats, 300);
         }, err => { console.error(err); $('tbody').innerHTML = `<tr><td colspan="9" class="loading">${Core.isQuota(err) ? esc(Core.QUOTA_MSG) : 'אין הרשאה לנתונים — ייתכן שהחשבון מושהה.'}</td></tr>`; });
@@ -691,7 +692,7 @@
             data: { labels: ['נחתמו', 'ממתינות'], datasets: [{ data: [signed, total - signed], backgroundColor: ['#0D9488', '#F2C46D'], borderWidth: 0 }] },
             options: { responsive: true, maintainAspectRatio: false, cutout: '64%', plugins: { legend: { position: 'bottom', labels: { font, usePointStyle: true } } } } });
         const by = {};
-        QUOTES.filter(q => q.status === 'signed').forEach(q => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(q.date || '')); if (!m) return;
+        QUOTES.filter(q => q.status === 'signed').map(Core.eventView).forEach(q => { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(q.date || '')); if (!m) return;
             const key = m[3] + '-' + m[2]; by[key] = by[key] || { label: m[2] + '/' + m[3], total: 0 }; by[key].total += Number(q.price) || 0; });
         const keys = Object.keys(by).sort();
         if (revenueChart) revenueChart.destroy();
@@ -712,9 +713,10 @@
             // ההסכם החתום נשמר כמו שהוא: הספק לא מחליף ולא מוחק אותו (רק Snap Box). אם חסר קובץ — אפשר לצרף פעם אחת
             const file = Core.hasPdf(q) ? `<div class="acts"><button type="button" class="btn sm view-file" data-id="${esc(q.id)}">צפייה</button>${isOwnerView ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">החלפה</button>` : ''}</div>`
                                    : signed || isOwnerView ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">העלאה</button>` : '<span class="sub">—</span>';
+            const v = Core.eventView(q);
             return `<tr><td>${fmtTs(q.createdAt) || '—'}</td><td class="name">${esc(q.clientName)}</td><td>${esc(q.eventType)}</td><td>${esc(serviceLabel(q))}</td>
-                <td dir="ltr" style="text-align:right">${esc(q.date)}</td><td><b>${Core.money(q.price)}</b></td><td>${pill}</td><td>${file}</td>
-                <td><div class="acts"><button type="button" class="btn sm copy-link" data-id="${esc(q.id)}">העתק קישור</button>${!signed || isOwnerView ? `<button type="button" class="btn sm danger delete-row" data-id="${esc(q.id)}">מחיקה</button>` : ''}</div></td></tr>`;
+                <td dir="ltr" style="text-align:right">${esc(v.date)}</td><td><b>${Core.money(q.price)}</b></td><td>${pill}</td><td>${file}</td>
+                <td><button type="button" class="btn sm ev-open" data-id="${esc(q.id)}" aria-label="פרטי אירוע: ${esc(q.clientName || '')}">פרטי אירוע</button></td></tr>`;
         }).join('');
     }
     $('search').addEventListener('input', e => { searchTerm = e.target.value.trim().toLowerCase(); renderTable(); });
@@ -723,15 +725,117 @@
     $('tbody').addEventListener('click', async e => {
         const btn = e.target.closest('button'); if (!btn) return;
         const q = QUOTES.find(x => x.id === btn.dataset.id); if (!q) return;
-        if (btn.classList.contains('copy-link')) copyText(Core.shortUrl(Core.shareUrl(slug, q), q.shortId), btn);
-        else if (btn.classList.contains('delete-row')) {
-            if (!confirm(`למחוק לצמיתות את ההצעה של ${q.clientName || 'הלקוח'}? לא ניתן לשחזר.`)) return;
-            btn.disabled = true; btn.textContent = 'מוחק…';
-            try { await Core.deletePdf(`tenants/${slug}/quotes/${q.id}`); await fb.fs.deleteDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id)); Core.deleteShortLink(q.shortId); } catch(err) { alert('המחיקה נכשלה.'); btn.disabled = false; btn.textContent = 'מחיקה'; }
-        } else if (btn.classList.contains('view-file')) {
+        if (btn.classList.contains('ev-open')) openEvent(q.id, btn);
+        else if (btn.classList.contains('view-file')) {
             Core.openPdf(`tenants/${slug}/quotes/${q.id}`, q);
         } else if (btn.classList.contains('upload-file')) { pendingUploadId = q.id; $('fileUploadInput').click(); }
     });
+
+    /* ================= פרטי אירוע: כפתור אחד בשורה → חלון עם כל הפרטים, ועיפרון לעריכה =================
+       העריכה נשמרת בשדה ev בהצעה (טלפון, תאריך, שעות, מקום, מוזמנים, הערה פנימית) — ללוח הבקרה וליומן.
+       ההצעה שהלקוח רואה וההסכם החתום לא משתנים. טלפון הלקוח לא מופיע אצל הלקוח בשום מקום. */
+    const IC = {
+        pencil: '<svg viewBox="0 0 24 24" width="19" height="19" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M16.9 3.6a2.1 2.1 0 0 1 3 3L8.6 17.9 4 19.5l1.5-4.6L16.9 3.6zM14.8 5.7l3 3"/></svg>',
+        close: '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" d="M6 6l12 12M18 6L6 18"/></svg>',
+        trash: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4.8A.8.8 0 0 1 9.8 4h4.4a.8.8 0 0 1 .8.8V7"/></svg>'
+    };
+    let evId = null, evEditing = false, evReturn = null;
+    const evDlg = $('ev-dlg');
+    $('ev-edit').innerHTML = IC.pencil; $('ev-close').innerHTML = IC.close;
+    const HE_D = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+    function dayName(ddmmyyyy){ const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(String(ddmmyyyy || '')); if (!m) return ''; const d = new Date(+m[3], +m[2] - 1, +m[1]); return isNaN(d) ? '' : 'יום ' + HE_D[d.getDay()]; }
+    function openEvent(id, from){
+        evId = id; evEditing = false; evReturn = from || null;
+        renderEvent();
+        if (!evDlg.open) { evDlg.showModal(); }
+        $('ev-edit').focus();
+    }
+    function closeEvent(){ evDlg.close(); }
+    evDlg.addEventListener('close', () => { evId = null; evEditing = false; if (evReturn && document.contains(evReturn)) evReturn.focus(); else { const b = document.querySelector(`#tbody .ev-open`); if (b) b.focus(); } evReturn = null; });
+    evDlg.addEventListener('click', e => { if (e.target === evDlg) closeEvent(); });   // לחיצה על הרקע סוגרת
+    $('ev-close').addEventListener('click', closeEvent);
+    $('ev-edit').addEventListener('click', () => { if (!canEditEvents) return; evEditing = !evEditing; renderEvent(); if (evEditing) $('ev_phone').focus(); });
+    $('ev-cancel').addEventListener('click', () => { evEditing = false; renderEvent(); $('ev-edit').focus(); });
+    function renderEvent(){
+        const q = QUOTES.find(x => x.id === evId); if (!q) { if (evDlg.open) closeEvent(); return; }
+        const v = Core.eventView(q), signed = q.status === 'signed', ph = Core.waPhone(v.clientPhone);
+        const bal = (Number(q.price) || 0) - (Number(q.deposit) || 0);
+        $('ev-title').textContent = q.clientName || 'אירוע';
+        $('ev-sub').innerHTML = `${esc(q.eventType || 'אירוע')}${v.date ? ` · <span dir="ltr">${esc(v.date)}</span>` : ''} &nbsp;${signed ? '<span class="pill signed">נחתם</span>' : '<span class="pill pending">ממתין</span>'}`;
+        $('ev-edit').hidden = !canEditEvents;
+        $('ev-edit').classList.toggle('on', evEditing);
+        $('ev-edit').setAttribute('aria-pressed', String(evEditing));
+        $('ev-edit').setAttribute('aria-label', evEditing ? 'סיום עריכה' : 'עריכת פרטי האירוע');
+        $('ev-view').hidden = evEditing; $('ev-form').hidden = !evEditing;
+        if (evEditing) {
+            $('ev_phone').value = v.clientPhone || ''; $('ev_date').value = v.date || ''; $('ev_start').value = v.startTime || ''; $('ev_end').value = v.endTime || '';
+            $('ev_loc').value = v.location || ''; $('ev_guests').value = v.guests || ''; $('ev_note').value = v.evNote || ''; $('ev-msg').textContent = '';
+            return;
+        }
+        const row = (k, val, extra) => val || val === 0 ? `<div class="ir"><dt>${k}</dt><dd>${val}${extra || ''}</dd></div>` : '';
+        const hours = v.startTime ? `<span dir="ltr">${esc(v.startTime)}${v.endTime ? '–' + esc(v.endTime) : ''}</span>` : '';
+        const phone = v.clientPhone ? `<a href="tel:${esc(v.clientPhone)}" dir="ltr">${esc(v.clientPhone)}</a>` : `<span class="ir-empty">לא הוזן${canEditEvents ? ' · אפשר להוסיף בעיפרון' : ''}</span>`;
+        const edited = q.ev && Object.keys(q.ev).some(k => k !== 'at');
+        const groups = [
+            ['לקוח', row('שם', esc(q.clientName || '')) + row('טלפון', phone, '<small class="ir-lock">רק אתם רואים</small>')],
+            ['האירוע', row('סוג', esc(q.eventType || '')) + row('תאריך', v.date ? `<span dir="ltr">${esc(v.date)}</span> <small>${dayName(v.date)}</small>` : '') + row('שעות', hours)
+                + row('מקום', esc(v.location || '')) + row('מוזמנים', v.guests ? esc(v.guests) : '') + row(MODE === 'items' ? 'פריטים' : 'חבילה', esc(serviceLabel(q)))],
+            ['תשלום', row('מחיר', `<b>${Core.money(q.price)}</b>`) + row('מקדמה', Core.money(q.deposit)) + row('יתרה', Core.money(bal)) + (Number(q.discount) ? row('הנחה', Core.money(q.discount)) : '')],
+            ['הערות', row('בהצעה', q.notes ? esc(q.notes) : '') + row('פנימית', v.evNote ? esc(v.evNote) : '')]
+        ].filter(g => g[1]);
+        const acts = [
+            ph ? `<a class="act" href="https://wa.me/${ph}" target="_blank" rel="noopener">וואטסאפ ללקוח</a>` : '',
+            v.clientPhone ? `<a class="act" href="tel:${esc(v.clientPhone)}">חיוג</a>` : '',
+            `<button type="button" class="act" id="ev-copy">העתק קישור להצעה</button>`,
+            Core.hasPdf(q) ? `<button type="button" class="act" id="ev-pdf">ההסכם החתום</button>` : ''
+        ].filter(Boolean).join('');
+        $('ev-view').innerHTML = groups.map(g => `<section class="ig"><h3>${g[0]}</h3><dl>${g[1]}</dl></section>`).join('')
+            + `<div class="ev-acts">${acts}</div>`
+            + (edited ? `<p class="hint ev-edited">✎ הפרטים עודכנו${q.ev.at && q.ev.at.toDate ? ' ב-' + esc(fmtTs(q.ev.at)) : ''} · ההצעה ${signed ? 'וההסכם החתום' : 'שנשלחה ללקוח'} לא השתנו</p>` : '')
+            + ((!signed || isOwnerView) && canEditEvents ? `<button type="button" class="btn danger block ev-del" id="ev-del">${IC.trash}<span>מחיקת ההצעה</span></button>` : '');
+        $('ev-copy').addEventListener('click', e => copyText(Core.shortUrl(Core.shareUrl(slug, q), q.shortId), e.currentTarget));
+        if ($('ev-pdf')) $('ev-pdf').addEventListener('click', () => Core.openPdf(`tenants/${slug}/quotes/${q.id}`, q));
+        if ($('ev-del')) $('ev-del').addEventListener('click', async e => {
+            const b = e.currentTarget;
+            if (!confirm(`למחוק לצמיתות את ההצעה של ${q.clientName || 'הלקוח'}? לא ניתן לשחזר.`)) return;
+            b.disabled = true; b.lastChild.textContent = 'מוחק…';
+            try { await Core.deletePdf(`tenants/${slug}/quotes/${q.id}`); await fb.fs.deleteDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id)); Core.deleteShortLink(q.shortId); evReturn = null; closeEvent(); }
+            catch(err) { alert('המחיקה נכשלה.'); b.disabled = false; b.lastChild.textContent = 'מחיקת ההצעה'; }
+        });
+    }
+    ['ev_date', 'ev_start', 'ev_end'].forEach(id => $(id).addEventListener('input', e => {   // הקלדה נוחה בטלפון: לוכסנים ונקודתיים לבד
+        const el = e.target, d = el.value.replace(/\D/g, '');
+        el.value = id === 'ev_date' ? [d.slice(0, 2), d.slice(2, 4), d.slice(4, 8)].filter(Boolean).join('/') : (d.length > 2 ? d.slice(0, 2) + ':' + d.slice(2, 4) : d);
+    }));
+    $('ev-form').addEventListener('submit', async e => {
+        e.preventDefault();
+        const q = QUOTES.find(x => x.id === evId); if (!q) return;
+        const msg = $('ev-msg'), val = id => Core.clean($(id).value.trim());
+        const next = { clientPhone: val('ev_phone').slice(0, 40), date: val('ev_date'), startTime: val('ev_start'), endTime: val('ev_end'),
+                       location: val('ev_loc').slice(0, 300), guests: $('ev_guests').value.replace(/\D/g, '').slice(0, 6), note: val('ev_note').slice(0, 1000) };
+        const bad = (id, t) => { msg.textContent = t; msg.className = 'hint warn'; $(id).focus(); };
+        if (next.clientPhone && !/^[\d+\-() ]{7,20}$/.test(next.clientPhone)) return bad('ev_phone', 'מספר הטלפון לא תקין.');
+        if (next.date) { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(next.date), d = m && new Date(+m[3], +m[2] - 1, +m[1]);
+            if (!d || d.getDate() !== +m[1] || d.getMonth() !== +m[2] - 1) return bad('ev_date', 'תאריך לא תקין — DD/MM/YYYY.'); }
+        else return bad('ev_date', 'צריך תאריך לאירוע.');
+        const tm = s => !s || /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
+        if (!tm(next.startTime)) return bad('ev_start', 'שעה לא תקינה — HH:MM.');
+        if (!tm(next.endTime)) return bad('ev_end', 'שעה לא תקינה — HH:MM.');
+        // נשמר רק מה ששונה מההצעה המקורית
+        const ev = {};
+        Core.EV_FIELDS.forEach(k => { const orig = k === 'note' ? '' : String(q[k] == null ? '' : q[k]); if (next[k] !== orig) ev[k] = next[k]; });
+        const b = $('ev-save'); b.disabled = true; msg.className = 'hint'; msg.textContent = 'שומר…';
+        try {
+            await fb.fs.updateDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id), { ev: Object.keys(ev).length ? Object.assign(ev, { at: fb.fs.serverTimestamp() }) : fb.fs.deleteField() });
+            q.ev = Object.keys(ev).length ? ev : undefined;   // מיד במסך; המאזין יעדכן גם את at
+            evEditing = false; renderEvent(); $('ev-edit').focus();
+        } catch(err) {
+            msg.className = 'hint warn';
+            msg.textContent = err.code === 'permission-denied' ? 'אין הרשאה לשמור. אם זה חוזר — פנו לתמיכה (ייתכן שצריך לעדכן את הגדרות האבטחה).' : 'השמירה נכשלה (' + (err.code || err.message) + ').';
+        }
+        b.disabled = false;
+    });
+
     $('fileUploadInput').addEventListener('change', async e => {
         const file = e.target.files[0]; e.target.value = '';
         const id = pendingUploadId; pendingUploadId = null;

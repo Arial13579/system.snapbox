@@ -238,6 +238,16 @@
     const lines = (arr, pick) => (arr || []).map(x => pick(x).map(v => typeof v === 'number' ? v : cleanItem(v)).join('^')).join('~');
     // חבילה: שם^שעות^שורת פתיחה^מה כלול (מופרד ב-~)
     const encodePkg = p => p ? [cleanItem(p.label), Number(p.hours) || 0, cleanItem(p.lead || ''), (p.items || []).map(cleanItem).join('~')].join('^') : '';
+    /* פרטי האירוע לשימוש הספק (לוח בקרה, יומן): השינויים שהספק עורך נשמרים בשדה נפרד ev — ההצעה וההסכם החתום לא משתנים */
+    const EV_FIELDS = ['clientPhone', 'date', 'startTime', 'endTime', 'location', 'guests', 'note'];
+    function eventView(q){
+        const e = q && q.ev && typeof q.ev === 'object' ? q.ev : null;
+        if (!e) return q;
+        const o = Object.assign({}, q);
+        EV_FIELDS.forEach(k => { if (k in e && k !== 'note') o[k] = e[k]; });
+        o.evNote = e.note || '';
+        return o;
+    }
     function shareUrl(slug, q){
         const f = [clean(q.clientName), clean(q.eventType), clean(q.location), clean(q.date), clean(q.startTime), clean(q.endTime),
             q.guests || '', q.price || 0, q.deposit || 0, clean(q.notes), q.id, q.service || ''];
@@ -490,5 +500,5 @@
     }
     const clearUsageToken = () => { try { sessionStorage.removeItem('sb.mon'); } catch(e) {} };
 
-    window.Core = { cleanConfig, trialEnd, leftText, fmtDateTime, accessOver, startTrial, trialUsed, licenseReminderDue, licenseReminder, accessStatus, accessFields, licenseOf, isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, timeout, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { eventView, EV_FIELDS, cleanConfig, trialEnd, leftText, fmtDateTime, accessOver, startTrial, trialUsed, licenseReminderDue, licenseReminder, accessStatus, accessFields, licenseOf, isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, timeout, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();

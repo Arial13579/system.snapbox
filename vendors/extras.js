@@ -22,7 +22,7 @@
         const fs = C.fb.fs, since = new Date(); since.setMonth(since.getMonth() - 24);
         // שאילתה על שדה אחד (signedAt) — לא צריך אינדקס מיוחד; רק הצעות חתומות מכילות signedAt
         unsubSigned = fs.onSnapshot(fs.query(fs.collection(C.fb.db, 'tenants', C.slug, 'quotes'), fs.where('signedAt', '>=', fs.Timestamp.fromDate(since))), snap => {
-            SIGNED = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(q => q.status === 'signed');
+            SIGNED = snap.docs.map(d => C.Core.eventView({ id: d.id, ...d.data() })).filter(q => q.status === 'signed');   // כולל מה שהספק עדכן ב"פרטי אירוע"
             if (started.cal) renderCal();
             if (started.books) renderBooks();
         }, err => { console.warn('signed', err); const m = C.isQuota(err) ? C.QUOTA_MSG : 'טעינת ההסכמים החתומים נכשלה.'; ['cal-list', 'inc-list'].forEach(id => { if ($(id)) $(id).innerHTML = `<p class="hint">${C.esc(m)}</p>`; }); });
@@ -48,7 +48,7 @@
         const bal = (Number(q.price) || 0) - (Number(q.deposit) || 0);
         return [`לקוח: ${q.clientName || ''}`, q.clientPhone ? `טלפון: ${q.clientPhone}` : '', `סוג אירוע: ${q.eventType || ''}`, q.location ? `מקום: ${q.location}` : '',
             C.serviceLabel(q) ? `חבילה: ${C.serviceLabel(q)}` : '', q.guests ? `מוזמנים: ${q.guests}` : '',
-            `מחיר: ${money(q.price)} · מקדמה: ${money(q.deposit)} · יתרה: ${money(bal)}`, q.notes ? `הערות: ${q.notes}` : ''].filter(Boolean).join('\n');
+            `מחיר: ${money(q.price)} · מקדמה: ${money(q.deposit)} · יתרה: ${money(bal)}`, q.notes ? `הערות: ${q.notes}` : '', q.evNote ? `הערה פנימית: ${q.evNote}` : ''].filter(Boolean).join('\n');
     }
     // זמני האירוע (שעת סיום לפני ההתחלה = אחרי חצות)
     function evTimes(q){
@@ -118,7 +118,7 @@
                   <h3>${esc(q.eventType || 'אירוע')} · ${esc(q.clientName || '')}${fresh(q) ? ' <span class="badge ok">נחתם עכשיו</span>' : ''}</h3>
                   <div class="ev-meta">${q.startTime ? `<span>🕒 ${esc(q.startTime)}${q.endTime ? '–' + esc(q.endTime) : ''}</span>` : ''}${q.location ? `<span>📍 ${esc(q.location)}</span>` : ''}${C.serviceLabel(q) ? `<span>📦 ${esc(C.serviceLabel(q))}</span>` : ''}${q.guests ? `<span>👥 ${esc(q.guests)} מוזמנים</span>` : ''}</div>
                   <div class="ev-money"><span>מחיר <b>${money(q.price)}</b></span><span>מקדמה <b>${money(q.deposit)}</b></span><span>יתרה <b>${money(bal)}</b></span></div>
-                  ${q.notes ? `<p class="hint" style="margin:4px 0 0">${esc(q.notes)}</p>` : ''}
+                  ${q.notes ? `<p class="hint" style="margin:4px 0 0">${esc(q.notes)}</p>` : ''}${q.evNote ? `<p class="hint" style="margin:4px 0 0">📝 ${esc(q.evNote)}</p>` : ''}
                   <div class="acts">
                     <a class="btn sm primary" href="${esc(googleLink(q))}" target="_blank" rel="noopener">הוספה ליומן Google</a>
                     ${ph ? `<a class="btn sm" href="https://wa.me/${ph}" target="_blank" rel="noopener">וואטסאפ ללקוח</a><a class="btn sm" href="tel:${esc(q.clientPhone)}">חיוג</a>` : ''}
@@ -227,14 +227,21 @@
         const now = new Date(), thisM = now.getFullYear() + '-' + pad(now.getMonth() + 1);
         const mInc = sum(incomeRows().filter(r => String(r.date).startsWith(thisM))), mExp = sum(EXP.filter(r => String(r.date).startsWith(thisM)));
         const yInc = sum(inc), yExp = sum(exp);
-        const k = (n, l, s, cls) => `<div class="card kpi${cls ? ' ' + cls : ''}"><div class="l">${l}</div><div class="n">${n}</div>${s ? `<div class="s">${s}</div>` : ''}</div>`;
-        $('bk-kpis').innerHTML = k(money(mInc), 'הכנסות החודש', 'חוזים חתומים + ייבוא') + k(money(mExp), 'הוצאות החודש') + k(money(mInc - mExp), 'רווח החודש', '', mInc - mExp >= 0 ? 'hl' : 'neg')
-            + k(money(yInc), 'הכנסות ' + Y) + k(money(yExp), 'הוצאות ' + Y) + k(money(yInc - yExp), 'רווח ' + Y, '', yInc - yExp >= 0 ? '' : 'neg');
-        $('inc-list').innerHTML = inc.length ? `<table class="mini-t"><thead><tr><th>תאריך</th><th>תיאור</th><th>מקור</th><th>סכום</th><th></th></tr></thead><tbody>${inc.sort((a, b) => b.date.localeCompare(a.date)).map(r =>
-            `<tr><td>${C.Core.fmtDate(r.date)}</td><td>${esc(r.label)}</td><td>${r.manual ? esc(r.category || 'ייבוא') : 'חוזה חתום' + (r.eventDate ? ' · ' + esc(r.eventDate) : '')}</td><td class="num">${money(r.amount)}</td><td>${r.manual ? `<button type="button" class="btn sm danger inc-del" data-id="${esc(r.id)}">מחיקה</button>` : ''}</td></tr>`).join('')}</tbody></table>`
+        // מדדים: הכנסות בירוק, הוצאות באדום, רווח — ירוק כשחיובי ואדום כשהפסד
+        const ARROW = { inc: '<path d="M12 19V5M6 11l6-6 6 6"/>', exp: '<path d="M12 5v14M6 13l6 6 6-6"/>', pr: '<path d="M4 17l6-6 4 4 6-7"/><path d="M15 8h5v5"/>' };
+        const tile = (kind, l, n, sub) => `<div class="card bk-kpi ${kind}"><div class="bk-top"><span class="bk-ic" aria-hidden="true"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">${ARROW[kind.split(' ')[0]]}</svg></span><span class="l">${l}</span></div><div class="n">${n}</div>${sub ? `<div class="s">${sub}</div>` : ''}</div>`;
+        const pk = v => 'pr ' + (v >= 0 ? 'up' : 'down');
+        $('bk-kpis').innerHTML = `<h2 class="bk-kh">החודש</h2>` + tile('inc', 'הכנסות החודש', money(mInc), 'חוזים חתומים + ייבוא') + tile('exp', 'הוצאות החודש', money(mExp)) + tile(pk(mInc - mExp), mInc - mExp >= 0 ? 'רווח החודש' : 'הפסד החודש', money(mInc - mExp))
+            + `<h2 class="bk-kh">שנת ${esc(Y)}</h2>` + tile('inc', 'הכנסות ' + Y, money(yInc)) + tile('exp', 'הוצאות ' + Y, money(yExp)) + tile(pk(yInc - yExp), (yInc - yExp >= 0 ? 'רווח ' : 'הפסד ') + Y, money(yInc - yExp));
+        // הרשימות: שורה נקייה לכל רישום, הסכום בצבע, ומחיקה = אייקון פח אדום
+        const TRASH = '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4.8A.8.8 0 0 1 9.8 4h4.4a.8.8 0 0 1 .8.8V7"/></svg>';
+        const tx = (kind, r, src, del) => `<li class="tx ${kind}"><span class="tx-dot" aria-hidden="true"></span><div class="tx-main"><div class="tx-l">${esc(r.label || (kind === 'inc' ? 'הכנסה' : 'הוצאה'))}</div><div class="tx-s">${C.Core.fmtDate(r.date)}${src ? ' · ' + src : ''}</div></div>`
+            + `<div class="tx-a num">${kind === 'inc' ? '+' : '−'}${money(r.amount)}</div>${del ? `<button type="button" class="tx-del ${del}" data-id="${esc(r.id)}" aria-label="מחיקה: ${esc(r.label || '')} ${money(r.amount)}" title="מחיקה">${TRASH}</button>` : '<span class="tx-del-sp" aria-hidden="true"></span>'}</li>`;
+        const total = (kind, l, n) => `<div class="tx-total ${kind}"><span>${l}</span><b class="num">${money(n)}</b></div>`;
+        $('inc-list').innerHTML = inc.length ? total('inc', `סה"כ ${inc.length} הכנסות`, yInc) + `<ul class="tx-list">${inc.sort((a, b) => b.date.localeCompare(a.date)).map(r =>
+            tx('inc', r, r.manual ? esc(r.category || 'ייבוא') : 'חוזה חתום' + (r.eventDate ? ' · אירוע ' + esc(r.eventDate) : ''), r.manual ? 'inc-del' : '')).join('')}</ul>`
             : '<p class="hint">עדיין אין הכנסות בשנה הזו. כל הסכם שהלקוח חותם נכנס לכאן לבד.</p>';
-        $('ex-list').innerHTML = exp.length ? `<table class="mini-t"><thead><tr><th>תאריך</th><th>תיאור</th><th>קטגוריה</th><th>סכום</th><th></th></tr></thead><tbody>${exp.map(r =>
-            `<tr><td>${C.Core.fmtDate(r.date)}</td><td>${esc(r.label)}</td><td>${esc(r.category || '')}</td><td class="num">${money(r.amount)}</td><td><button type="button" class="btn sm danger ex-del" data-id="${esc(r.id)}">מחיקה</button></td></tr>`).join('')}</tbody></table>`
+        $('ex-list').innerHTML = exp.length ? total('exp', `סה"כ ${exp.length} הוצאות`, yExp) + `<ul class="tx-list">${exp.map(r => tx('exp', r, esc(r.category || ''), 'ex-del')).join('')}</ul>`
             : '<p class="hint">עדיין אין הוצאות בשנה הזו.</p>';
         C.loadChartJs().then(() => drawBooks(Y, inc, exp)).catch(() => {});
     }
@@ -247,12 +254,14 @@
         if (booksChart) booksChart.destroy();
         booksChart = new Chart($('booksChart'), {
             data: { labels, datasets: [
-                { type: 'bar', label: 'הכנסות', data: I, backgroundColor: '#0F766E', borderRadius: 6, maxBarThickness: 28 },
-                { type: 'bar', label: 'הוצאות', data: E, backgroundColor: '#E2A33B', borderRadius: 6, maxBarThickness: 28 },
-                { type: 'line', label: 'רווח', data: I.map((v, i) => v - E[i]), borderColor: '#1F2937', backgroundColor: '#1F2937', tension: .3, pointRadius: 3 } ] },
+                { type: 'bar', label: 'הכנסות', data: I, backgroundColor: '#16A34A', hoverBackgroundColor: '#15803D', borderRadius: 8, borderSkipped: false, maxBarThickness: 26, order: 2 },
+                { type: 'bar', label: 'הוצאות', data: E, backgroundColor: '#EF4444', hoverBackgroundColor: '#DC2626', borderRadius: 8, borderSkipped: false, maxBarThickness: 26, order: 2 },
+                { type: 'line', label: 'רווח', data: I.map((v, i) => v - E[i]), borderColor: '#1F2937', backgroundColor: '#fff', borderWidth: 2, tension: .35, pointRadius: 3.5, pointBorderWidth: 2, pointHoverRadius: 5, order: 1,
+                  segment: { borderColor: c => c.p1.parsed.y < 0 ? '#B91C1C' : '#1F2937' }, pointBorderColor: I.map((v, i) => v - E[i] < 0 ? '#B91C1C' : '#1F2937') } ] },
             options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false },
-                plugins: { legend: { position: 'bottom', labels: { font, usePointStyle: true } }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${money(c.parsed.y)}` } } },
-                scales: { x: { ticks: { font }, grid: { display: false } }, y: { ticks: { font, callback: v => '₪' + Number(v).toLocaleString() }, grid: { color: 'rgba(15,35,33,.08)' } } } } });
+                plugins: { legend: { position: 'bottom', labels: { font, usePointStyle: true, pointStyle: 'circle', boxWidth: 8, boxHeight: 8, padding: 18 } },
+                    tooltip: { backgroundColor: 'rgba(17,24,39,.92)', padding: 10, cornerRadius: 10, titleFont: font, bodyFont: font, usePointStyle: true, callbacks: { label: c => ` ${c.dataset.label}: ${money(c.parsed.y)}` } } },
+                scales: { x: { ticks: { font, color: '#6B7280' }, grid: { display: false }, border: { display: false } }, y: { ticks: { font, color: '#6B7280', callback: v => '₪' + Number(v).toLocaleString() }, grid: { color: 'rgba(15,35,33,.07)' }, border: { display: false } } } } });
     }
     function downloadCsv(){
         const Y = $('bk-year').value, q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';

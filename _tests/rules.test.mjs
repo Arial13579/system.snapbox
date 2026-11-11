@@ -436,6 +436,23 @@ await no('prefs with extra field rejected', setDoc(doc(noa, 'tenants/noa/prefs/n
 await no('other vendor cannot read prefs', getDoc(doc(yossi, 'tenants/noa/prefs/noa@gmail.com')));
 await no('vendor cannot list prefs', getDocs(collection(noa, 'tenants/noa/prefs')));
 
+console.log('Event details (ev) — vendor edits for own use, contract untouched');
+await setDoc(doc(owner, 'tenants/evt'), { admins: ['noa@gmail.com'], active: true, name: 'Ev' });
+await setDoc(doc(owner, 'tenants/evt/quotes/s1'), { clientName: 'A', price: 5000, deposit: 1000, date: '01/02/2027', status: 'signed', signedAt: serverTimestamp() });
+await setDoc(doc(owner, 'tenants/evt/quotes/p1'), { clientName: 'B', price: 3000, date: '05/03/2027', status: 'pending' });
+await ok('vendor edits event details on signed quote', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { ev: { clientPhone: '050-1234567', date: '02/02/2027', startTime: '20:00', location: 'X', guests: '250', note: 'n', at: serverTimestamp() } }));
+await ok('vendor edits event details on pending quote', updateDoc(doc(noa, 'tenants/evt/quotes/p1'), { ev: { clientPhone: '052-1111111', at: serverTimestamp() } }));
+await no('vendor cannot change price together with ev', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { price: 1, ev: { note: 'x', at: serverTimestamp() } }));
+await no('vendor cannot change the contract date directly', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { date: '09/09/2027' }));
+await no('ev with unknown field rejected', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { ev: { price: 1, at: serverTimestamp() } }));
+await no('ev with huge note rejected', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { ev: { note: 'x'.repeat(1200), at: serverTimestamp() } }));
+await no('ev with backdated time rejected', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { ev: { note: 'x', at: new Date('2020-01-01') } }));
+await no('other vendor cannot edit event details', updateDoc(doc(yossi, 'tenants/evt/quotes/s1'), { ev: { note: 'x', at: serverTimestamp() } }));
+await no('anon cannot edit event details', updateDoc(doc(anon, 'tenants/evt/quotes/s1'), { ev: { note: 'x', at: serverTimestamp() } }));
+await setDoc(doc(owner, 'tenants/evt'), { admins: ['noa@gmail.com'], active: true, name: 'Ev', limited: true });
+await no('limited vendor cannot edit event details', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { ev: { note: 'y', at: serverTimestamp() } }));
+await ok('owner edits event details', updateDoc(doc(owner, 'tenants/evt/quotes/s1'), { ev: { note: 'o' } }));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);
