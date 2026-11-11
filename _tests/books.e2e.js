@@ -145,10 +145,10 @@ const fields = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !==
   await V.p.waitForFunction(() => /8,000/.test(document.getElementById('bk-kpis').textContent), null, { timeout: 15000 }).catch(() => {});
   const k = async () => (await V.p.textContent('#bk-kpis')).replace(/\s+/g, ' ');
   check(/הכנסות החודש ?₪8,000/.test(await k()), 'income this month from the 2 signatures: ' + await k());
-  check(await V.p.locator('#inc-list tbody tr').count() === 2, 'income list: 2 signed contracts');
+  check(await V.p.locator('#inc-list .tx').count() === 2, 'income list: 2 signed contracts');
   await V.p.fill('#ex-amount', '300'); await V.p.fill('#ex-label', 'דלק'); await V.p.selectOption('#ex-cat', 'נסיעות ודלק');
   await V.p.click('#ex-add');
-  await V.p.waitForSelector('#ex-list tbody tr', { timeout: 10000 });
+  await V.p.waitForSelector('#ex-list .tx', { timeout: 10000 });
   check(/דלק/.test(await V.p.textContent('#ex-list')) && /₪300/.test(await V.p.textContent('#ex-list')), 'expense added');
   check(/הוצאות החודש ?₪300/.test(await k()) && /רווח החודש ?₪7,700/.test(await k()), 'expenses + profit: ' + await k());
   await V.p.click('#ex-add');
@@ -161,8 +161,8 @@ const fields = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !==
   await axe(V.p, 'income & expenses tab');
   await V.p.screenshot({ path: SHOTS + 'books.png', fullPage: true });
   await V.p.click('#ex-list .ex-del');
-  await V.p.waitForFunction(() => !document.querySelector('#ex-list tbody tr'), null, { timeout: 10000 }).catch(() => {});
-  check(await V.p.locator('#ex-list tbody tr').count() === 0, 'expense deleted');
+  await V.p.waitForFunction(() => !document.querySelector('#ex-list .tx'), null, { timeout: 10000 }).catch(() => {});
+  check(await V.p.locator('#ex-list .tx').count() === 0, 'expense deleted');
   console.log('3b. Import from Excel');
   const IMP = S + '/imp/';
   const pick = async (btn, file) => { const [fc] = await Promise.all([V.p.waitForEvent('filechooser'), V.p.click(btn)]); await fc.setFiles(IMP + file); };
@@ -201,6 +201,51 @@ const fields = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !==
     for (const t of ['cal', 'books']) { await V.p.click(`.tabs button[data-tab=${t}]`); await V.p.waitForTimeout(400);
       check(await V.p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `no sideways scroll: ${t} @${w}px`); }
   }
+
+  console.log('3c. Dashboard: one "event details" button → sheet with pencil to edit');
+  await V.p.setViewportSize({ width: 390, height: 844 });
+  await V.p.click('.tabs button[data-tab=dash]');
+  await V.p.waitForSelector('#tbody .ev-open', { timeout: 15000 });
+  check(await V.p.locator('#tbody .ev-open').count() === 2 && await V.p.locator('#tbody .copy-link, #tbody .delete-row').count() === 0, 'each row has a single "פרטי אירוע" button');
+  await V.p.click('#tbody .ev-open[data-id=q1]');
+  await V.p.waitForFunction(() => document.getElementById('ev-dlg').open && /0501234567/.test(document.getElementById('ev-view').textContent), null, { timeout: 5000 }).catch(() => {});
+  const evTxt = await V.p.textContent('#ev-view');
+  check(/0501234567/.test(evTxt) && /רק אתם רואים/.test(evTxt) && /תל אביב/.test(evTxt) && /300/.test(evTxt), 'details show the client phone (private), place, guests');
+  check(await V.p.isVisible('#ev-edit') && await V.p.isHidden('#ev-form'), 'pencil shown, form hidden until pressed');
+  check(await V.p.locator('#ev-del').count() === 0, 'signed agreement: no delete in the sheet');
+  check(await V.p.evaluate(() => { const q = { id: 'x', clientName: 'A', clientPhone: '0501234567', date: '01/01/2030', price: 1 };
+    return !Core.b64UrlDecode(new URL(Core.shareUrl('s', q)).searchParams.get('q')).includes('0501234567'); }), 'client phone is not in the link the client opens');
+  await axe(V.p, 'event details sheet');
+  await V.p.click('#ev-edit');
+  check(await V.p.isVisible('#ev-form') && await V.p.inputValue('#ev_phone') === '0501234567', 'pencil opens the edit form with current values');
+  const newDay = dmy(new Date(evDay.getFullYear(), evDay.getMonth(), evDay.getDate() + 1));
+  await V.p.fill('#ev_date', '31/02/2030'); await V.p.click('#ev-save');
+  check(/תאריך לא תקין/.test(await V.p.textContent('#ev-msg')), 'invalid date → clear message');
+  await V.p.fill('#ev_date', newDay); await V.p.fill('#ev_loc', 'חיפה'); await V.p.fill('#ev_phone', '052-7654321'); await V.p.fill('#ev_note', 'חניה מאחור');
+  await axe(V.p, 'event edit form');
+  await V.p.click('#ev-save');
+  await V.p.waitForFunction(() => /חיפה/.test(document.getElementById('ev-view').textContent) && !document.getElementById('ev-view').hidden, null, { timeout: 10000 }).catch(() => {});
+  const ev2 = await V.p.textContent('#ev-view');
+  check(/חיפה/.test(ev2) && /052-7654321/.test(ev2) && /חניה מאחור/.test(ev2) && /לא השתנו/.test(ev2), 'saved: details updated, note that the agreement did not change');
+  const d1 = (await emu('GET', `tenants/${SLUG}/quotes/q1`)).body.fields;
+  const evm = d1.ev && d1.ev.mapValue.fields;
+  check(evm && val(evm.location) === 'חיפה' && val(evm.date) === newDay && val(d1.location) === 'תל אביב' && val(d1.date) === dmy(evDay) && val(d1.price) === 5000, 'stored in ev — the signed quote itself is untouched');
+  await V.p.keyboard.press('Escape');
+  check(!(await V.p.locator('#ev-dlg').evaluate(d => d.open)), 'Esc closes the sheet');
+  check(/חיפה/.test(await V.p.textContent('#tbody')) === false && (await V.p.textContent('#tbody')).includes(newDay), 'table shows the updated event date');
+  await V.p.click('.tabs button[data-tab=cal]'); await V.p.waitForTimeout(600);
+  check(/חיפה/.test(await V.p.textContent('#cal-list')) && /חניה מאחור/.test(await V.p.textContent('#cal-list')), 'calendar uses the updated details');
+  await emu('PATCH', `tenants/${SLUG}/quotes/q3`, { fields: fields({ ...q1, clientName: 'פנדינג', status: 'pending', signedAt: undefined }) });
+  await V.p.click('.tabs button[data-tab=dash]'); await V.p.waitForSelector('#tbody .ev-open[data-id=q3]', { timeout: 10000 }); await V.p.click('#tbody .ev-open[data-id=q3]');
+  check(await V.p.locator('#ev-del').count() === 1, 'pending quote: delete is inside the sheet');
+  await V.p.keyboard.press('Escape');
+  await V.p.click('.tabs button[data-tab=books]'); await V.p.waitForTimeout(500);
+  const del = await V.p.locator('#inc-list .inc-del').first().boundingBox();
+  check(del && del.width >= 36 && del.height >= 36 && await V.p.locator('#inc-list .inc-del svg').count() > 0 && !/מחיקה/.test(await V.p.locator('#inc-list .inc-del').first().innerText()), 'delete on phone = trash icon (36px, no text)');
+  check(await V.p.evaluate(() => getComputedStyle(document.querySelector('#inc-list .inc-del')).color) === 'rgb(220, 38, 38)', 'trash icon is red');
+  check(await V.p.evaluate(() => { const c = Chart.getChart(document.getElementById('booksChart')); return c.data.datasets[0].backgroundColor === '#16A34A' && c.data.datasets[1].backgroundColor === '#EF4444'; }), 'chart: income green, expenses red');
+  check(await V.p.evaluate(() => getComputedStyle(document.querySelector('#bk-kpis .bk-kpi.inc .n')).color === 'rgb(21, 128, 61)' && getComputedStyle(document.querySelector('#bk-kpis .bk-kpi.exp .n')).color === 'rgb(185, 28, 28)'), 'numbers: income green, expenses red');
+  await V.p.screenshot({ path: SHOTS + 'books-phone.png', fullPage: true });
 
   console.log('4. Owner viewing the account: no welcome');
   const O = await newPage(b, 'owner');

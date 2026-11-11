@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin><link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"><link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"><link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="vendor.css?v=20261109a">
+<link rel="stylesheet" href="vendor.css?v=20261111a">
 <title>החשבון שלי | מחולל הצעות מחיר</title>
 </head>
 <body>
@@ -72,7 +72,7 @@
          <fieldset id="creator-fs" class="grid2 plain">
           <legend class="sr">פרטי הצעת המחיר</legend>
           <div><label class="lbl" for="in_clientName">לכבוד (שם הלקוח) *</label><input type="text" id="in_clientName" required class="field" placeholder="שם מלא / חברה"></div>
-          <div><label class="lbl" for="in_clientPhone">טלפון הלקוח <small>· אופציונלי, נשמר בלוח הבקרה</small></label><input type="tel" id="in_clientPhone" class="field ltr" style="text-align:left" inputmode="tel" placeholder="050-0000000"></div>
+          <div><label class="lbl" for="in_clientPhone">טלפון הלקוח <small>· הלקוח לא רואה אותו בהצעה · מופיע בפרטי האירוע</small></label><input type="tel" id="in_clientPhone" class="field ltr" style="text-align:left" inputmode="tel" placeholder="050-0000000"></div>
           <div><label class="lbl" for="in_eventType">סוג האירוע *</label><input type="text" id="in_eventType" required class="field" list="event-types" placeholder="למשל חתונה"><datalist id="event-types"></datalist></div>
           <div><label class="lbl" for="in_date">תאריך האירוע *</label><input type="text" id="in_date" required class="field ltr" style="text-align:left" inputmode="numeric" maxlength="10" placeholder="DD/MM/YYYY"></div>
           <div class="span2"><label class="lbl" for="in_location">מיקום האירוע *</label><input type="text" id="in_location" required class="field" placeholder="שם המקום, עיר"></div>
@@ -193,7 +193,7 @@
       </div>
       <div class="card tbl-wrap" tabindex="0" role="region" aria-label="טבלת ההצעות">
         <table>
-          <thead><tr><th>נשלח</th><th>לקוח</th><th>אירוע</th><th id="th-service">חבילה</th><th>תאריך אירוע</th><th>מחיר</th><th>סטטוס</th><th>הסכם חתום</th><th>פעולות</th></tr></thead>
+          <thead><tr><th>נשלח</th><th>לקוח</th><th>אירוע</th><th id="th-service">חבילה</th><th>תאריך אירוע</th><th>מחיר</th><th>סטטוס</th><th>הסכם חתום</th><th>פרטים</th></tr></thead>
           <tbody id="tbody"><tr><td colspan="9" class="sr-only">טוען נתונים…</td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td></tr><tr class="skel-row" aria-hidden="true"><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td><td><span class="skel"></span></td></tr></tbody>
         </table>
       </div>
@@ -228,12 +228,31 @@
     <div class="wl-acts"><button type="button" class="btn primary" id="wl-next">הבא ←</button><button type="button" class="btn" id="wl-prev">→ הקודם</button><button type="button" class="btn link" id="wl-skip">דילוג</button></div>
   </div>
 </dialog>
+<dialog class="modal sheet" id="ev-dlg" aria-labelledby="ev-title">
+  <div class="sheet-h">
+    <div class="sheet-t"><h2 id="ev-title">פרטי אירוע</h2><p class="sheet-sub" id="ev-sub"></p></div>
+    <div class="sheet-tools"><button type="button" class="icon-btn" id="ev-edit" aria-label="עריכת פרטי האירוע" title="עריכה" aria-pressed="false"></button><button type="button" class="icon-btn" id="ev-close" aria-label="סגירה" title="סגירה"></button></div>
+  </div>
+  <div class="sheet-b" id="ev-view"></div>
+  <form class="sheet-b ev-form" id="ev-form" novalidate autocomplete="off" hidden>
+    <div class="span2"><label class="lbl" for="ev_phone">טלפון הלקוח <small>· רק אתם רואים</small></label><input type="tel" id="ev_phone" class="field ltr" style="text-align:left" inputmode="tel" maxlength="20" placeholder="050-0000000"></div>
+    <div class="span2"><label class="lbl" for="ev_date">תאריך האירוע</label><input type="text" id="ev_date" class="field ltr" style="text-align:left" inputmode="numeric" maxlength="10" placeholder="DD/MM/YYYY"></div>
+    <div><label class="lbl" for="ev_start">שעת התחלה</label><input type="text" id="ev_start" class="field ltr" style="text-align:left" inputmode="numeric" maxlength="5" placeholder="HH:MM"></div>
+    <div><label class="lbl" for="ev_end">שעת סיום</label><input type="text" id="ev_end" class="field ltr" style="text-align:left" inputmode="numeric" maxlength="5" placeholder="HH:MM"></div>
+    <div class="span2"><label class="lbl" for="ev_loc">מיקום</label><input type="text" id="ev_loc" class="field" maxlength="300" placeholder="שם המקום, עיר"></div>
+    <div class="span2"><label class="lbl" for="ev_guests">כמות מוזמנים</label><input type="text" id="ev_guests" class="field" inputmode="numeric" maxlength="6" placeholder="למשל 250"></div>
+    <div class="span2"><label class="lbl" for="ev_note">הערה פנימית <small>· רק אתם רואים</small></label><textarea id="ev_note" class="field" rows="3" maxlength="1000" placeholder="למשל: חניה מאחור, איש קשר במקום"></textarea></div>
+    <p class="hint span2">השינויים מתעדכנים בלוח הבקרה וביומן. ההצעה שהלקוח קיבל וההסכם החתום לא משתנים.</p>
+    <p class="hint span2" id="ev-msg" role="status" aria-live="polite"></p>
+    <div class="sheet-foot span2"><button type="button" class="btn" id="ev-cancel">ביטול</button><button type="submit" class="btn primary" id="ev-save">שמירה</button></div>
+  </form>
+</dialog>
 <input type="file" id="fileUploadInput" accept="application/pdf" style="display:none">
 
-<script src="platform.js?v=20261109a"></script>
-<script src="core.js?v=20261109a"></script>
-<script src="extras.js?v=20261109a"></script>
-<script src="app.js?v=20261109a"></script>
+<script src="platform.js?v=20261111a"></script>
+<script src="core.js?v=20261111a"></script>
+<script src="extras.js?v=20261111a"></script>
+<script src="app.js?v=20261111a"></script>
 <script>window.PRIVACY_URL = '../legal/privacy.html';</script>
 <script src="../common/cookie.js?v=3"></script>
 <script src="../common/a11y.js"></script>

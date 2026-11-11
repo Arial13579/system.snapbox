@@ -131,6 +131,19 @@ service cloud.firestore {
         && (!('pkg' in d) || (d.pkg is map && strMax(d.pkg, 'label', 120) && strMax(d.pkg, 'lead', 200) && listMax(d.pkg, 'items', 20)))
         && (!('payment' in d) || (d.payment is map && strMax(d.payment, 'due', 80) && listMax(d.payment, 'methods', 10)));
     }
+    // "פרטי אירוע": הספק מעדכן לשימוש שלו (לוח בקרה, יומן) — בשדה נפרד ev, בלי לגעת בהצעה ובהסכם החתום
+    function validEv(e) {
+      return e is map
+        && e.keys().hasOnly(['clientPhone', 'date', 'startTime', 'endTime', 'location', 'guests', 'note', 'at'])
+        && strMax(e, 'clientPhone', 40) && strMax(e, 'date', 20) && strMax(e, 'startTime', 10) && strMax(e, 'endTime', 10)
+        && strMax(e, 'location', 300) && strMax(e, 'guests', 10) && strMax(e, 'note', 1000)
+        && (!('at' in e) || e.at == request.time);
+    }
+    function isVendorEditingEvent(t) {
+      return isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ev'])
+        && (!('ev' in request.resource.data) || validEv(request.resource.data.ev));
+    }
     function validPdf() {
       return request.resource.data.keys().hasOnly(['pdfData', 'at'])
         && request.resource.data.pdfData is string && request.resource.data.pdfData.size() < 1000000;
@@ -164,6 +177,7 @@ service cloud.firestore {
                 && resource.data.get('hasPdf', false) != true && !('pdfData' in resource.data)
                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pdfData', 'hasPdf'])
                 && (!('pdfData' in request.resource.data) || (request.resource.data.pdfData is string && request.resource.data.pdfData.size() < 1000000)))
+          || isVendorEditingEvent(t)
           || (isClientSigning() && signedMatchesLink()) || isClientAttachingPdf()
           || (isClientMarkingPdf() && exists(/databases/$(database)/documents/tenants/$(t)/quotes/$(q)/pdf/file));
       }
