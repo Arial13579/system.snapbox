@@ -103,7 +103,7 @@ const fields = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !==
 
   console.log('1. Row actions');
   check(await btns('qp') === '📤 העלה קובץ | 📋 פרטי אירוע | העתק קישור | מחק', 'pending: ' + await btns('qp'));
-  check(await btns('qs') === '📄 צפייה | 🔄 החלף | 📋 פרטי אירוע | העתק קישור | מחק', 'signed: ' + await btns('qs'));
+  check(await btns('qs') === '📄 צפייה | 📋 פרטי אירוע | העתק קישור | מחק', 'signed (vendor, no replace): ' + await btns('qs'));
   await V.p.click('#tbody .copy-link[data-id="qp"]'); await V.p.waitForTimeout(300);
   check(/hatzaa\/v\/\?t=vevdetaa/.test(await V.p.evaluate(() => navigator.clipboard.readText())), 'העתק קישור copies the client link');
 
@@ -157,20 +157,31 @@ const fields = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !==
 
   console.log('5. Upload / replace / delete');
   let fc = V.p.waitForEvent('filechooser'); await V.p.click('#tbody .upload-file[data-id="qp"]'); await (await fc).setFiles(pdfPath);
-  await V.p.waitForFunction(() => /🔄 החלף/.test(document.querySelector('#tbody .upload-file[data-id="qp"]').textContent), null, { timeout: 10000 });
-  check(await btns('qp') === '📄 צפייה | 🔄 החלף | 📋 פרטי אירוע | העתק קישור | מחק', 'pending after upload: ' + await btns('qp'));
-  fc = V.p.waitForEvent('filechooser'); await V.p.click('#tbody .upload-file[data-id="qs"]'); await (await fc).setFiles(pdfPath); await V.p.waitForTimeout(1500);
-  d = await emu('GET', `tenants/${SLUG}/quotes/qs/pdf/file`);
-  check(val(d.body.fields.pdfData) !== 'JVBERi0xLjQK', 'signed: 🔄 החלף replaced the PDF');
+  await V.p.waitForFunction(() => document.querySelector('#tbody .view-file[data-id="qp"]'), null, { timeout: 10000 });
+  check(await btns('qp') === '📄 צפייה | 📋 פרטי אירוע | העתק קישור | מחק', 'after upload the vendor sees only 📄 צפייה: ' + await btns('qp'));
+  const rep = await V.p.evaluate(async s => { const f = await Core.fb(); try { await f.fs.setDoc(f.fs.doc(f.db, `tenants/${s}/quotes/qs/pdf/file`), { pdfData: 'JVBERi0y', at: f.fs.serverTimestamp() }); return 'ALLOWED'; } catch(e) { return e.code; } }, SLUG);
+  check(rep === 'permission-denied', 'server blocks a vendor replacing the PDF: ' + rep);
   await V.p.click('#tbody .del-q[data-id="qs"]');
   await V.p.waitForFunction(() => !document.querySelector('#tbody .ev-open[data-id="qs"]'), null, { timeout: 10000 });
   for (let i = 0; i < 20 && (d = await emu('GET', `tenants/${SLUG}/quotes/qs`)).status !== 404; i++) await new Promise(r => setTimeout(r, 300));
   check(d.status === 404, 'signed quote deleted');
+  for (let i = 0; i < 20 && (d = await emu('GET', `tenants/${SLUG}/quotes/qs/pdf/file`)).status !== 404; i++) await new Promise(r => setTimeout(r, 300));
+  check(d.status === 404, 'its PDF deleted too');
   await V.p.setViewportSize({ width: 390, height: 844 }); await V.p.waitForTimeout(400);
   check(await V.p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'dashboard: no sideways scroll at 390px');
   await V.p.click('#tbody .ev-open[data-id="qp"]'); await V.p.waitForSelector('#ev-dlg[open]'); await V.p.waitForTimeout(500);
   await V.p.screenshot({ path: SHOTS + 'ev-phone.png' });
   check(await V.p.evaluate(() => { const d = document.querySelector('#ev-dlg'); return d.scrollWidth <= d.clientWidth + 1; }), 'event window fits the phone');
+
+  console.log('5b. Owner inside the vendor account keeps 🔄 החלף');
+  const O2 = await newPage(b, 'owner-in-vendor'); await O2.p.setViewportSize({ width: 1280, height: 860 });
+  await login(O2.p, OWNER); await O2.p.waitForURL(/admin\.html/, { timeout: 20000 });
+  await O2.p.goto(`${SYS}/vendors/app.html?t=${SLUG}#dash`); await O2.p.waitForSelector('#tbody .ev-open[data-id="qp"]', { timeout: 20000 });
+  const ob = (await O2.p.locator('#tbody tr:has(.ev-open[data-id="qp"]) .row-acts button').allTextContents()).map(x => x.trim()).join(' | ');
+  check(ob === '📄 צפייה | 🔄 החלף | 📋 פרטי אירוע | העתק קישור | מחק', 'owner sees: ' + ob);
+  fc = O2.p.waitForEvent('filechooser'); await O2.p.click('#tbody .upload-file[data-id="qp"]'); await (await fc).setFiles(pdfPath); await O2.p.waitForTimeout(1500);
+  check(!O2.p.isClosed(), 'owner replaced the PDF');
+  await O2.ctx.close();
 
   console.log('6. Owner: sent offers — upload/replace + paid row');
   await emu('PATCH', 'platformQuotes/offe1', { fields: fields({ vendorName: 'שירז אירועים', contactName: 'שירז', plan: 'regular', planLabel: 'מנוי שנתי', total: 400, status: 'signed', signedAt: now, createdAt: now }) });
