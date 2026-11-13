@@ -322,6 +322,7 @@
     window.AppExtras = {
         init(ctx){ C = ctx; initWelcome(); },
         show(tab){ if (tab === 'cal') startCal(); if (tab === 'books') startBooks(); },
-        maybeWelcome
+        maybeWelcome,
+        googleLink: q => googleLink(q)
     };
 })();

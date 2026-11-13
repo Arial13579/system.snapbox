@@ -143,9 +143,14 @@ service cloud.firestore {
     // "פרטי אירוע": הספק מעדכן לשימוש שלו (לוח בקרה, יומן) — בשדה נפרד ev, בלי לגעת בהצעה ובהסכם החתום
     function validEv(e) {
       return e is map
-        && e.keys().hasOnly(['clientPhone', 'date', 'startTime', 'endTime', 'location', 'guests', 'note', 'at'])
+        && e.keys().hasOnly(['clientPhone', 'date', 'startTime', 'endTime', 'location', 'guests', 'note',
+                             'eventType', 'pkg', 'price', 'deposit', 'notes', 'paid', 'depositPaid', 'inCal', 'at'])
         && strMax(e, 'clientPhone', 40) && strMax(e, 'date', 20) && strMax(e, 'startTime', 10) && strMax(e, 'endTime', 10)
         && strMax(e, 'location', 300) && strMax(e, 'guests', 10) && strMax(e, 'note', 1000)
+        && strMax(e, 'eventType', 120) && strMax(e, 'pkg', 200) && strMax(e, 'notes', 2000)
+        && (!('price' in e) || (e.price is number && e.price >= 0 && e.price <= 10000000))
+        && (!('deposit' in e) || (e.deposit is number && e.deposit >= 0 && e.deposit <= 10000000))
+        && (!('paid' in e) || e.paid is bool) && (!('depositPaid' in e) || e.depositPaid is bool) && (!('inCal' in e) || e.inCal is bool)
         && (!('at' in e) || e.at == request.time);
     }
     function isVendorEditingEvent(t) {
@@ -175,7 +180,8 @@ service cloud.firestore {
       match /quotes/{q} {
         allow read: if isOwner() || isVendorOf(t);
         // הסכם חתום נשמר כמו שהוא: הספק לא מוחק אותו ולא משנה אותו (רק הבעלים). ספק מוגבל — צפייה בלבד.
-        allow delete: if isOwner() || (canCreateFor(t) && resource.data.status != 'signed');
+        // הספק מוחק כל הצעה שלו (גם חתומה — בקשת הבעלים 2026-11-13). ספק מוגבל — צפייה בלבד.
+        allow delete: if isOwner() || canCreateFor(t);
         allow create: if isOwner() || (canCreateFor(t) && q.matches('^[A-Za-z0-9_-]{1,40}$') && validVendorQuote());
         // הספק: בהצעה שעוד לא נחתמה — רק לשמור את מזהה הקישור הקצר. בהצעה חתומה בלי קובץ — לצרף PDF (פעם אחת).
         allow update: if isOwner()
@@ -187,6 +193,10 @@ service cloud.firestore {
                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pdfData', 'hasPdf'])
                 && (!('pdfData' in request.resource.data) || (request.resource.data.pdfData is string && request.resource.data.pdfData.size() < 1000000)))
           || isVendorEditingEvent(t)
+          // הספק מעלה / מחליף את קובץ ה-PDF של ההצעה (בכל סטטוס): רק סימון hasPdf במסמך
+          || (isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true
+                && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasPdf', 'pdfData'])
+                && request.resource.data.get('hasPdf', false) == true && !('pdfData' in request.resource.data))
           || isClientViewing()
           || (isClientSigning() && signedMatchesLink()) || isClientAttachingPdf()
           || (isClientMarkingPdf() && exists(/databases/$(database)/documents/tenants/$(t)/quotes/$(q)/pdf/file));
@@ -274,8 +284,11 @@ service cloud.firestore {
         && (isOwner()
             || (quoteDoc(t, q).status == 'signed' && (canCreateFor(t)
                 || (quoteDoc(t, q).get('signedAt', null) is timestamp && request.time < quoteDoc(t, q).signedAt + duration.value(30, 'm')))));
+      // הספק מעלה / מחליף את הקובץ של ההצעות שלו (בקשת הבעלים 2026-11-13)
+      allow create, update: if f == 'file' && validPdf() && isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true
+        && exists(/databases/$(database)/documents/tenants/$(t)/quotes/$(q));
       allow update: if f == 'file' && validPdf() && isOwner();
-      allow delete: if isOwner();
+      allow delete: if isOwner() || (isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true);
     }
     // ---- PDF חתום של הצעה לספק ----
     match /platformQuotes/{q}/pdf/{f} {

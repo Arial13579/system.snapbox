@@ -711,18 +711,19 @@
         $('okpis').innerHTML = kpi(OFFERS.length, 'הצעות שנשלחו') + kpi(signed.length, 'נחתמו') + kpi(OFFERS.length - signed.length, 'ממתינות') +
             kpi((OFFERS.length ? Math.round(signed.length / OFFERS.length * 100) : 0) + '%', 'אחוז סגירה') + kpi(Core.money(signed.reduce((s, o) => s + (Number(o.total) || 0), 0)), 'סכום הצעות חתומות', true);
         if (!OFFERS.length) { $('otbody').innerHTML = '<tr><td colspan="8" class="loading">עדיין לא נשלחו הצעות</td></tr>'; return; }
-        $('otbody').innerHTML = OFFERS.map(o => `<tr>
+        $('otbody').innerHTML = OFFERS.map(o => `<tr class="${o.paid ? 'paid-row' : ''}">
             <td>${fmtTs(o.createdAt)}</td>
             <td class="vend-cell"><b>${esc(o.vendorName)}</b><span>${esc(o.contactName || '')}${o.phone ? ' · <span class="ltr">' + esc(o.phone) + '</span>' : ''}</span></td>
             <td>${esc(o.planLabel || planLabel(o.plan))}</td>
             <td>${(o.freeMonths || 0) + (o.extraMonths || 0)} חודשים</td>
             <td><b>${Core.money(o.total)}</b></td>
-            <td>${o.status === 'signed' ? `<span class="badge ok">נחתמה</span><div class="sub">${fmtTs(o.signedAt)}${o.signerName ? ' · ' + esc(o.signerName) : ''}</div>${Core.signedMismatch(o, 'offer') ? '<div class="sub" style="color:#B91C1C;font-weight:700">⚠ נחתמה על פרטים שונים מההצעה ששלחת</div>' : ''}` : '<span class="badge warn">ממתינה</span>'}<div class="sub">${Core.viewsInfo(o).html}</div></td>
-            <td>${Core.hasPdf(o) ? `<button type="button" class="btn sm view" data-id="${o.id}">צפייה</button>` : '<span class="sub">—</span>'}</td>
+            <td>${o.status === 'signed' ? `<span class="badge ok">נחתמה</span><div class="sub">${fmtTs(o.signedAt)}${o.signerName ? ' · ' + esc(o.signerName) : ''}</div>${Core.signedMismatch(o, 'offer') ? '<div class="sub" style="color:#B91C1C;font-weight:700">⚠ נחתמה על פרטים שונים מההצעה ששלחת</div>' : ''}` : '<span class="badge warn">ממתינה</span>'}<div class="sub">${Core.viewsInfo(o).html}</div>
+                <label class="paid-chk"><input type="checkbox" class="o-paid" data-id="${o.id}"${o.paid ? ' checked' : ''}> שולם</label></td>
+            <td><div class="row-acts">${Core.hasPdf(o) ? `<button type="button" class="btn sm view" data-id="${o.id}">📄 צפייה</button>` : ''}<button type="button" class="btn sm o-up" data-id="${o.id}">${Core.hasPdf(o) ? '🔄 החלף' : '📤 העלה קובץ'}</button></div></td>
             <td><div class="acts"><button type="button" class="btn sm copy" data-id="${o.id}">העתק קישור</button>
                 ${o.status === 'signed' ? (o.tenant ? `<button type="button" class="btn sm vc-edit" data-id="${o.id}">הגדרות הספק</button><span class="badge ok">המשתמש נוצר</span>`
                     : `<button type="button" class="btn sm primary vc-new" data-id="${o.id}">יצירת משתמש</button>`) + `<button type="button" class="btn sm setup" data-id="${o.id}">סיכום להקמה</button>` : ''}
-                <button type="button" class="btn sm danger del" data-id="${o.id}">מחיקה</button></div></td></tr>`).join('');
+                <button type="button" class="btn sm danger del" data-id="${o.id}">מחק</button></div></td></tr>`).join('');
     }
     $('otbody').addEventListener('click', async e => {
         const b = e.target.closest('button'); if (!b) return;
@@ -742,7 +743,26 @@
             try { await Core.deletePdf('platformQuotes/' + o.id); await fs.deleteDoc(fs.doc(db, 'platformQuotes', o.id)); Core.deleteShortLink(o.shortId); } catch(err) { alert('המחיקה נכשלה.'); b.disabled = false; }
         } else if (b.classList.contains('view')) {
             Core.openPdf('platformQuotes/' + o.id, o);
-        }
+        } else if (b.classList.contains('o-up')) { offerUploadId = o.id; $('o_file').click(); }
+    });
+    // "שולם" — כל השורה ירוקה
+    $('otbody').addEventListener('change', async e => {
+        const c = e.target.closest('.o-paid'); if (!c) return;
+        const o = OFFERS.find(x => x.id === c.dataset.id); if (!o) return;
+        o.paid = c.checked; renderOffers();
+        try { await fs.updateDoc(fs.doc(db, 'platformQuotes', o.id), { paid: c.checked ? true : fs.deleteField() }); }
+        catch(err) { o.paid = !c.checked; renderOffers(); alert('השמירה נכשלה.'); }
+    });
+    // העלאה / החלפה של קובץ PDF להצעה לספק
+    let offerUploadId = null;
+    $('o_file').addEventListener('change', async e => {
+        const file = e.target.files[0]; e.target.value = '';
+        const id = offerUploadId; offerUploadId = null;
+        if (!file || !id) return;
+        if (file.type !== 'application/pdf' && !/\.pdf$/i.test(file.name)) { alert('אפשר להעלות רק קובץ PDF.'); return; }
+        if (file.size > 700 * 1024) { alert('הקובץ גדול מדי (עד כ-700KB).'); return; }
+        const data = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(String(fr.result).split(',')[1]); fr.readAsDataURL(file); });
+        try { await Core.putPdf('platformQuotes/' + id, data, true); } catch(err) { alert(Core.isQuota(err) ? Core.QUOTA_MSG : 'ההעלאה נכשלה.'); }
     });
 
     function copyText(t, btn){
