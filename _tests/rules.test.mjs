@@ -453,6 +453,26 @@ await setDoc(doc(owner, 'tenants/evt'), { admins: ['noa@gmail.com'], active: tru
 await no('limited vendor cannot edit event details', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { ev: { note: 'y', at: serverTimestamp() } }));
 await ok('owner edits event details', updateDoc(doc(owner, 'tenants/evt/quotes/s1'), { ev: { note: 'o' } }));
 
+console.log('Views — anonymous open counter');
+await setDoc(doc(owner, 'tenants/vw'), { admins: ['noa@gmail.com'], active: true, name: 'Vw' });
+await setDoc(doc(owner, 'tenants/vw/quotes/v1'), { clientName: 'A', price: 5000, status: 'pending' });
+await ok('anon counts a view', updateDoc(doc(anon, 'tenants/vw/quotes/v1'), { views: increment(1), lastViewedAt: serverTimestamp() }));
+await no('anon cannot count again within 20s', updateDoc(doc(anon, 'tenants/vw/quotes/v1'), { views: increment(1), lastViewedAt: serverTimestamp() }));
+await setDoc(doc(owner, 'tenants/vw/quotes/v2'), { clientName: 'B', price: 1, status: 'pending' });
+await no('anon cannot set views to 100', updateDoc(doc(anon, 'tenants/vw/quotes/v2'), { views: 100, lastViewedAt: serverTimestamp() }));
+await no('anon cannot backdate lastViewedAt', updateDoc(doc(anon, 'tenants/vw/quotes/v2'), { views: increment(1), lastViewedAt: new Date('2020-01-01') }));
+await no('anon cannot change price with a view', updateDoc(doc(anon, 'tenants/vw/quotes/v2'), { views: increment(1), lastViewedAt: serverTimestamp(), price: 0 }));
+await setDoc(doc(owner, 'platformQuotes/vw1'), { vendorName: 'V', total: 400, status: 'pending' });
+await ok('anon counts a view on platform quote', updateDoc(doc(anon, 'platformQuotes/vw1'), { views: increment(1), lastViewedAt: serverTimestamp() }));
+await no('anon cannot change total on platform quote', updateDoc(doc(anon, 'platformQuotes/vw1'), { total: 1 }));
+
+console.log('ownerBooks — owner only');
+await ok('owner adds expense', setDoc(doc(owner, 'ownerBooks/b1'), { type: 'out', date: '2026-11-13', amount: 250, label: 'פרסום', category: 'פרסום', createdAt: serverTimestamp() }));
+await no('owner book with bad type rejected', setDoc(doc(owner, 'ownerBooks/b2'), { type: 'x', date: '2026-11-13', amount: 1, label: 'a', category: 'a', createdAt: serverTimestamp() }));
+await no('vendor cannot read owner books', getDocs(collection(noa, 'ownerBooks')));
+await no('anon cannot write owner books', setDoc(doc(anon, 'ownerBooks/b3'), { type: 'in', date: '2026-11-13', amount: 1, label: 'a', category: 'a', createdAt: serverTimestamp() }));
+await ok('owner deletes book row', deleteDoc(doc(owner, 'ownerBooks/b1')));
+
 console.log(`\n${pass} passed, ${fail} failed`);
 await env.cleanup();
 process.exit(fail ? 1 : 0);

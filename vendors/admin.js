@@ -97,13 +97,14 @@
     let offersStarted = false;
     function showTab(t){
         document.querySelectorAll('.admin-tabs button').forEach(b => { const on = b.dataset.tab === t; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
-        ['vendors', 'offer', 'offers'].forEach(k => $('tab-' + k).classList.toggle('hidden', k !== t));
+        ['vendors', 'offer', 'offers', 'books'].forEach(k => $('tab-' + k).classList.toggle('hidden', k !== t));
         history.replaceState(null, '', location.pathname + (t === 'vendors' ? '' : '#' + t));
-        if (t === 'offers' && !offersStarted) { offersStarted = true; startOffers(); }
+        if ((t === 'offers' || t === 'books') && !offersStarted) { offersStarted = true; startOffers(); }
+        if (t === 'books') OwnerBooks.start({ fb, getOffers: () => OFFERS });
     }
     function initTabs(){
         document.querySelectorAll('.admin-tabs button').forEach(b => b.addEventListener('click', () => showTab(b.dataset.tab)));
-        const h = location.hash.slice(1); if (h === 'offer' || h === 'offers') showTab(h);
+        const h = location.hash.slice(1); if (h === 'offer' || h === 'offers' || h === 'books') showTab(h);
     }
 
     /* ================= ספקים ================= */
@@ -682,7 +683,7 @@
             OFFERS = snap.docs.map(d => ({ id: d.id, ...d.data() }));
             // העברה חד-פעמית של PDF ישן מתוך ההצעה למסמך נפרד (כך הרשימה לא מורידה את כל הקבצים בכל טעינה)
             OFFERS.filter(o => o.pdfData).forEach(o => Core.migratePdf('platformQuotes/' + o.id, o));
-            renderOffers();
+            renderOffers(); if (window.OwnerBooks) OwnerBooks.render();
         }, err => { console.error(err); $('otbody').innerHTML = '<tr><td colspan="8" class="loading">שגיאת הרשאות</td></tr>'; });
     }
     // מבצע ההשקה: מוגבל ל-limit חתימות. נספר רק מה שנחתם, ונשמר ב-public/promo (האתר ודף ההצעה קוראים משם)
@@ -716,7 +717,7 @@
             <td>${esc(o.planLabel || planLabel(o.plan))}</td>
             <td>${(o.freeMonths || 0) + (o.extraMonths || 0)} חודשים</td>
             <td><b>${Core.money(o.total)}</b></td>
-            <td>${o.status === 'signed' ? `<span class="badge ok">נחתמה</span><div class="sub">${fmtTs(o.signedAt)}${o.signerName ? ' · ' + esc(o.signerName) : ''}</div>${Core.signedMismatch(o, 'offer') ? '<div class="sub" style="color:#B91C1C;font-weight:700">⚠ נחתמה על פרטים שונים מההצעה ששלחת</div>' : ''}` : '<span class="badge warn">ממתינה</span>'}</td>
+            <td>${o.status === 'signed' ? `<span class="badge ok">נחתמה</span><div class="sub">${fmtTs(o.signedAt)}${o.signerName ? ' · ' + esc(o.signerName) : ''}</div>${Core.signedMismatch(o, 'offer') ? '<div class="sub" style="color:#B91C1C;font-weight:700">⚠ נחתמה על פרטים שונים מההצעה ששלחת</div>' : ''}` : '<span class="badge warn">ממתינה</span>'}<div class="sub">${Core.viewsInfo(o).html}</div></td>
             <td>${Core.hasPdf(o) ? `<button type="button" class="btn sm view" data-id="${o.id}">צפייה</button>` : '<span class="sub">—</span>'}</td>
             <td><div class="acts"><button type="button" class="btn sm copy" data-id="${o.id}">העתק קישור</button>
                 ${o.status === 'signed' ? (o.tenant ? `<button type="button" class="btn sm vc-edit" data-id="${o.id}">הגדרות הספק</button><span class="badge ok">המשתמש נוצר</span>`

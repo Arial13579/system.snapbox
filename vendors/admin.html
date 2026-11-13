@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://www.gstatic.com" crossorigin><link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js"><link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js"><link rel="modulepreload" href="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="vendor.css?v=20261111a">
+<link rel="stylesheet" href="vendor.css?v=20261113a">
 <title>לוח ניהול | מחולל הצעות מחיר</title>
 </head>
 <body>
@@ -28,6 +28,7 @@
       <button type="button" class="on" data-tab="vendors" role="tab">ספקים</button>
       <button type="button" data-tab="offer" role="tab">הצעת מחיר לספק</button>
       <button type="button" data-tab="offers" role="tab">הצעות שנשלחו</button>
+      <button type="button" data-tab="books" role="tab">הכנסות והוצאות</button>
     </nav>
 
     <!-- ===== ספקים ===== -->
@@ -135,6 +136,29 @@
           <tbody id="otbody"><tr><td colspan="8" class="loading">טוען…</td></tr></tbody>
         </table>
       </div>
+    </section>
+
+    <!-- ===== הכנסות והוצאות של Snap Box ===== -->
+    <section id="tab-books" class="hidden">
+      <div class="toolbar bk-bar"><label class="lbl" for="ob-year" style="margin:0">שנה</label><select id="ob-year" class="field"></select></div>
+      <div class="kpis" id="ob-kpis"></div>
+      <div class="card"><div class="card-h"><h2>לפי חודש</h2><span class="ob-legend"><i class="in"></i>הכנסות <i class="out"></i>הוצאות</span></div>
+        <div class="card-b"><div class="ob-chart" id="ob-chart" role="img" aria-label="הכנסות והוצאות לפי חודש"></div></div></div>
+      <div class="card">
+        <div class="card-h"><h2>הוספה</h2><div class="seg" id="ob-kind"><button type="button" data-k="out" class="on" aria-pressed="true">הוצאה</button><button type="button" data-k="in" aria-pressed="false">הכנסה</button></div></div>
+        <div class="card-b">
+          <form id="ob-form" class="ex-form" autocomplete="off" novalidate>
+            <div><label class="lbl" for="ob-amount">סכום (₪) *</label><input id="ob-amount" type="number" min="0" step="0.01" inputmode="decimal" class="field" placeholder="250"></div>
+            <div><label class="lbl" for="ob-label">תיאור *</label><input id="ob-label" type="text" maxlength="120" class="field" placeholder="למשל: קמפיין טיקטוק"></div>
+            <div><label class="lbl" for="ob-cat">קטגוריה</label><select id="ob-cat" class="field"></select></div>
+            <div><label class="lbl" for="ob-date">תאריך</label><input id="ob-date" type="date" class="field"></div>
+            <div class="ex-go"><button type="submit" class="btn primary block" id="ob-add">הוספת הוצאה</button></div>
+          </form>
+          <p class="hint" id="ob-msg" role="status"></p>
+        </div>
+      </div>
+      <div class="card"><div class="card-h"><h2>תנועות</h2></div><div class="card-b tbl-scroll" id="ob-list" tabindex="0" role="region" aria-label="תנועות"></div></div>
+      <p class="hint">הצעות חתומות של ספקים נכנסות לבד כהכנסה (לפי תאריך החתימה).</p>
     </section>
   </div>
 </main>
@@ -326,12 +350,13 @@
   <nav aria-label="מסמכים"><a href="../legal/terms.html">תנאי שימוש והסכם שירות</a><a href="../legal/privacy.html">מדיניות פרטיות</a><a href="../legal/accessibility.html">הצהרת נגישות</a></nav>
   <p>Snap Box · לוח ניהול</p>
 </footer>
-<script src="platform.js?v=20261111a"></script>
-<script src="registry.js?v=20261111a"></script>
-<script src="core.js?v=20261111a"></script>
-<script src="templates.js?v=20261111a"></script>
-<script src="vendor-editor.js?v=20261111a"></script>
-<script src="admin.js?v=20261111a"></script>
+<script src="platform.js?v=20261113a"></script>
+<script src="registry.js?v=20261113a"></script>
+<script src="core.js?v=20261113a"></script>
+<script src="templates.js?v=20261113a"></script>
+<script src="vendor-editor.js?v=20261113a"></script>
+<script src="owner-books.js?v=20261113a"></script>
+<script src="admin.js?v=20261113a"></script>
 <script>window.PRIVACY_URL = '../legal/privacy.html';</script>
 <script src="../common/cookie.js?v=3"></script>
 <script src="../common/a11y.js"></script>

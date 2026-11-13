@@ -57,3 +57,14 @@ canvas#sig-canvas{ display:block; width:100%; height:180px; touch-action:none; c
 #pdf-doc .meta{ font-size:11px; color:#666; margin-top:8px; line-height:1.6; }
 #pdf-doc .ft{ text-align:center; font-size:10px; color:#999; margin-top:22px; border-top:1px solid #E1EBE9; padding-top:10px; }
 @media print{ body.printing-doc>*:not(#pdf-doc){ display:none !important; } body.printing-doc #pdf-doc{ position:static !important; visibility:visible !important; width:100% !important; } }
+
+/* תשלום בביט — אחרי החתימה */
+.bitbox{ margin-top:14px; border-radius:16px; padding:16px; background:#F3FBFA; border:1.5px solid #9ADFD6; text-align:right; }
+.bit-h{ display:flex; align-items:center; gap:12px; margin-bottom:12px; }
+.bit-h b{ display:block; font-size:17px; }
+.bit-h small{ color:#3F5A56; font-size:13.5px; }
+.bit-logo{ flex:none; width:46px; height:46px; border-radius:13px; background:#0F2C5C; color:#5BE3D6; font:800 18px/46px Arial, sans-serif; text-align:center; }
+.bit-row{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.bit-num{ flex:1 1 150px; min-width:0; font-size:24px; font-weight:800; letter-spacing:1.5px; background:#fff; border:1px dashed #9ADFD6; border-radius:12px; padding:9px 12px; text-align:center; }
+.bit-copy{ flex:0 0 auto; min-height:46px; }
+.bit-tip{ margin:10px 0 0; font-size:13.5px; color:#3F5A56; }
