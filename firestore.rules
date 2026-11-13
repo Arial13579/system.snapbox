@@ -115,6 +115,15 @@ service cloud.firestore {
       return !('shortId' in resource.data)
         || request.resource.data.get('signedQ', '') == get(/databases/$(database)/documents/shortLinks/$(resource.data.shortId)).data.q;
     }
+    // מעקב צפיות: מי שפתח את הקישור (בלי התחברות) מוסיף 1 למונה ומעדכן "נפתחה לאחרונה" לזמן השרת — ורק את זה.
+    // לא יותר מפעם ב-20 שניות לכל הצעה (כדי שאי אפשר לנפח את המונה).
+    function isClientViewing() {
+      let d = request.resource.data;
+      return d.diff(resource.data).affectedKeys().hasOnly(['views', 'lastViewedAt'])
+        && d.views == resource.data.get('views', 0) + 1
+        && d.lastViewedAt == request.time
+        && (resource.data.get('lastViewedAt', null) == null || request.time > resource.data.lastViewedAt + duration.value(20, 's'));
+    }
     function strMax(d, f, n) { return !(f in d) || (d[f] is string && d[f].size() <= n); }
     function listMax(d, f, n) { return !(f in d) || (d[f] is list && d[f].size() <= n); }
     // הצעה חדשה של ספק: רק השדות שהמחולל כותב, בגדלים סבירים (בלי שדות חתימה, בלי קבצים)
@@ -178,6 +187,7 @@ service cloud.firestore {
                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pdfData', 'hasPdf'])
                 && (!('pdfData' in request.resource.data) || (request.resource.data.pdfData is string && request.resource.data.pdfData.size() < 1000000)))
           || isVendorEditingEvent(t)
+          || isClientViewing()
           || (isClientSigning() && signedMatchesLink()) || isClientAttachingPdf()
           || (isClientMarkingPdf() && exists(/databases/$(database)/documents/tenants/$(t)/quotes/$(q)/pdf/file));
       }
@@ -273,6 +283,16 @@ service cloud.firestore {
       allow create: if f == 'file' && validPdf()
         && (isOwner() || (get(/databases/$(database)/documents/platformQuotes/$(q)).data.status == 'signed'
             && request.time < get(/databases/$(database)/documents/platformQuotes/$(q)).data.signedAt + duration.value(30, 'm')));
+    }
+
+    // ---- הכנסות והוצאות של Snap Box (לוח הניהול): רק הבעלים ----
+    match /ownerBooks/{id} {
+      allow read, delete: if isOwner();
+      allow create, update: if isOwner()
+        && request.resource.data.keys().hasOnly(['type', 'date', 'amount', 'label', 'category', 'createdAt'])
+        && request.resource.data.type in ['in', 'out']
+        && request.resource.data.amount is number && request.resource.data.amount >= 0 && request.resource.data.amount <= 10000000
+        && strMax(request.resource.data, 'label', 120) && strMax(request.resource.data, 'category', 40) && strMax(request.resource.data, 'date', 10);
     }
 
     // ---- הערות פנימיות של הבעלים על ספק: רק הבעלים (הספק לא רואה) ----
@@ -379,7 +399,7 @@ service cloud.firestore {
     // ---- הצעות מחיר של הבעלים לספקים (מכירת המערכת) ----
     match /platformQuotes/{q} {
       allow read, create, delete: if isOwner();
-      allow update: if isOwner() || (isClientSigning() && signedMatchesLink()) || isClientAttachingPdf()
+      allow update: if isOwner() || (isClientSigning() && signedMatchesLink()) || isClientAttachingPdf() || isClientViewing()
         || (isClientMarkingPdf() && exists(/databases/$(database)/documents/platformQuotes/$(q)/pdf/file));
     }
 

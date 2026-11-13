@@ -526,3 +526,23 @@ dialog.sheet[open]::backdrop{ animation:fadeIn .25s ease; }
 .tx-del:active{ transform:scale(.9); background:#FEE2E2; }
 .tx-del:focus-visible{ outline:2px solid var(--exp); outline-offset:1px; }
 @media(max-width:420px){ .tx{ gap:10px; } .tx-l{ font-size:14.5px; } .tx-a{ font-size:14px; } }
+
+/* מעקב צפיות בהצעה: נפתחה X פעמים · לאחרונה… */
+.views{ display:inline-block; margin-top:4px; font-size:12.5px; font-weight:700; color:#0F5F58; white-space:normal; }
+.views.none{ color:#5B6B69; font-weight:600; }
+.views.hot{ color:#fff; background:#0f766e; border-radius:999px; padding:2px 9px; }
+
+/* לוח הניהול: הכנסות (ירוק) והוצאות (אדום) של Snap Box */
+#ob-kpis{ grid-template-columns:repeat(2,1fr); gap:10px; }
+#ob-kpis .bk-kpi.pr{ grid-column:1 / -1; }
+@media(min-width:700px){ #ob-kpis{ grid-template-columns:repeat(3,1fr); gap:12px; } #ob-kpis .bk-kpi.pr{ grid-column:auto; } }
+.ob-chart{ display:grid; grid-template-columns:repeat(12, minmax(0,1fr)); gap:6px; height:190px; align-items:end; }
+.ob-col{ display:flex; flex-direction:column; align-items:center; height:100%; min-width:0; }
+.ob-bars{ flex:1; width:100%; display:flex; align-items:flex-end; justify-content:center; gap:2px; }
+.ob-b{ width:42%; max-width:16px; border-radius:5px 5px 2px 2px; min-height:2px; transition:height .5s cubic-bezier(.2,.9,.25,1); }
+.ob-b.in{ background:var(--inc-2); } .ob-b.out{ background:var(--exp-2); }
+.ob-col small{ font-size:10.5px; color:var(--muted); margin-top:6px; white-space:nowrap; }
+.ob-legend{ display:inline-flex; align-items:center; gap:6px; font-size:12.5px; color:var(--muted); font-weight:700; }
+.ob-legend i{ width:10px; height:10px; border-radius:3px; display:inline-block; } .ob-legend i.in{ background:var(--inc-2); } .ob-legend i.out{ background:var(--exp-2); margin-inline-start:8px; }
+#ob-add.inc{ background:var(--inc); border-color:var(--inc); color:#fff; } #ob-add.exp{ background:var(--exp); border-color:var(--exp); color:#fff; }
+@media(max-width:420px){ .ob-chart{ gap:3px; height:160px; } .ob-col small{ font-size:9px; } }

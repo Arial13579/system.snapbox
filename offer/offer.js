@@ -38,6 +38,17 @@
         } catch(e) { console.warn('promo check failed', e); }
     }
     const shortId = '#' + o.id.slice(-6).toUpperCase();
+    // מעקב צפיות (לוח הניהול): כמה פעמים הספק פתח את ההצעה ומתי לאחרונה. לא כשהבעלים עצמו פותח, ופעם אחת בכל לשונית.
+    (async () => {
+        try {
+            let last = ''; try { last = localStorage.getItem('sb.lastEmail') || ''; } catch(e) {}
+            if (last.toLowerCase() === String(PF.ownerEmail).toLowerCase() || /\/vendors\//.test(document.referrer || '')) return;
+            const key = 'sb.seen.' + o.id;
+            try { if (sessionStorage.getItem(key)) return; sessionStorage.setItem(key, '1'); } catch(e) {}
+            const f = await Core.fb();
+            await f.fs.updateDoc(f.fs.doc(f.db, 'platformQuotes', o.id), { views: f.fs.increment(1), lastViewedAt: f.fs.serverTimestamp() });
+        } catch(e) { /* הצעה שנמחקה / כללים ישנים */ }
+    })();
     document.title = `הצעת מחיר ל-${o.vendorName} | Snap Box`;
 
     const FEATURES = [
@@ -227,5 +238,21 @@
         $('sign-controls').innerHTML = pdf && mailed
             ? `<div class="done" role="status">ההצעה נחתמה — ברוכים הבאים! 🎉<span>ה-PDF ירד אליכם, ונחזור אליכם בהקדם להמשך התהליך.</span></div>`
             : `<div class="warnbox" role="alert"><p>${pdf ? '✓ ה-PDF ירד למכשיר.' : '⚠️ יצירת ה-PDF נכשלה.'}</p><p>${mailed ? '✓ האישור נשלח.' : '⚠️ השליחה לא הושלמה.'}</p><p>אפשר לשלוח לנו הודעה: <a href="https://wa.me/${esc(CT.whatsapp)}">${esc(CT.phone)}</a></p></div>`;
+        if (pdf && mailed) addBitBox();
     });
+    // אחרי החתימה: המספר של Snap Box להעברת התשלום בביט, עם כפתור העתקה
+    function addBitBox(){
+        const digits = String(CT.bitPhone || CT.phone || '').replace(/[^\d]/g, '').replace(/^972/, '0'); if (digits.length < 9) return;
+        const amt = o.deposit > 0 ? o.deposit : o.total;
+        $('sign-controls').insertAdjacentHTML('beforeend', `<div class="bitbox" role="group" aria-label="תשלום בביט">
+            <div class="bit-h"><span class="bit-logo" aria-hidden="true">bit</span><div><b>${o.deposit > 0 ? 'תשלום המקדמה' : 'התשלום'} בביט · ${money(amt)}</b><small>להעברה ל-Snap Box</small></div></div>
+            <div class="bit-row"><span class="bit-num" id="bit-num" dir="ltr">${esc(digits)}</span><button type="button" class="btn bit-copy" id="bit-copy">העתקת המספר</button></div>
+            <p class="bit-tip">פותחים את ביט ← "העברה" ← מדביקים את המספר ← ${money(amt)}</p></div>`);
+        $('bit-copy').addEventListener('click', async e => {
+            const b = e.currentTarget; let ok = false;
+            try { await navigator.clipboard.writeText(digits); ok = true; } catch(err) {
+                try { const t = document.createElement('textarea'); t.value = digits; document.body.appendChild(t); t.select(); ok = document.execCommand('copy'); t.remove(); } catch(e2) {} }
+            b.textContent = ok ? '✓ הועתק' : 'סמנו והעתיקו'; setTimeout(() => { b.textContent = 'העתקת המספר'; }, 2500);
+        });
+    }
 })();

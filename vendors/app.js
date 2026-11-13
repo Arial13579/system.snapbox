@@ -710,12 +710,13 @@
             const signed = q.status === 'signed', sa = fmtTs(q.signedAt);
             const bad = Core.signedMismatch(q, 'quote');
             const pill = signed ? `<span class="pill signed">נחתם</span>${sa ? `<div class="sub">${sa}</div>` : ''}${bad ? '<div class="sub" style="color:#B91C1C;font-weight:700">⚠ נחתם על פרטים שונים מההצעה ששלחתם</div>' : ''}` : '<span class="pill pending">ממתין</span>';
+            const seen = Core.viewsInfo(q).html;
             // ההסכם החתום נשמר כמו שהוא: הספק לא מחליף ולא מוחק אותו (רק Snap Box). אם חסר קובץ — אפשר לצרף פעם אחת
             const file = Core.hasPdf(q) ? `<div class="acts"><button type="button" class="btn sm view-file" data-id="${esc(q.id)}">צפייה</button>${isOwnerView ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">החלפה</button>` : ''}</div>`
                                    : signed || isOwnerView ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">העלאה</button>` : '<span class="sub">—</span>';
             const v = Core.eventView(q);
             return `<tr><td>${fmtTs(q.createdAt) || '—'}</td><td class="name">${esc(q.clientName)}</td><td>${esc(q.eventType)}</td><td>${esc(serviceLabel(q))}</td>
-                <td dir="ltr" style="text-align:right">${esc(v.date)}</td><td><b>${Core.money(q.price)}</b></td><td>${pill}</td><td>${file}</td>
+                <td dir="ltr" style="text-align:right">${esc(v.date)}</td><td><b>${Core.money(q.price)}</b></td><td>${pill}<div class="sub">${seen}</div></td><td>${file}</td>
                 <td><button type="button" class="btn sm ev-open" data-id="${esc(q.id)}" aria-label="פרטי אירוע: ${esc(q.clientName || '')}">פרטי אירוע</button></td></tr>`;
         }).join('');
     }
@@ -778,6 +779,7 @@
         const edited = q.ev && Object.keys(q.ev).some(k => k !== 'at');
         const groups = [
             ['לקוח', row('שם', esc(q.clientName || '')) + row('טלפון', phone, '<small class="ir-lock">רק אתם רואים</small>')],
+            ['מעקב', row('נפתחה', esc(Core.viewsInfo(q).text) + (Core.viewsInfo(q).full ? ` <small dir="ltr">${esc(Core.viewsInfo(q).full)}</small>` : '')) + (signed ? row('נחתמה', esc(fmtTs(q.signedAt) || '')) : '')],
             ['האירוע', row('סוג', esc(q.eventType || '')) + row('תאריך', v.date ? `<span dir="ltr">${esc(v.date)}</span> <small>${dayName(v.date)}</small>` : '') + row('שעות', hours)
                 + row('מקום', esc(v.location || '')) + row('מוזמנים', v.guests ? esc(v.guests) : '') + row(MODE === 'items' ? 'פריטים' : 'חבילה', esc(serviceLabel(q)))],
             ['תשלום', row('מחיר', `<b>${Core.money(q.price)}</b>`) + row('מקדמה', Core.money(q.deposit)) + row('יתרה', Core.money(bal)) + (Number(q.discount) ? row('הנחה', Core.money(q.discount)) : '')],

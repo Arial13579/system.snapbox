@@ -238,6 +238,24 @@
     const lines = (arr, pick) => (arr || []).map(x => pick(x).map(v => typeof v === 'number' ? v : cleanItem(v)).join('^')).join('~');
     // חבילה: שם^שעות^שורת פתיחה^מה כלול (מופרד ב-~)
     const encodePkg = p => p ? [cleanItem(p.label), Number(p.hours) || 0, cleanItem(p.lead || ''), (p.items || []).map(cleanItem).join('~')].join('^') : '';
+    /* מעקב צפיות: כמה פעמים הקישור נפתח (views) ומתי לאחרונה (lastViewedAt) — נכתב מדף ההצעה של הלקוח */
+    function ago(d){
+        const m = Math.round((Date.now() - d.getTime()) / 60000);
+        if (m < 1) return 'עכשיו';
+        if (m < 60) return m === 1 ? 'לפני דקה' : `לפני ${m} דק׳`;
+        const h = Math.round(m / 60); if (h < 24) return h === 1 ? 'לפני שעה' : h === 2 ? 'לפני שעתיים' : `לפני ${h} שעות`;
+        const dd = Math.round(h / 24); if (dd < 7) return dd === 1 ? 'אתמול' : `לפני ${dd} ימים`;
+        return fmtDate(d);
+    }
+    function viewsInfo(q){
+        const n = Number(q && q.views) || 0, at = q && q.lastViewedAt && q.lastViewedAt.toDate ? q.lastViewedAt.toDate() : null;
+        if (!n) return { n: 0, text: 'עוד לא נפתחה', short: 'לא נפתחה', html: '<span class="views none" title="הלקוח עוד לא פתח את הקישור">👁 עוד לא נפתחה</span>' };
+        const times = n === 1 ? 'פעם אחת' : n === 2 ? 'פעמיים' : `${n} פעמים`;
+        const when = at ? ago(at) : '', full = at ? fmtDateTime(at) : '';
+        const text = `נפתחה ${times}${when ? ' · לאחרונה ' + when : ''}`;
+        return { n, at, text, short: `👁 ${n}`, full,
+            html: `<span class="views${at && Date.now() - at < 3600000 ? ' hot' : ''}" title="${esc(full ? 'נפתחה לאחרונה ' + full : '')}">👁 ${esc(text)}</span>` };
+    }
     /* פרטי האירוע לשימוש הספק (לוח בקרה, יומן): השינויים שהספק עורך נשמרים בשדה נפרד ev — ההצעה וההסכם החתום לא משתנים */
     const EV_FIELDS = ['clientPhone', 'date', 'startTime', 'endTime', 'location', 'guests', 'note'];
     function eventView(q){
@@ -500,5 +518,5 @@
     }
     const clearUsageToken = () => { try { sessionStorage.removeItem('sb.mon'); } catch(e) {} };
 
-    window.Core = { eventView, EV_FIELDS, cleanConfig, trialEnd, leftText, fmtDateTime, accessOver, startTrial, trialUsed, licenseReminderDue, licenseReminder, accessStatus, accessFields, licenseOf, isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, timeout, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
+    window.Core = { viewsInfo, eventView, EV_FIELDS, cleanConfig, trialEnd, leftText, fmtDateTime, accessOver, startTrial, trialUsed, licenseReminderDue, licenseReminder, accessStatus, accessFields, licenseOf, isDynamic, usageToken, clearUsageToken, isQuota, QUOTA_MSG, openPdf, withRetry, timeout, hasPdf, getPdf, putPdf, migratePdf, deletePdf, singleSession, reminderDue, supportReminder, fb, bindWhatsApp, waPhone, waText, makeShortLink, shortUrl, resolveShortLink, deleteShortLink, isOwner, accountState, rememberEmail, rememberedEmail, forgetEmail, inAppBrowser, parseISO, toISO, fmtDate, addMonths, supportStatus, signIn, signOut, signOutQuiet, onAuth, tenantOf, vendorAccess, loadTenant, esc, b64UrlEncode, b64UrlDecode, signedMismatch, money, clean, shareUrl, GOOGLE_SVG, PF };
 })();
