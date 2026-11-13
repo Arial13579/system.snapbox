@@ -51,7 +51,7 @@ await ok('owner suspends noa', updateDoc(doc(owner, 'tenants/noa'), { active: fa
 await no('suspended noa cannot read quotes', getDocs(collection(noa, 'tenants/noa/quotes')));
 await ok('owner still reads noa quotes', getDocs(collection(owner, 'tenants/noa/quotes')));
 await ok('owner reactivates noa', updateDoc(doc(owner, 'tenants/noa'), { active: true }));
-await (async () => { const s = (await getDoc(doc(owner, 'tenants/noa/quotes/q1'))).data() || {}; if (s.status === 'signed') { await no('vendor cannot delete a signed quote', deleteDoc(doc(noa, 'tenants/noa/quotes/q1'))); await ok('owner deletes a signed quote', deleteDoc(doc(owner, 'tenants/noa/quotes/q1'))); } else await ok('noa deletes a pending quote after reactivation', deleteDoc(doc(noa, 'tenants/noa/quotes/q1'))); })();
+await (async () => { const s = (await getDoc(doc(owner, 'tenants/noa/quotes/q1'))).data() || {}; if (s.status === 'signed') { await ok('owner deletes a signed quote', deleteDoc(doc(owner, 'tenants/noa/quotes/q1'))); } else await ok('noa deletes a pending quote after reactivation', deleteDoc(doc(noa, 'tenants/noa/quotes/q1'))); })();
 
 console.log('Legacy CHECK system (unchanged behaviour)');
 await ok('owner creates check quote', setDoc(doc(owner, 'check_quotes/c1'), { status: 'pending' }));
@@ -256,8 +256,11 @@ await no('anon cannot mark hasPdf + change price', updateDoc(doc(anon, 'tenants/
 await no('anon cannot read the pdf', getDoc(doc(anon, 'tenants/noa/quotes/pq1/pdf/file')));
 await no('other vendor cannot read the pdf', getDoc(doc(yossi, 'tenants/noa/quotes/pq1/pdf/file')));
 await ok('vendor reads the pdf', getDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file')));
-await no('vendor cannot replace the signed pdf', setDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0y' }));
-await no('vendor cannot delete the signed pdf', deleteDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file')));
+await ok('vendor replaces the signed pdf (owner request 2026-11-13)', setDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0y' }));
+await no('vendor cannot replace pdf with a huge file', setDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file'), { pdfData: 'x'.repeat(1000001), at: serverTimestamp() }));
+await no('other vendor cannot replace the pdf', setDoc(doc(yossi, 'tenants/noa/quotes/pq1/pdf/file'), pdfDoc));
+await no('anon still cannot replace the pdf', setDoc(doc(anon, 'tenants/noa/quotes/pq1/pdf/file'), pdfDoc));
+await no('other vendor cannot delete the pdf', deleteDoc(doc(yossi, 'tenants/noa/quotes/pq1/pdf/file')));
 await no('anon cannot add in-doc pdfData once the file exists', updateDoc(doc(anon, 'tenants/noa/quotes/pq1'), { pdfData: 'JVBERi0z' }));
 await no('vendor cannot add in-doc pdfData once the file exists', updateDoc(doc(noa, 'tenants/noa/quotes/pq1'), { pdfData: 'JVBERi0z' }));
 await ok('owner replaces the pdf', setDoc(doc(owner, 'tenants/noa/quotes/pq1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0y' }));
@@ -369,8 +372,12 @@ await no('anon cannot add a pdf an hour after signing', setDoc(doc(anon, 'tenant
 await no('anon cannot add in-doc pdf an hour after signing', updateDoc(doc(anon, 'tenants/noa/quotes/sec1'), { pdfData: 'JVBERi0x' }));
 await ok('vendor can attach a missing pdf once', setDoc(doc(noa, 'tenants/noa/quotes/sec1/pdf/file'), pdfDoc));
 await ok('vendor marks it', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { hasPdf: true }));
-await no('vendor cannot replace it afterwards', setDoc(doc(noa, 'tenants/noa/quotes/sec1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0z' }));
-await no('vendor cannot delete a signed quote', deleteDoc(doc(noa, 'tenants/noa/quotes/sec1')));
+await ok('vendor can replace it afterwards', setDoc(doc(noa, 'tenants/noa/quotes/sec1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0z' }));
+await no('vendor still cannot change the signed price', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { price: 1 }));
+await no('vendor cannot un-sign', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { status: 'pending' }));
+await no('other vendor cannot delete it', deleteDoc(doc(yossi, 'tenants/noa/quotes/sec1')));
+await no('anon cannot delete it', deleteDoc(doc(anon, 'tenants/noa/quotes/sec1')));
+await ok('vendor deletes a signed quote (owner request 2026-11-13)', deleteDoc(doc(noa, 'tenants/noa/quotes/sec1')));
 await no('consent cannot be backdated', setDoc(doc(noa, 'tenants/noa/consents/noa@gmail.com|v9'), { email: 'noa@gmail.com', version: 'v9', acceptedAt: Timestamp.fromMillis(1), userAgent: 'UA' }));
 await no('package delete marker cannot carry big data', setDoc(doc(noa, 'tenants/noa/packages/big'), { deleted: true, desc: 'x'.repeat(400), updatedAt: serverTimestamp() }));
 await ok('package delete marker', setDoc(doc(noa, 'tenants/noa/packages/big'), { deleted: true, updatedAt: serverTimestamp() }));
@@ -444,7 +451,7 @@ await ok('vendor edits event details on signed quote', updateDoc(doc(noa, 'tenan
 await ok('vendor edits event details on pending quote', updateDoc(doc(noa, 'tenants/evt/quotes/p1'), { ev: { clientPhone: '052-1111111', at: serverTimestamp() } }));
 await no('vendor cannot change price together with ev', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { price: 1, ev: { note: 'x', at: serverTimestamp() } }));
 await no('vendor cannot change the contract date directly', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { date: '09/09/2027' }));
-await no('ev with unknown field rejected', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { ev: { price: 1, at: serverTimestamp() } }));
+await no('ev with unknown field rejected', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { ev: { status: 'signed', at: serverTimestamp() } }));
 await no('ev with huge note rejected', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { ev: { note: 'x'.repeat(1200), at: serverTimestamp() } }));
 await no('ev with backdated time rejected', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { ev: { note: 'x', at: new Date('2020-01-01') } }));
 await no('other vendor cannot edit event details', updateDoc(doc(yossi, 'tenants/evt/quotes/s1'), { ev: { note: 'x', at: serverTimestamp() } }));
@@ -452,6 +459,18 @@ await no('anon cannot edit event details', updateDoc(doc(anon, 'tenants/evt/quot
 await setDoc(doc(owner, 'tenants/evt'), { admins: ['noa@gmail.com'], active: true, name: 'Ev', limited: true });
 await no('limited vendor cannot edit event details', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { ev: { note: 'y', at: serverTimestamp() } }));
 await ok('owner edits event details', updateDoc(doc(owner, 'tenants/evt/quotes/s1'), { ev: { note: 'o' } }));
+
+console.log('Event details v2 — every field + paid toggles');
+await setDoc(doc(owner, 'tenants/evt'), { admins: ['noa@gmail.com'], active: true, name: 'Ev' });
+await ok('vendor edits price/deposit/type/pkg/notes in ev', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { ev: { eventType: 'חינה', pkg: 'פרימיום', price: 4500, deposit: 1000, notes: 'n', at: serverTimestamp() } }));
+await ok('vendor marks paid + deposit paid + in calendar', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { 'ev.paid': true, 'ev.depositPaid': true, 'ev.inCal': true, 'ev.at': serverTimestamp() }));
+await no('paid must be bool', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { 'ev.paid': 'yes', 'ev.at': serverTimestamp() }));
+await no('price must be a number', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { 'ev.price': '1', 'ev.at': serverTimestamp() }));
+await no('negative deposit rejected', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { 'ev.deposit': -1, 'ev.at': serverTimestamp() }));
+await no('other vendor cannot mark paid', updateDoc(doc(yossi, 'tenants/evt/quotes/s1'), { 'ev.paid': false, 'ev.at': serverTimestamp() }));
+await ok('vendor uploads a file to a pending quote', setDoc(doc(noa, 'tenants/evt/quotes/p1/pdf/file'), { pdfData: 'JVBERi0x', at: serverTimestamp() }));
+await ok('vendor marks hasPdf on a pending quote', updateDoc(doc(noa, 'tenants/evt/quotes/p1'), { hasPdf: true }));
+await no('vendor cannot sneak price with hasPdf', updateDoc(doc(noa, 'tenants/evt/quotes/p1'), { hasPdf: true, price: 1 }));
 
 console.log('Views — anonymous open counter');
 await setDoc(doc(owner, 'tenants/vw'), { admins: ['noa@gmail.com'], active: true, name: 'Vw' });

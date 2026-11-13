@@ -631,7 +631,7 @@
 
     /* ================= לוח בקרה ================= */
     let QUOTES = [], statusChart, revenueChart, statusFilter = 'all', searchTerm = '', pendingUploadId = null;
-    const serviceLabel = q => q && q.items && q.items.length ? q.items[0].label + (q.items.length > 1 ? ` +${q.items.length - 1}` : '') : ((q && q.pkg && q.pkg.label) || ((P.SERVICES || {})[q && q.service] || {}).label || '');
+    const serviceLabel = q => q && q.pkgText ? q.pkgText : q && q.items && q.items.length ? q.items[0].label + (q.items.length > 1 ? ` +${q.items.length - 1}` : '') : ((q && q.pkg && q.pkg.label) || ((P.SERVICES || {})[q && q.service] || {}).label || '');
     const fmtTs = ts => ts && ts.toDate ? ts.toDate().toLocaleString('he-IL', { dateStyle: 'short', timeStyle: 'short' }) : null;
     const qCol = () => fb.fs.collection(fb.db, 'tenants', slug, 'quotes');
 
@@ -705,19 +705,25 @@
         let rows = QUOTES.slice();
         if (statusFilter !== 'all') rows = rows.filter(q => (q.status || 'pending') === statusFilter);
         if (searchTerm) rows = rows.filter(q => `${q.clientName || ''} ${q.eventType || ''} ${serviceLabel(q)}`.toLowerCase().includes(searchTerm));
-        if (!rows.length) { $('tbody').innerHTML = '<tr><td colspan="9" class="loading">אין הצעות להצגה</td></tr>'; return; }
+        if (!rows.length) { $('tbody').innerHTML = '<tr><td colspan="8" class="loading">אין הצעות להצגה</td></tr>'; return; }
         $('tbody').innerHTML = rows.map(q => {
             const signed = q.status === 'signed', sa = fmtTs(q.signedAt);
             const bad = Core.signedMismatch(q, 'quote');
             const pill = signed ? `<span class="pill signed">נחתם</span>${sa ? `<div class="sub">${sa}</div>` : ''}${bad ? '<div class="sub" style="color:#B91C1C;font-weight:700">⚠ נחתם על פרטים שונים מההצעה ששלחתם</div>' : ''}` : '<span class="pill pending">ממתין</span>';
             const seen = Core.viewsInfo(q).html;
-            // ההסכם החתום נשמר כמו שהוא: הספק לא מחליף ולא מוחק אותו (רק Snap Box). אם חסר קובץ — אפשר לצרף פעם אחת
-            const file = Core.hasPdf(q) ? `<div class="acts"><button type="button" class="btn sm view-file" data-id="${esc(q.id)}">צפייה</button>${isOwnerView ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">החלפה</button>` : ''}</div>`
-                                   : signed || isOwnerView ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">העלאה</button>` : '<span class="sub">—</span>';
-            const v = Core.eventView(q);
-            return `<tr><td>${fmtTs(q.createdAt) || '—'}</td><td class="name">${esc(q.clientName)}</td><td>${esc(q.eventType)}</td><td>${esc(serviceLabel(q))}</td>
-                <td dir="ltr" style="text-align:right">${esc(v.date)}</td><td><b>${Core.money(q.price)}</b></td><td>${pill}<div class="sub">${seen}</div></td><td>${file}</td>
-                <td><button type="button" class="btn sm ev-open" data-id="${esc(q.id)}" aria-label="פרטי אירוע: ${esc(q.clientName || '')}">פרטי אירוע</button></td></tr>`;
+            const v = Core.eventView(q), has = Core.hasPdf(q);
+            // פעולות: ממתין → 📤 העלה קובץ · 📋 פרטי אירוע · העתק קישור · מחק | נחתם (או שיש קובץ) → 📄 צפייה · 🔄 החלף · …
+            const acts = [
+                has ? `<button type="button" class="btn sm view-file" data-id="${esc(q.id)}">📄 צפייה</button>` : '',
+                canEditEvents ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">${has ? '🔄 החלף' : '📤 העלה קובץ'}</button>` : '',
+                `<button type="button" class="btn sm ev-open" data-id="${esc(q.id)}" aria-label="פרטי אירוע: ${esc(q.clientName || '')}">📋 פרטי אירוע</button>`,
+                `<button type="button" class="btn sm copy-link" data-id="${esc(q.id)}">העתק קישור</button>`,
+                canEditEvents ? `<button type="button" class="btn sm danger del-q" data-id="${esc(q.id)}">מחק</button>` : ''
+            ].filter(Boolean).join('');
+            const paidBox = `<label class="paid-chk"><input type="checkbox" class="paid-toggle" data-id="${esc(q.id)}"${v.paid ? ' checked' : ''}${canEditEvents ? '' : ' disabled'}> שולם</label>`;
+            return `<tr class="${v.paid ? 'paid-row' : ''}"><td>${fmtTs(q.createdAt) || '—'}</td><td class="name">${esc(v.clientName)}</td><td>${esc(v.eventType)}</td><td>${esc(serviceLabel(v))}</td>
+                <td dir="ltr" style="text-align:right">${esc(v.date)}</td><td><b>${Core.money(v.price)}</b></td><td>${pill}<div class="sub">${seen}</div>${paidBox}</td>
+                <td><div class="row-acts">${acts}</div></td></tr>`;
         }).join('');
     }
     $('search').addEventListener('input', e => { searchTerm = e.target.value.trim().toLowerCase(); renderTable(); });
@@ -727,10 +733,33 @@
         const btn = e.target.closest('button'); if (!btn) return;
         const q = QUOTES.find(x => x.id === btn.dataset.id); if (!q) return;
         if (btn.classList.contains('ev-open')) openEvent(q.id, btn);
-        else if (btn.classList.contains('view-file')) {
-            Core.openPdf(`tenants/${slug}/quotes/${q.id}`, q);
-        } else if (btn.classList.contains('upload-file')) { pendingUploadId = q.id; $('fileUploadInput').click(); }
+        else if (btn.classList.contains('view-file')) Core.openPdf(`tenants/${slug}/quotes/${q.id}`, q);
+        else if (btn.classList.contains('upload-file')) { pendingUploadId = q.id; $('fileUploadInput').click(); }
+        else if (btn.classList.contains('copy-link')) copyText(Core.shortUrl(Core.shareUrl(slug, q), q.shortId), btn);
+        else if (btn.classList.contains('del-q')) deleteQuote(q, btn);
     });
+    $('tbody').addEventListener('change', e => {
+        const c = e.target.closest('.paid-toggle'); if (!c) return;
+        const q = QUOTES.find(x => x.id === c.dataset.id); if (q) setFlag(q, 'paid', c.checked, c);
+    });
+    async function deleteQuote(q, b){
+        const signed = q.status === 'signed';
+        if (!confirm(signed ? `זו הצעה חתומה (הסכם) של ${q.clientName || 'הלקוח'}.\nלמחוק אותה ואת ההסכם החתום לצמיתות? לא ניתן לשחזר.` : `למחוק לצמיתות את ההצעה של ${q.clientName || 'הלקוח'}? לא ניתן לשחזר.`)) return;
+        if (b) { b.disabled = true; b.textContent = 'מוחק…'; }
+        try {
+            await Core.deletePdf(`tenants/${slug}/quotes/${q.id}`);
+            await fb.fs.deleteDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id)); Core.deleteShortLink(q.shortId);
+            if (evDlg.open && evId === q.id) { evReturn = null; closeEvent(); }
+        } catch(err) { alert(err && err.code === 'permission-denied' ? 'אין הרשאה למחוק (ייתכן שצריך לעדכן את הגדרות האבטחה ב-Firebase).' : 'המחיקה נכשלה.'); if (b) { b.disabled = false; b.textContent = 'מחק'; } }
+    }
+    // תיבות סימון (שולם / מקדמה שולמה / הכנסתי ליומן) — נשמר מיד בשדה ev, השורה בטבלה מתעדכנת
+    async function setFlag(q, k, val, el){
+        const prev = q.ev ? Object.assign({}, q.ev) : undefined;
+        q.ev = Object.assign({}, q.ev || {}); if (val) q.ev[k] = true; else delete q.ev[k];
+        renderTable(); if (evDlg.open) renderEvent();
+        try { await fb.fs.updateDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id), { ['ev.' + k]: val ? true : fb.fs.deleteField(), 'ev.at': fb.fs.serverTimestamp() }); }
+        catch(err) { q.ev = prev; renderTable(); if (evDlg.open) renderEvent(); alert(err && err.code === 'permission-denied' ? 'אין הרשאה לשמור (ייתכן שצריך לעדכן את הגדרות האבטחה ב-Firebase).' : 'השמירה נכשלה.'); }
+    }
 
     /* ================= פרטי אירוע: כפתור אחד בשורה → חלון עם כל הפרטים, ועיפרון לעריכה =================
        העריכה נשמרת בשדה ev בהצעה (טלפון, תאריך, שעות, מקום, מוזמנים, הערה פנימית) — ללוח הבקרה וליומן.
@@ -771,39 +800,45 @@
         if (evEditing) {
             $('ev_phone').value = v.clientPhone || ''; $('ev_date').value = v.date || ''; $('ev_start').value = v.startTime || ''; $('ev_end').value = v.endTime || '';
             $('ev_loc').value = v.location || ''; $('ev_guests').value = v.guests || ''; $('ev_note').value = v.evNote || ''; $('ev-msg').textContent = '';
+            $('ev_type').value = v.eventType || ''; $('ev_pkg').value = serviceLabel(v) || ''; $('ev_price').value = v.price || v.price === 0 ? v.price : '';
+            $('ev_dep').value = v.deposit || v.deposit === 0 ? v.deposit : ''; $('ev_cnotes').value = v.notes || '';
             return;
         }
-        const row = (k, val, extra) => val || val === 0 ? `<div class="ir"><dt>${k}</dt><dd>${val}${extra || ''}</dd></div>` : '';
-        const hours = v.startTime ? `<span dir="ltr">${esc(v.startTime)}${v.endTime ? '–' + esc(v.endTime) : ''}</span>` : '';
-        const phone = v.clientPhone ? `<a href="tel:${esc(v.clientPhone)}" dir="ltr">${esc(v.clientPhone)}</a>` : `<span class="ir-empty">לא הוזן${canEditEvents ? ' · אפשר להוסיף בעיפרון' : ''}</span>`;
-        const edited = q.ev && Object.keys(q.ev).some(k => k !== 'at');
-        const groups = [
-            ['לקוח', row('שם', esc(q.clientName || '')) + row('טלפון', phone, '<small class="ir-lock">רק אתם רואים</small>')],
-            ['מעקב', row('נפתחה', esc(Core.viewsInfo(q).text) + (Core.viewsInfo(q).full ? ` <small dir="ltr">${esc(Core.viewsInfo(q).full)}</small>` : '')) + (signed ? row('נחתמה', esc(fmtTs(q.signedAt) || '')) : '')],
-            ['האירוע', row('סוג', esc(q.eventType || '')) + row('תאריך', v.date ? `<span dir="ltr">${esc(v.date)}</span> <small>${dayName(v.date)}</small>` : '') + row('שעות', hours)
-                + row('מקום', esc(v.location || '')) + row('מוזמנים', v.guests ? esc(v.guests) : '') + row(MODE === 'items' ? 'פריטים' : 'חבילה', esc(serviceLabel(q)))],
-            ['תשלום', row('מחיר', `<b>${Core.money(q.price)}</b>`) + row('מקדמה', Core.money(q.deposit)) + row('יתרה', Core.money(bal)) + (Number(q.discount) ? row('הנחה', Core.money(q.discount)) : '')],
-            ['הערות', row('בהצעה', q.notes ? esc(q.notes) : '') + row('פנימית', v.evNote ? esc(v.evNote) : '')]
-        ].filter(g => g[1]);
-        const acts = [
-            ph ? `<a class="act" href="https://wa.me/${ph}" target="_blank" rel="noopener">וואטסאפ ללקוח</a>` : '',
-            v.clientPhone ? `<a class="act" href="tel:${esc(v.clientPhone)}">חיוג</a>` : '',
-            `<button type="button" class="act" id="ev-copy">העתק קישור להצעה</button>`,
-            Core.hasPdf(q) ? `<button type="button" class="act" id="ev-pdf">ההסכם החתום</button>` : ''
-        ].filter(Boolean).join('');
-        $('ev-view').innerHTML = groups.map(g => `<section class="ig"><h3>${g[0]}</h3><dl>${g[1]}</dl></section>`).join('')
-            + `<div class="ev-acts">${acts}</div>`
-            + (edited ? `<p class="hint ev-edited">✎ הפרטים עודכנו${q.ev.at && q.ev.at.toDate ? ' ב-' + esc(fmtTs(q.ev.at)) : ''} · ההצעה ${signed ? 'וההסכם החתום' : 'שנשלחה ללקוח'} לא השתנו</p>` : '')
-            + ((!signed || isOwnerView) && canEditEvents ? `<button type="button" class="btn danger block ev-del" id="ev-del">${IC.trash}<span>מחיקת ההצעה</span></button>` : '');
-        $('ev-copy').addEventListener('click', e => copyText(Core.shortUrl(Core.shareUrl(slug, q), q.shortId), e.currentTarget));
-        if ($('ev-pdf')) $('ev-pdf').addEventListener('click', () => Core.openPdf(`tenants/${slug}/quotes/${q.id}`, q));
-        if ($('ev-del')) $('ev-del').addEventListener('click', async e => {
-            const b = e.currentTarget;
-            if (!confirm(`למחוק לצמיתות את ההצעה של ${q.clientName || 'הלקוח'}? לא ניתן לשחזר.`)) return;
-            b.disabled = true; b.lastChild.textContent = 'מוחק…';
-            try { await Core.deletePdf(`tenants/${slug}/quotes/${q.id}`); await fb.fs.deleteDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id)); Core.deleteShortLink(q.shortId); evReturn = null; closeEvent(); }
-            catch(err) { alert('המחיקה נכשלה.'); b.disabled = false; b.lastChild.textContent = 'מחיקת ההצעה'; }
-        });
+        const row = (k, val) => `<div class="ir"><dt>${k}</dt><dd>${val}</dd></div>`;
+        const none = t => `<span class="ir-empty">${t}</span>`;
+        const mins = durationMinutes(v.startTime, v.endTime), hrs = mins ? (mins % 60 ? `${Math.floor(mins / 60)}:${String(mins % 60).padStart(2, '0')} שעות` : ({ 1: 'שעה', 2: 'שעתיים' })[mins / 60] || `${mins / 60} שעות`) : '';
+        const hours = v.startTime ? `<span><span dir="ltr">${esc(v.startTime)}${v.endTime ? '–' + esc(v.endTime) : ''}</span>${hrs ? ' · ' + hrs : ''}</span>` : none('לא הוזן');
+        const price = Number(v.price) || 0, dep = Number(v.deposit) || 0;
+        const chk = (k, on, onTxt, offTxt) => `<label class="ev-chk${on ? ' on' : ''}"><input type="checkbox" data-flag="${k}"${on ? ' checked' : ''}${canEditEvents ? '' : ' disabled'}><span>${on ? onTxt : offTxt}</span></label>`;
+        const phone = v.clientPhone ? `<span><a href="tel:${esc(v.clientPhone)}" dir="ltr">${esc(v.clientPhone)}</a>${ph ? ` · <a href="https://wa.me/${ph}" target="_blank" rel="noopener">וואטסאפ</a>` : ''}</span>`
+            : none('לא הוזן' + (canEditEvents ? ' · אפשר להוסיף בעיפרון ✎ למעלה' : ''));
+        const edited = q.ev && Object.keys(q.ev).some(k => !['at', 'paid', 'depositPaid', 'inCal'].includes(k));
+        const g = AppExtras && AppExtras.googleLink ? AppExtras.googleLink(v) : '';
+        $('ev-view').innerHTML = `<div class="ev-paid${v.paid ? ' on' : ''}">${chk('paid', v.paid, '✅ האירוע שולם', 'סמנו כשהאירוע שולם')}</div>
+            <dl class="ev-list">
+              ${row('📞 טלפון הלקוח', phone)}
+              ${row('🎉 סוג האירוע', v.eventType ? esc(v.eventType) : none('—'))}
+              ${row('📅 תאריך', v.date ? `<span><span dir="ltr">${esc(v.date)}</span>${dayName(v.date) ? ' · ' + dayName(v.date) : ''}</span>` : none('לא הוזן'))}
+              ${row('🕒 שעות', hours)}
+              ${row('📍 מיקום', v.location ? esc(v.location) : none('לא הוזן'))}
+              ${row('👥 מוזמנים', v.guests ? esc(v.guests) : none('—'))}
+              ${row('📦 חבילה', esc(serviceLabel(v)) || '—')}
+              ${row('💰 מחיר', `<b>${Core.money(price)}</b>`)}
+              ${row('💵 מקדמה', `<span>${Core.money(dep)} · ${chk('depositPaid', v.depositPaid, 'שולמה', 'לא שולמה')}</span>`)}
+              ${row('🧾 יתרה לגבייה', v.paid ? '<span class="ok-t">₪0 · הכול שולם</span>' : Core.money(Math.max(0, price - dep)))}
+              ${row('📌 הכנסתי את האירוע', chk('inCal', v.inCal, 'כן ✓', 'עדיין לא'))}
+              ${row('📝 הערות הלקוח', v.notes ? esc(v.notes) : none('אין'))}
+              ${row('🗒 ההערות שלי', v.evNote ? esc(v.evNote) : none('אין'))}
+            </dl>
+            ${edited ? `<p class="hint ev-edited">✎ הפרטים עודכנו · ההצעה ${signed ? 'וההסכם החתום' : 'שנשלחה ללקוח'} לא השתנו</p>` : ''}
+            <div class="ev-foot">
+              ${g ? `<a class="btn" id="ev-gcal" href="${esc(g)}" target="_blank" rel="noopener">📅 יומן Google</a>` : ''}
+              ${v.location ? `<a class="btn" href="https://waze.com/ul?q=${encodeURIComponent(v.location)}&navigate=yes" target="_blank" rel="noopener">🚗 Waze</a>` : ''}
+              <button type="button" class="btn" id="ev-close2">סגירה</button>
+            </div>`;
+        $('ev-view').querySelectorAll('input[data-flag]').forEach(c => c.addEventListener('change', () => setFlag(q, c.dataset.flag, c.checked)));
+        $('ev-close2').addEventListener('click', closeEvent);
+        if ($('ev-gcal')) $('ev-gcal').addEventListener('click', () => { if (!v.inCal && canEditEvents) setFlag(q, 'inCal', true); });
     }
     ['ev_date', 'ev_start', 'ev_end'].forEach(id => $(id).addEventListener('input', e => {   // הקלדה נוחה בטלפון: לוכסנים ונקודתיים לבד
         const el = e.target, d = el.value.replace(/\D/g, '');
@@ -813,19 +848,28 @@
         e.preventDefault();
         const q = QUOTES.find(x => x.id === evId); if (!q) return;
         const msg = $('ev-msg'), val = id => Core.clean($(id).value.trim());
+        const num = id => { const x = String($(id).value).replace(/[^\d.]/g, ''); return x === '' ? 0 : Math.round(Number(x) * 100) / 100; };
         const next = { clientPhone: val('ev_phone').slice(0, 40), date: val('ev_date'), startTime: val('ev_start'), endTime: val('ev_end'),
-                       location: val('ev_loc').slice(0, 300), guests: $('ev_guests').value.replace(/\D/g, '').slice(0, 6), note: val('ev_note').slice(0, 1000) };
+                       location: val('ev_loc').slice(0, 300), guests: $('ev_guests').value.replace(/\D/g, '').slice(0, 6), note: val('ev_note').slice(0, 1000),
+                       eventType: val('ev_type').slice(0, 120), pkg: val('ev_pkg').slice(0, 200), price: num('ev_price'), deposit: num('ev_dep'), notes: val('ev_cnotes').slice(0, 2000) };
         const bad = (id, t) => { msg.textContent = t; msg.className = 'hint warn'; $(id).focus(); };
         if (next.clientPhone && !/^[\d+\-() ]{7,20}$/.test(next.clientPhone)) return bad('ev_phone', 'מספר הטלפון לא תקין.');
         if (next.date) { const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(next.date), d = m && new Date(+m[3], +m[2] - 1, +m[1]);
             if (!d || d.getDate() !== +m[1] || d.getMonth() !== +m[2] - 1) return bad('ev_date', 'תאריך לא תקין — DD/MM/YYYY.'); }
         else return bad('ev_date', 'צריך תאריך לאירוע.');
+        if (next.price > 10000000 || next.deposit > 10000000) return bad('ev_price', 'סכום לא תקין.');
+        if (next.deposit > next.price) return bad('ev_dep', 'המקדמה גדולה מהמחיר.');
         const tm = s => !s || /^([01]\d|2[0-3]):[0-5]\d$/.test(s);
         if (!tm(next.startTime)) return bad('ev_start', 'שעה לא תקינה — HH:MM.');
         if (!tm(next.endTime)) return bad('ev_end', 'שעה לא תקינה — HH:MM.');
         // נשמר רק מה ששונה מההצעה המקורית
         const ev = {};
-        Core.EV_FIELDS.forEach(k => { const orig = k === 'note' ? '' : String(q[k] == null ? '' : q[k]); if (next[k] !== orig) ev[k] = next[k]; });
+        Core.EV_FIELDS.forEach(k => {
+            if (k === 'price' || k === 'deposit') { if (next[k] !== (Number(q[k]) || 0)) ev[k] = next[k]; return; }
+            const orig = k === 'note' ? '' : k === 'pkg' ? serviceLabel(q) : String(q[k] == null ? '' : q[k]);
+            if (next[k] !== orig) ev[k] = next[k];
+        });
+        Core.EV_FLAGS.forEach(k => { if (q.ev && q.ev[k] === true) ev[k] = true; });   // תיבות הסימון נשמרות
         const b = $('ev-save'); b.disabled = true; msg.className = 'hint'; msg.textContent = 'שומר…';
         try {
             await fb.fs.updateDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id), { ev: Object.keys(ev).length ? Object.assign(ev, { at: fb.fs.serverTimestamp() }) : fb.fs.deleteField() });

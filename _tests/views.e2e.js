@@ -119,7 +119,7 @@ const b64u = s => Buffer.from(s, 'utf8').toString('base64').replace(/\+/g, '-').
   check(/עוד לא נפתחה/.test(rowsTxt), 'unopened quote: "עוד לא נפתחה"');
   await V.p.screenshot({ path: SHOTS + 'dash-views.png', fullPage: false });
   await V.p.click('#tbody .ev-open[data-id="qv1"]'); await V.p.waitForSelector('#ev-dlg[open]');
-  check(/מעקב[\s\S]*נפתחה פעמיים/.test(await V.p.textContent('#ev-view')), 'event dialog has a "מעקב" group');
+  check(/נפתחה פעמיים/.test(await V.p.textContent('#tbody')), 'the views stay visible in the row while the event window is open');
   await V.p.waitForTimeout(500); await V.p.screenshot({ path: SHOTS + 'ev-views.png' });
   await axe(V.p, 'event dialog with views');
   await V.p.click('#ev-close');
