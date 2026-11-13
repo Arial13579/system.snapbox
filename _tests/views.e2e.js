@@ -79,7 +79,7 @@ const fields = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !==
 const b64u = s => Buffer.from(s, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 (async () => {
   const win = {}; new Function('window', fs.readFileSync('/home/user/hatzaa/snapiiii/config.js', 'utf8'))(win);
-  const cfg = win.TENANT; cfg.business.name = 'סטודיו אור'; cfg.business.phone = '054-6056180'; cfg.business.logo = '';
+  const cfg = win.TENANT; cfg.business.name = 'סטודיו אור'; cfg.business.phone = '054-6056180'; cfg.business.logo = ''; cfg.business.email = 'studio.or@gmail.com';
   const now = new Date(), evDay = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 30);
   await emu('PATCH', 'vendorConfigs/' + SLUG, { fields: { config: str(JSON.stringify(cfg)), updatedAt: ts(now) } });
   await emu('PATCH', 'tenants/' + SLUG, { fields: fields({ slug: SLUG, name: 'סטודיו אור', admins: [VENDOR], active: true, managed: 'admin', createdAt: now }) });
@@ -133,6 +133,9 @@ const b64u = s => Buffer.from(s, 'utf8').toString('base64').replace(/\+/g, '-').
   await C.p.mouse.up(); await C.p.check('#agree-terms');
   const dl = C.p.waitForEvent('download', { timeout: 60000 }); await C.p.click('#submit-btn'); await dl;
   await C.p.waitForSelector('.bitbox', { timeout: 20000 });
+  const mails = sent.filter(u => /formsubmit\.co\//.test(u));
+  check(mails.length >= 1 && mails.every(u => u.includes('formsubmit.co/studio.or@gmail.com')), 'signed-contract email goes to the vendor (studio.or@gmail.com): ' + mails.join(', '));
+  check(!sent.some(u => u.includes('arielkahalani1')), 'the platform owner gets NO email when a vendor\'s client signs');
   check((await C.p.textContent('#bit-num')).trim() === '0546056180', 'Bit box shows the vendor phone 0546056180');
   check(/המקדמה ₪1,500/.test(await C.p.textContent('.bitbox')), 'Bit box shows the deposit');
   await C.p.click('#bit-copy');
@@ -140,6 +143,26 @@ const b64u = s => Buffer.from(s, 'utf8').toString('base64').replace(/\+/g, '-').
   await C.p.locator('.bitbox').scrollIntoViewIfNeeded(); await C.p.waitForTimeout(6500);   // the PDF download link is removed after 6s
   await C.p.screenshot({ path: SHOTS + 'bit-client.png' });
   await axe(C.p, 'customer page after signing (Bit box)');
+
+  console.log('3b. Safeguard: a vendor config that (by mistake) has the owner email → no email to the owner');
+  const cfg2 = JSON.parse(JSON.stringify(cfg)); cfg2.business.email = 'ArielKahalani1@gmail.com';
+  await emu('PATCH', 'vendorConfigs/' + SLUG, { fields: { config: str(JSON.stringify(cfg2)), updatedAt: ts(new Date()) } });
+  sent.length = 0;
+  const Q2 = b64u(['משפחת לוי', 'בר מצווה', 'גני התערוכה', dmy(evDay), '19:30', '00:30', '350', '3900', '800', '', 'qv2', 'booth'].join('|'));
+  const C3 = await newPage(b, 'client-3');
+  await C3.p.goto(`${SITE}/hatzaa/v/?t=${SLUG}&q=${Q2}`); await C3.p.waitForSelector('#sig-canvas', { timeout: 20000 });
+  await C3.p.locator('#sig-canvas').scrollIntoViewIfNeeded();
+  const bb3 = await C3.p.locator('#sig-canvas').boundingBox();
+  await C3.p.mouse.move(bb3.x + 40, bb3.y + 60); await C3.p.mouse.down();
+  for (let i = 0; i < 28; i++) await C3.p.mouse.move(bb3.x + 40 + i * 9, bb3.y + 60 - Math.sin(i / 3) * 30);
+  await C3.p.mouse.up(); await C3.p.check('#agree-terms');
+  const dl3 = C3.p.waitForEvent('download', { timeout: 60000 }); await C3.p.click('#submit-btn'); await dl3;
+  await C3.p.waitForSelector('.warnbox, .done', { timeout: 20000 }); await C3.p.waitForTimeout(1500);
+  check(!sent.some(u => /arielkahalani1/i.test(u)), 'no email sent to the owner address');
+  d = await emu('GET', `tenants/${SLUG}/quotes/qv2`);
+  check(val(d.body.fields.status) === 'signed', 'the signature is still saved (the vendor sees it in the dashboard)');
+  await C3.ctx.close();
+  await emu('PATCH', 'vendorConfigs/' + SLUG, { fields: { config: str(JSON.stringify(cfg)), updatedAt: ts(new Date()) } });
 
   console.log('4. Owner → vendor offer: views + Bit box');
   const O = { id: 'offv1', vendorName: 'סטודיו אור', contactName: 'אור כהן', businessType: 'צלם', plan: 'regular', price: 400, total: 400, deposit: 0 };
