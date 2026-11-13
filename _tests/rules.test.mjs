@@ -256,7 +256,8 @@ await no('anon cannot mark hasPdf + change price', updateDoc(doc(anon, 'tenants/
 await no('anon cannot read the pdf', getDoc(doc(anon, 'tenants/noa/quotes/pq1/pdf/file')));
 await no('other vendor cannot read the pdf', getDoc(doc(yossi, 'tenants/noa/quotes/pq1/pdf/file')));
 await ok('vendor reads the pdf', getDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file')));
-await ok('vendor replaces the signed pdf (owner request 2026-11-13)', setDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0y' }));
+await no('vendor cannot replace the pdf (owner only)', setDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0y' }));
+await no('vendor cannot delete the pdf while the quote exists', deleteDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file')));
 await no('vendor cannot replace pdf with a huge file', setDoc(doc(noa, 'tenants/noa/quotes/pq1/pdf/file'), { pdfData: 'x'.repeat(1000001), at: serverTimestamp() }));
 await no('other vendor cannot replace the pdf', setDoc(doc(yossi, 'tenants/noa/quotes/pq1/pdf/file'), pdfDoc));
 await no('anon still cannot replace the pdf', setDoc(doc(anon, 'tenants/noa/quotes/pq1/pdf/file'), pdfDoc));
@@ -372,12 +373,13 @@ await no('anon cannot add a pdf an hour after signing', setDoc(doc(anon, 'tenant
 await no('anon cannot add in-doc pdf an hour after signing', updateDoc(doc(anon, 'tenants/noa/quotes/sec1'), { pdfData: 'JVBERi0x' }));
 await ok('vendor can attach a missing pdf once', setDoc(doc(noa, 'tenants/noa/quotes/sec1/pdf/file'), pdfDoc));
 await ok('vendor marks it', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { hasPdf: true }));
-await ok('vendor can replace it afterwards', setDoc(doc(noa, 'tenants/noa/quotes/sec1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0z' }));
+await no('vendor cannot replace it afterwards', setDoc(doc(noa, 'tenants/noa/quotes/sec1/pdf/file'), { ...pdfDoc, pdfData: 'JVBERi0z' }));
 await no('vendor still cannot change the signed price', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { price: 1 }));
 await no('vendor cannot un-sign', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { status: 'pending' }));
 await no('other vendor cannot delete it', deleteDoc(doc(yossi, 'tenants/noa/quotes/sec1')));
 await no('anon cannot delete it', deleteDoc(doc(anon, 'tenants/noa/quotes/sec1')));
 await ok('vendor deletes a signed quote (owner request 2026-11-13)', deleteDoc(doc(noa, 'tenants/noa/quotes/sec1')));
+await ok('then deletes its pdf', deleteDoc(doc(noa, 'tenants/noa/quotes/sec1/pdf/file')));
 await no('consent cannot be backdated', setDoc(doc(noa, 'tenants/noa/consents/noa@gmail.com|v9'), { email: 'noa@gmail.com', version: 'v9', acceptedAt: Timestamp.fromMillis(1), userAgent: 'UA' }));
 await no('package delete marker cannot carry big data', setDoc(doc(noa, 'tenants/noa/packages/big'), { deleted: true, desc: 'x'.repeat(400), updatedAt: serverTimestamp() }));
 await ok('package delete marker', setDoc(doc(noa, 'tenants/noa/packages/big'), { deleted: true, updatedAt: serverTimestamp() }));

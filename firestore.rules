@@ -284,11 +284,13 @@ service cloud.firestore {
         && (isOwner()
             || (quoteDoc(t, q).status == 'signed' && (canCreateFor(t)
                 || (quoteDoc(t, q).get('signedAt', null) is timestamp && request.time < quoteDoc(t, q).signedAt + duration.value(30, 'm')))));
-      // הספק מעלה / מחליף את הקובץ של ההצעות שלו (בקשת הבעלים 2026-11-13)
-      allow create, update: if f == 'file' && validPdf() && isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true
+      // הספק מעלה קובץ פעם אחת (כשאין עדיין). החלפה — רק הבעלים (בקשת הבעלים 2026-11-13)
+      allow create: if f == 'file' && validPdf() && isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true
         && exists(/databases/$(database)/documents/tenants/$(t)/quotes/$(q));
       allow update: if f == 'file' && validPdf() && isOwner();
-      allow delete: if isOwner() || (isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true);
+      // הספק מוחק את הקובץ רק אחרי שמחק את ההצעה עצמה (כדי שאי אפשר "להחליף" דרך מחיקה והעלאה מחדש)
+      allow delete: if isOwner() || (isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true
+        && !exists(/databases/$(database)/documents/tenants/$(t)/quotes/$(q)));
     }
     // ---- PDF חתום של הצעה לספק ----
     match /platformQuotes/{q}/pdf/{f} {

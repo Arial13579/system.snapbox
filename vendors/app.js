@@ -715,7 +715,8 @@
             // פעולות: ממתין → 📤 העלה קובץ · 📋 פרטי אירוע · העתק קישור · מחק | נחתם (או שיש קובץ) → 📄 צפייה · 🔄 החלף · …
             const acts = [
                 has ? `<button type="button" class="btn sm view-file" data-id="${esc(q.id)}">📄 צפייה</button>` : '',
-                canEditEvents ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">${has ? '🔄 החלף' : '📤 העלה קובץ'}</button>` : '',
+                // ספק: העלאה פעם אחת (כשאין קובץ). החלפה — רק הבעלים
+                canEditEvents && (!has || isOwnerView) ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">${has ? '🔄 החלף' : '📤 העלה קובץ'}</button>` : '',
                 `<button type="button" class="btn sm ev-open" data-id="${esc(q.id)}" aria-label="פרטי אירוע: ${esc(q.clientName || '')}">📋 פרטי אירוע</button>`,
                 `<button type="button" class="btn sm copy-link" data-id="${esc(q.id)}">העתק קישור</button>`,
                 canEditEvents ? `<button type="button" class="btn sm danger del-q" data-id="${esc(q.id)}">מחק</button>` : ''
@@ -747,8 +748,8 @@
         if (!confirm(signed ? `זו הצעה חתומה (הסכם) של ${q.clientName || 'הלקוח'}.\nלמחוק אותה ואת ההסכם החתום לצמיתות? לא ניתן לשחזר.` : `למחוק לצמיתות את ההצעה של ${q.clientName || 'הלקוח'}? לא ניתן לשחזר.`)) return;
         if (b) { b.disabled = true; b.textContent = 'מוחק…'; }
         try {
-            await Core.deletePdf(`tenants/${slug}/quotes/${q.id}`);
             await fb.fs.deleteDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id)); Core.deleteShortLink(q.shortId);
+            Core.deletePdf(`tenants/${slug}/quotes/${q.id}`);   // הקובץ נמחק אחרי ההצעה (כך הכללים מאפשרים לספק)
             if (evDlg.open && evId === q.id) { evReturn = null; closeEvent(); }
         } catch(err) { alert(err && err.code === 'permission-denied' ? 'אין הרשאה למחוק (ייתכן שצריך לעדכן את הגדרות האבטחה ב-Firebase).' : 'המחיקה נכשלה.'); if (b) { b.disabled = false; b.textContent = 'מחק'; } }
     }
