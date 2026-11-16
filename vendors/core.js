@@ -97,11 +97,17 @@
     async function getPdf(path, d){
         if (d && d.pdfData && !d.hasPdf) return d.pdfData;
         const f = await fb(), s = await withRetry(() => f.fs.getDoc(f.fs.doc(f.db, path + '/pdf/file')), 4, 45000);   // קובץ PDF גדול — יותר זמן לכל ניסיון
-        return s.exists() ? s.data().pdfData : null;
+        return s.exists() ? pdfB64(s.data()) : null;
     }
+    // הקובץ נשמר כבינארי דחוס (pdfBin, Bytes) — רבע פחות מקום מ-base64. קבצים ישנים: pdfData (טקסט base64)
+    const pdfB64 = d => !d ? null : d.pdfBin && d.pdfBin.toBase64 ? d.pdfBin.toBase64() : (d.pdfData || null);
     async function putPdf(path, pdfData, noFallback){
         const f = await fb();
-        try { await f.fs.setDoc(f.fs.doc(f.db, path + '/pdf/file'), { pdfData, at: f.fs.serverTimestamp() }); }
+        const fileRef = f.fs.doc(f.db, path + '/pdf/file');
+        try {
+            try { await f.fs.setDoc(fileRef, { pdfBin: f.fs.Bytes.fromBase64String(pdfData), at: f.fs.serverTimestamp() }); }
+            catch(e0) { if (!(e0 && e0.code === 'permission-denied')) throw e0; await f.fs.setDoc(fileRef, { pdfData, at: f.fs.serverTimestamp() }); }   // כללים ישנים: טקסט כמו קודם
+        }
         catch(e) {
             // כללים ישנים (לפני ההדבקה ב-Firebase): שומרים כמו קודם, בתוך המסמך
             if (noFallback || !(e && e.code === 'permission-denied')) throw e;

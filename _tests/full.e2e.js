@@ -369,7 +369,8 @@ async function draw(p){
   const tamperPdf = await I.p.evaluate(async () => { const f = await Core.fb(); const s = await f.fs.getDocs(f.fs.collection(f.db, 'tenants', 'ilana', 'quotes')); const d = s.docs.find(x => x.data().status === 'signed');
     const r = {}; try { await f.fs.setDoc(f.fs.doc(f.db, `tenants/ilana/quotes/${d.id}/pdf/file`), { pdfData: 'JVBERi0x', at: f.fs.serverTimestamp() }); r.replace = 'ALLOWED'; } catch(e) { r.replace = e.code; }
     try { await f.fs.deleteDoc(f.fs.doc(f.db, 'tenants', 'ilana', 'quotes', d.id)); r.del = 'ALLOWED'; } catch(e) { r.del = e.code; } return r; });
-  check(tamperPdf.replace === 'permission-denied' && tamperPdf.del === 'ALLOWED', 'server: vendor cannot replace the PDF, can delete the quote (' + JSON.stringify(tamperPdf) + ')');
+  // מ-2026-11-16: הסכם חתום — הספק רק מסתיר (מחק = הסתרה), השרת חוסם מחיקה אמיתית
+  check(tamperPdf.replace === 'permission-denied' && tamperPdf.del === 'permission-denied', 'server: vendor cannot replace the PDF or really delete a signed contract (' + JSON.stringify(tamperPdf) + ')');
   await axe(I.p, 'ilana dashboard');
   await I.p.screenshot({ path: SHOTS + 'ilana-dashboard.png', fullPage: true });
 

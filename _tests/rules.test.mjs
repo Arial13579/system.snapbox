@@ -1,5 +1,5 @@
 import { initializeTestEnvironment, assertSucceeds, assertFails } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp, increment, Timestamp, writeBatch } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp, increment, Timestamp, writeBatch, Bytes, deleteField } from 'firebase/firestore';
 import fs from 'fs';
 const env = await initializeTestEnvironment({ projectId: 'check-b2a66', firestore: { rules: fs.readFileSync('firestore.rules', 'utf8'), host: '127.0.0.1', port: 8085 } });
 const as = (email, verified = true) => env.authenticatedContext(email, { email, email_verified: verified }).firestore();
@@ -378,8 +378,18 @@ await no('vendor still cannot change the signed price', updateDoc(doc(noa, 'tena
 await no('vendor cannot un-sign', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { status: 'pending' }));
 await no('other vendor cannot delete it', deleteDoc(doc(yossi, 'tenants/noa/quotes/sec1')));
 await no('anon cannot delete it', deleteDoc(doc(anon, 'tenants/noa/quotes/sec1')));
-await ok('vendor deletes a signed quote (owner request 2026-11-13)', deleteDoc(doc(noa, 'tenants/noa/quotes/sec1')));
-await ok('then deletes its pdf', deleteDoc(doc(noa, 'tenants/noa/quotes/sec1/pdf/file')));
+// 2026-11-16: הסכם חתום — הספק רק מסתיר, נשמר. רק הבעלים מוחק/משחזר
+await no('vendor cannot delete a signed quote', deleteDoc(doc(noa, 'tenants/noa/quotes/sec1')));
+await no('vendor cannot delete its pdf while the quote exists', deleteDoc(doc(noa, 'tenants/noa/quotes/sec1/pdf/file')));
+await no('vendor cannot hide with a fake time', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { hidden: true, hiddenAt: Timestamp.fromMillis(1), hiddenBy: 'noa@gmail.com' }));
+await no('vendor cannot hide + change price', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { hidden: true, hiddenAt: serverTimestamp(), hiddenBy: 'noa@gmail.com', price: 1 }));
+await no('vendor cannot hide as someone else', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { hidden: true, hiddenAt: serverTimestamp(), hiddenBy: 'x@gmail.com' }));
+await no('other vendor cannot hide it', updateDoc(doc(yossi, 'tenants/noa/quotes/sec1'), { hidden: true, hiddenAt: serverTimestamp(), hiddenBy: 'yossi@gmail.com' }));
+await ok('vendor hides a signed quote', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { hidden: true, hiddenAt: serverTimestamp(), hiddenBy: 'noa@gmail.com' }));
+await no('vendor cannot un-hide', updateDoc(doc(noa, 'tenants/noa/quotes/sec1'), { hidden: false }));
+await ok('owner restores it', updateDoc(doc(owner, 'tenants/noa/quotes/sec1'), { hidden: deleteField(), hiddenAt: deleteField(), hiddenBy: deleteField() }));
+await ok('owner deletes the signed quote', deleteDoc(doc(owner, 'tenants/noa/quotes/sec1')));
+await ok('owner deletes its pdf', deleteDoc(doc(owner, 'tenants/noa/quotes/sec1/pdf/file')));
 await no('consent cannot be backdated', setDoc(doc(noa, 'tenants/noa/consents/noa@gmail.com|v9'), { email: 'noa@gmail.com', version: 'v9', acceptedAt: Timestamp.fromMillis(1), userAgent: 'UA' }));
 await no('package delete marker cannot carry big data', setDoc(doc(noa, 'tenants/noa/packages/big'), { deleted: true, desc: 'x'.repeat(400), updatedAt: serverTimestamp() }));
 await ok('package delete marker', setDoc(doc(noa, 'tenants/noa/packages/big'), { deleted: true, updatedAt: serverTimestamp() }));
@@ -470,9 +480,20 @@ await no('paid must be bool', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { 'ev
 await no('price must be a number', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { 'ev.price': '1', 'ev.at': serverTimestamp() }));
 await no('negative deposit rejected', updateDoc(doc(noa, 'tenants/evt/quotes/s1'), { 'ev.deposit': -1, 'ev.at': serverTimestamp() }));
 await no('other vendor cannot mark paid', updateDoc(doc(yossi, 'tenants/evt/quotes/s1'), { 'ev.paid': false, 'ev.at': serverTimestamp() }));
-await ok('vendor uploads a file to a pending quote', setDoc(doc(noa, 'tenants/evt/quotes/p1/pdf/file'), { pdfData: 'JVBERi0x', at: serverTimestamp() }));
-await ok('vendor marks hasPdf on a pending quote', updateDoc(doc(noa, 'tenants/evt/quotes/p1'), { hasPdf: true }));
+// 2026-11-16: הספק מעלה קובץ רק להצעה חתומה (שלא "יתפוס" את המקום של ה-PDF שהלקוח חותם)
+await no('vendor cannot upload a file to a pending quote', setDoc(doc(noa, 'tenants/evt/quotes/p1/pdf/file'), { pdfData: 'JVBERi0x', at: serverTimestamp() }));
+await no('vendor cannot mark hasPdf on a pending quote', updateDoc(doc(noa, 'tenants/evt/quotes/p1'), { hasPdf: true }));
 await no('vendor cannot sneak price with hasPdf', updateDoc(doc(noa, 'tenants/evt/quotes/p1'), { hasPdf: true, price: 1 }));
+
+console.log('PDF as binary (Bytes)');
+await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'tenants/evt/quotes/b1'), { status: 'signed', signedAt: new Date(), price: 1 }));
+await env.withSecurityRulesDisabled(c => setDoc(doc(c.firestore(), 'tenants/evt/quotes/b2'), { status: 'signed', signedAt: new Date(), price: 1 }));
+await no('pdf cannot have both pdfBin and pdfData', setDoc(doc(noa, 'tenants/evt/quotes/b1/pdf/file'), { pdfBin: Bytes.fromUint8Array(new Uint8Array([37, 80, 68, 70])), pdfData: 'JVBERi0x', at: serverTimestamp() }));
+await no('pdfBin must be bytes', setDoc(doc(noa, 'tenants/evt/quotes/b1/pdf/file'), { pdfBin: 'JVBERi0x', at: serverTimestamp() }));
+await ok('vendor uploads a binary pdf to a signed quote', setDoc(doc(noa, 'tenants/evt/quotes/b1/pdf/file'), { pdfBin: Bytes.fromUint8Array(new Uint8Array([37, 80, 68, 70])), at: serverTimestamp() }));
+await ok('vendor marks hasPdf on a signed quote', updateDoc(doc(noa, 'tenants/evt/quotes/b1'), { hasPdf: true }));
+await ok('customer uploads a binary pdf right after signing', setDoc(doc(anon, 'tenants/evt/quotes/b2/pdf/file'), { pdfBin: Bytes.fromUint8Array(new Uint8Array(200000)), at: serverTimestamp() }));
+await no('vendor cannot replace the binary pdf', setDoc(doc(noa, 'tenants/evt/quotes/b2/pdf/file'), { pdfBin: Bytes.fromUint8Array(new Uint8Array([1])), at: serverTimestamp() }));
 
 console.log('Views — anonymous open counter');
 await setDoc(doc(owner, 'tenants/vw'), { admins: ['noa@gmail.com'], active: true, name: 'Vw' });

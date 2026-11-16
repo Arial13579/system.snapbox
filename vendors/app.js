@@ -651,7 +651,8 @@
     function subscribeQuotes(){
         if (unsubQuotes) unsubQuotes();
         unsubQuotes = fb.fs.onSnapshot(fb.fs.query(qCol(), fb.fs.orderBy('createdAt', 'desc'), fb.fs.limit(qLimit)), snap => {
-            QUOTES = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+            // הסכם חתום שהספק "מחק" (hidden) — נעלם אצל הספק, נשמר ומוצג רק לבעלים
+            QUOTES = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(q => isOwnerView || !q.hidden);
             if (evDlg.open && !evEditing) renderEvent();
             $('more-quotes').disabled = false;
             renderAll(); clearTimeout(statsTimer); statsTimer = setTimeout(refreshStats, 300);
@@ -660,11 +661,13 @@
     async function refreshStats(){
         try {
             const fs = fb.fs, col = qCol();
-            const [all, sig] = await Promise.all([
+            const [all, sig, hid] = await Promise.all([
                 fs.getAggregateFromServer(col, { n: fs.count() }),
-                fs.getAggregateFromServer(fs.query(col, fs.where('status', '==', 'signed')), { n: fs.count(), rev: fs.sum('price') })
+                fs.getAggregateFromServer(fs.query(col, fs.where('status', '==', 'signed')), { n: fs.count(), rev: fs.sum('price') }),
+                isOwnerView ? null : fs.getAggregateFromServer(fs.query(col, fs.where('hidden', '==', true)), { n: fs.count(), rev: fs.sum('price') }).catch(() => null)
             ]);
-            STATS = { total: all.data().n, signed: sig.data().n, revenue: Number(sig.data().rev) || 0 };
+            const hn = hid ? hid.data().n : 0, hr = hid ? Number(hid.data().rev) || 0 : 0;   // הסכמים שהספק הסתיר — לא נספרים אצלו
+            STATS = { total: all.data().n - hn, signed: sig.data().n - hn, revenue: (Number(sig.data().rev) || 0) - hr };
         } catch(e) { console.warn('stats', e); STATS = null; }   // אם נכשל — מחשבים מההצעות שנטענו
         renderAll();
     }
@@ -715,15 +718,17 @@
             // פעולות: ממתין → 📤 העלה קובץ · 📋 פרטי אירוע · העתק קישור · מחק | נחתם (או שיש קובץ) → 📄 צפייה · 🔄 החלף · …
             const acts = [
                 has ? `<button type="button" class="btn sm view-file" data-id="${esc(q.id)}">📄 צפייה</button>` : '',
-                // ספק: העלאה פעם אחת (כשאין קובץ). החלפה — רק הבעלים
-                canEditEvents && (!has || isOwnerView) ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">${has ? '🔄 החלף' : '📤 העלה קובץ'}</button>` : '',
+                // ספק: העלאה פעם אחת (כשאין קובץ), ורק להצעה חתומה. החלפה — רק הבעלים
+                canEditEvents && (isOwnerView || (!has && signed)) ? `<button type="button" class="btn sm upload-file" data-id="${esc(q.id)}">${has ? '🔄 החלף' : '📤 העלה קובץ'}</button>` : '',
                 `<button type="button" class="btn sm ev-open" data-id="${esc(q.id)}" aria-label="פרטי אירוע: ${esc(q.clientName || '')}">📋 פרטי אירוע</button>`,
                 `<button type="button" class="btn sm copy-link" data-id="${esc(q.id)}">העתק קישור</button>`,
-                canEditEvents ? `<button type="button" class="btn sm danger del-q" data-id="${esc(q.id)}">מחק</button>` : ''
+                isOwnerView && q.hidden ? `<button type="button" class="btn sm unhide-q" data-id="${esc(q.id)}">♻ שחזור לספק</button>` : '',
+                canEditEvents ? `<button type="button" class="btn sm danger del-q" data-id="${esc(q.id)}">${isOwnerView && signed ? 'מחיקה לצמיתות' : 'מחק'}</button>` : ''
             ].filter(Boolean).join('');
+            const hiddenTag = q.hidden ? `<div class="sub" style="color:#92400E;font-weight:700">🗄 הספק מחק מהרשימה שלו · נשמר אצלך</div>` : '';
             const paidBox = `<label class="paid-chk"><input type="checkbox" class="paid-toggle" data-id="${esc(q.id)}"${v.paid ? ' checked' : ''}${canEditEvents ? '' : ' disabled'}> שולם</label>`;
             return `<tr class="${v.paid ? 'paid-row' : ''}"><td>${fmtTs(q.createdAt) || '—'}</td><td class="name">${esc(v.clientName)}</td><td>${esc(v.eventType)}</td><td>${esc(serviceLabel(v))}</td>
-                <td dir="ltr" style="text-align:right">${esc(v.date)}</td><td><b>${Core.money(v.price)}</b></td><td>${pill}<div class="sub">${seen}</div>${paidBox}</td>
+                <td dir="ltr" style="text-align:right">${esc(v.date)}</td><td><b>${Core.money(v.price)}</b></td><td>${pill}${hiddenTag}<div class="sub">${seen}</div>${paidBox}</td>
                 <td><div class="row-acts">${acts}</div></td></tr>`;
         }).join('');
     }
@@ -738,6 +743,9 @@
         else if (btn.classList.contains('upload-file')) { pendingUploadId = q.id; $('fileUploadInput').click(); }
         else if (btn.classList.contains('copy-link')) copyText(Core.shortUrl(Core.shareUrl(slug, q), q.shortId), btn);
         else if (btn.classList.contains('del-q')) deleteQuote(q, btn);
+        else if (btn.classList.contains('unhide-q')) { btn.disabled = true;
+            try { await fb.fs.updateDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id), { hidden: fb.fs.deleteField(), hiddenAt: fb.fs.deleteField(), hiddenBy: fb.fs.deleteField() }); }
+            catch(err) { alert('השחזור נכשל.'); btn.disabled = false; } }
     });
     $('tbody').addEventListener('change', e => {
         const c = e.target.closest('.paid-toggle'); if (!c) return;
@@ -745,6 +753,16 @@
     });
     async function deleteQuote(q, b){
         const signed = q.status === 'signed';
+        // ספק ומחק הסכם חתום: ההסכם יורד מהרשימה שלו, אבל נשמר (הגנה משפטית לשני הצדדים). רק הבעלים מוחק לצמיתות
+        if (signed && !isOwnerView) {
+            if (!confirm(`להסיר את ההסכם החתום של ${q.clientName || 'הלקוח'} מהרשימה?\nההסכם לא נמחק לגמרי: עותק נשמר במערכת לצורך הגנה משפטית במקרה של מחלוקת.`)) return;
+            if (b) { b.disabled = true; b.textContent = 'מסיר…'; }
+            try {
+                await fb.fs.updateDoc(fb.fs.doc(fb.db, 'tenants', slug, 'quotes', q.id), { hidden: true, hiddenAt: fb.fs.serverTimestamp(), hiddenBy: String(user.email || '').toLowerCase() });
+                if (evDlg.open && evId === q.id) { evReturn = null; closeEvent(); }
+            } catch(err) { alert(err && err.code === 'permission-denied' ? 'אין הרשאה (ייתכן שצריך לעדכן את הגדרות האבטחה ב-Firebase).' : 'ההסרה נכשלה.'); if (b) { b.disabled = false; b.textContent = 'מחק'; } }
+            return;
+        }
         if (!confirm(signed ? `זו הצעה חתומה (הסכם) של ${q.clientName || 'הלקוח'}.\nלמחוק אותה ואת ההסכם החתום לצמיתות? לא ניתן לשחזר.` : `למחוק לצמיתות את ההצעה של ${q.clientName || 'הלקוח'}? לא ניתן לשחזר.`)) return;
         if (b) { b.disabled = true; b.textContent = 'מוחק…'; }
         try {
