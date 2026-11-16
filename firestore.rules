@@ -158,9 +158,19 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['ev'])
         && (!('ev' in request.resource.data) || validEv(request.resource.data.ev));
     }
+    // הקובץ: pdfBin (בינארי, Bytes — רבע פחות מקום) או pdfData (טקסט base64, קבצים ישנים). אחד מהם בלבד.
     function validPdf() {
-      return request.resource.data.keys().hasOnly(['pdfData', 'at'])
-        && request.resource.data.pdfData is string && request.resource.data.pdfData.size() < 1000000;
+      let d = request.resource.data;
+      return d.keys().hasOnly(['pdfData', 'pdfBin', 'at'])
+        && (('pdfBin' in d && !('pdfData' in d) && d.pdfBin is bytes && d.pdfBin.size() < 1000000)
+            || ('pdfData' in d && !('pdfBin' in d) && d.pdfData is string && d.pdfData.size() < 1000000));
+    }
+    // ספק "מוחק" הסכם חתום = מסתיר אותו מהרשימה שלו. ההסכם והקובץ נשמרים (רק הבעלים מוחק לצמיתות / משחזר)
+    function isVendorHidingSigned(t) {
+      return canCreateFor(t) && resource.data.status == 'signed' && resource.data.get('hidden', false) != true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hidden', 'hiddenAt', 'hiddenBy'])
+        && request.resource.data.hidden == true && request.resource.data.hiddenAt == request.time
+        && request.resource.data.hiddenBy == request.auth.token.email;
     }
     // לקוח מצרף PDF: פעם אחת בלבד, אחרי החתימה
     function isClientAttachingPdf() {
@@ -180,8 +190,8 @@ service cloud.firestore {
       match /quotes/{q} {
         allow read: if isOwner() || isVendorOf(t);
         // הסכם חתום נשמר כמו שהוא: הספק לא מוחק אותו ולא משנה אותו (רק הבעלים). ספק מוגבל — צפייה בלבד.
-        // הספק מוחק כל הצעה שלו (גם חתומה — בקשת הבעלים 2026-11-13). ספק מוגבל — צפייה בלבד.
-        allow delete: if isOwner() || canCreateFor(t);
+        // הספק מוחק רק הצעה שלא נחתמה. הסכם חתום — הספק רק מסתיר (isVendorHidingSigned), הבעלים מוחק (2026-11-16)
+        allow delete: if isOwner() || (canCreateFor(t) && resource.data.status != 'signed');
         allow create: if isOwner() || (canCreateFor(t) && q.matches('^[A-Za-z0-9_-]{1,40}$') && validVendorQuote());
         // הספק: בהצעה שעוד לא נחתמה — רק לשמור את מזהה הקישור הקצר. בהצעה חתומה בלי קובץ — לצרף PDF (פעם אחת).
         allow update: if isOwner()
@@ -193,8 +203,9 @@ service cloud.firestore {
                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pdfData', 'hasPdf'])
                 && (!('pdfData' in request.resource.data) || (request.resource.data.pdfData is string && request.resource.data.pdfData.size() < 1000000)))
           || isVendorEditingEvent(t)
-          // הספק מעלה / מחליף את קובץ ה-PDF של ההצעה (בכל סטטוס): רק סימון hasPdf במסמך
-          || (isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true
+          || isVendorHidingSigned(t)
+          // הספק מעלה את קובץ ה-PDF של הצעה חתומה בלבד: רק סימון hasPdf במסמך
+          || (isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true && resource.data.status == 'signed'
                 && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['hasPdf', 'pdfData'])
                 && request.resource.data.get('hasPdf', false) == true && !('pdfData' in request.resource.data))
           || isClientViewing()
@@ -284,9 +295,9 @@ service cloud.firestore {
         && (isOwner()
             || (quoteDoc(t, q).status == 'signed' && (canCreateFor(t)
                 || (quoteDoc(t, q).get('signedAt', null) is timestamp && request.time < quoteDoc(t, q).signedAt + duration.value(30, 'm')))));
-      // הספק מעלה קובץ פעם אחת (כשאין עדיין). החלפה — רק הבעלים (בקשת הבעלים 2026-11-13)
+      // הספק מעלה קובץ פעם אחת (כשאין עדיין), ורק להצעה חתומה — כך הוא לא "תופס" את המקום של ה-PDF שהלקוח חותם. החלפה — רק הבעלים
       allow create: if f == 'file' && validPdf() && isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true
-        && exists(/databases/$(database)/documents/tenants/$(t)/quotes/$(q));
+        && exists(/databases/$(database)/documents/tenants/$(t)/quotes/$(q)) && quoteDoc(t, q).status == 'signed';
       allow update: if f == 'file' && validPdf() && isOwner();
       // הספק מוחק את הקובץ רק אחרי שמחק את ההצעה עצמה (כדי שאי אפשר "להחליף" דרך מחיקה והעלאה מחדש)
       allow delete: if isOwner() || (isVendorOf(t) && tenantDoc(t).data.get('limited', false) != true

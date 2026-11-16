@@ -22,7 +22,7 @@
         const fs = C.fb.fs, since = new Date(); since.setMonth(since.getMonth() - 24);
         // שאילתה על שדה אחד (signedAt) — לא צריך אינדקס מיוחד; רק הצעות חתומות מכילות signedAt
         unsubSigned = fs.onSnapshot(fs.query(fs.collection(C.fb.db, 'tenants', C.slug, 'quotes'), fs.where('signedAt', '>=', fs.Timestamp.fromDate(since))), snap => {
-            SIGNED = snap.docs.map(d => C.Core.eventView({ id: d.id, ...d.data() })).filter(q => q.status === 'signed');   // כולל מה שהספק עדכן ב"פרטי אירוע"
+            SIGNED = snap.docs.map(d => C.Core.eventView({ id: d.id, ...d.data() })).filter(q => q.status === 'signed' && (C.isOwnerView || !q.hidden));   // כולל מה שהספק עדכן ב"פרטי אירוע"
             if (started.cal) renderCal();
             if (started.books) renderBooks();
         }, err => { console.warn('signed', err); const m = C.isQuota(err) ? C.QUOTA_MSG : 'טעינת ההסכמים החתומים נכשלה.'; ['cal-list', 'inc-list'].forEach(id => { if ($(id)) $(id).innerHTML = `<p class="hint">${C.esc(m)}</p>`; }); });

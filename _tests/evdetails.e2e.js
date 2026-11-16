@@ -88,6 +88,7 @@ const fields = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !==
   await emu('PATCH', `tenants/${SLUG}/quotes/qp`, { fields: fields({ ...base, status: 'pending' }) });
   await emu('PATCH', `tenants/${SLUG}/quotes/qs`, { fields: fields({ ...base, clientName: 'משפחת כהן', price: 4200, status: 'signed', signedAt: now, hasPdf: true, createdAt: new Date(now - 60e3) }) });
   await emu('PATCH', `tenants/${SLUG}/quotes/qs/pdf/file`, { fields: fields({ pdfData: 'JVBERi0xLjQK', at: now }) });
+  await emu('PATCH', `tenants/${SLUG}/quotes/qn`, { fields: fields({ ...base, clientName: 'דנה', price: 2500, status: 'signed', signedAt: now, createdAt: new Date(now - 120e3) }) });   // חתומה בלי קובץ
   const pdfPath = S + '/tiny.pdf'; fs.writeFileSync(pdfPath, '%PDF-1.4\n1 0 obj<<>>endobj\ntrailer<<>>\n%%EOF\n');
 
   const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium' });
@@ -102,7 +103,8 @@ const fields = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !==
   const btns = async id => (await V.p.locator(`#tbody tr:has(.ev-open[data-id="${id}"]) .row-acts button`).allTextContents()).map(x => x.trim()).join(' | ');
 
   console.log('1. Row actions');
-  check(await btns('qp') === '📤 העלה קובץ | 📋 פרטי אירוע | העתק קישור | מחק', 'pending: ' + await btns('qp'));
+  check(await btns('qp') === '📋 פרטי אירוע | העתק קישור | מחק', 'pending (no upload — only signed): ' + await btns('qp'));
+  check(await btns('qn') === '📤 העלה קובץ | 📋 פרטי אירוע | העתק קישור | מחק', 'signed without a file: ' + await btns('qn'));
   check(await btns('qs') === '📄 צפייה | 📋 פרטי אירוע | העתק קישור | מחק', 'signed (vendor, no replace): ' + await btns('qs'));
   await V.p.click('#tbody .copy-link[data-id="qp"]'); await V.p.waitForTimeout(300);
   check(/hatzaa\/v\/\?t=vevdetaa/.test(await V.p.evaluate(() => navigator.clipboard.readText())), 'העתק קישור copies the client link');
@@ -156,17 +158,25 @@ const fields = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !==
   check(await V.p.locator('#tbody tr.paid-row').count() === 1, 'still green after reload');
 
   console.log('5. Upload / replace / delete');
-  let fc = V.p.waitForEvent('filechooser'); await V.p.click('#tbody .upload-file[data-id="qp"]'); await (await fc).setFiles(pdfPath);
-  await V.p.waitForFunction(() => document.querySelector('#tbody .view-file[data-id="qp"]'), null, { timeout: 10000 });
-  check(await btns('qp') === '📄 צפייה | 📋 פרטי אירוע | העתק קישור | מחק', 'after upload the vendor sees only 📄 צפייה: ' + await btns('qp'));
+  let fc = V.p.waitForEvent('filechooser'); await V.p.click('#tbody .upload-file[data-id="qn"]'); await (await fc).setFiles(pdfPath);
+  await V.p.waitForFunction(() => document.querySelector('#tbody .view-file[data-id="qn"]'), null, { timeout: 10000 });
+  check(await btns('qn') === '📄 צפייה | 📋 פרטי אירוע | העתק קישור | מחק', 'after upload the vendor sees only 📄 צפייה: ' + await btns('qn'));
+  d = await emu('GET', `tenants/${SLUG}/quotes/qn/pdf/file`);
+  check(!!(d.body.fields && d.body.fields.pdfBin && d.body.fields.pdfBin.bytesValue) && !d.body.fields.pdfData, 'uploaded file stored as compact binary (pdfBin)');
+  const pend = await V.p.evaluate(async s => { const f = await Core.fb(); try { await f.fs.setDoc(f.fs.doc(f.db, `tenants/${s}/quotes/qp/pdf/file`), { pdfData: 'JVBERi0y', at: f.fs.serverTimestamp() }); return 'ALLOWED'; } catch(e) { return e.code; } }, SLUG);
+  check(pend === 'permission-denied', 'server blocks a vendor file on an unsigned quote: ' + pend);
   const rep = await V.p.evaluate(async s => { const f = await Core.fb(); try { await f.fs.setDoc(f.fs.doc(f.db, `tenants/${s}/quotes/qs/pdf/file`), { pdfData: 'JVBERi0y', at: f.fs.serverTimestamp() }); return 'ALLOWED'; } catch(e) { return e.code; } }, SLUG);
   check(rep === 'permission-denied', 'server blocks a vendor replacing the PDF: ' + rep);
   await V.p.click('#tbody .del-q[data-id="qs"]');
   await V.p.waitForFunction(() => !document.querySelector('#tbody .ev-open[data-id="qs"]'), null, { timeout: 10000 });
-  for (let i = 0; i < 20 && (d = await emu('GET', `tenants/${SLUG}/quotes/qs`)).status !== 404; i++) await new Promise(r => setTimeout(r, 300));
-  check(d.status === 404, 'signed quote deleted');
-  for (let i = 0; i < 20 && (d = await emu('GET', `tenants/${SLUG}/quotes/qs/pdf/file`)).status !== 404; i++) await new Promise(r => setTimeout(r, 300));
-  check(d.status === 404, 'its PDF deleted too');
+  for (let i = 0; i < 20 && !((d = await emu('GET', `tenants/${SLUG}/quotes/qs`)).body.fields || {}).hidden; i++) await new Promise(r => setTimeout(r, 300));
+  check(d.status === 200 && d.body.fields.hidden && d.body.fields.hidden.booleanValue === true && val(d.body.fields.price) === 4200, 'signed contract is only hidden from the vendor — kept in the system');
+  d = await emu('GET', `tenants/${SLUG}/quotes/qs/pdf/file`);
+  check(d.status === 200, 'its PDF is kept too');
+  const hard = await V.p.evaluate(async s => { const f = await Core.fb(); try { await f.fs.deleteDoc(f.fs.doc(f.db, `tenants/${s}/quotes/qs`)); return 'ALLOWED'; } catch(e) { return e.code; } }, SLUG);
+  check(hard === 'permission-denied', 'server blocks a vendor deleting a signed contract: ' + hard);
+  await V.p.waitForTimeout(800);
+  check(/^\d+$/.test(await V.p.textContent('#kpis .kpi:nth-child(2) .n')) && (await V.p.textContent('#kpis .kpi:nth-child(2) .n')).trim() === '1', 'hidden contract not counted in "נחתמו"');
   await V.p.setViewportSize({ width: 390, height: 844 }); await V.p.waitForTimeout(400);
   check(await V.p.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), 'dashboard: no sideways scroll at 390px');
   await V.p.click('#tbody .ev-open[data-id="qp"]'); await V.p.waitForSelector('#ev-dlg[open]'); await V.p.waitForTimeout(500);
@@ -176,11 +186,17 @@ const fields = o => Object.fromEntries(Object.entries(o).filter(([, v]) => v !==
   console.log('5b. Owner inside the vendor account keeps 🔄 החלף');
   const O2 = await newPage(b, 'owner-in-vendor'); await O2.p.setViewportSize({ width: 1280, height: 860 });
   await login(O2.p, OWNER); await O2.p.waitForURL(/admin\.html/, { timeout: 20000 });
-  await O2.p.goto(`${SYS}/vendors/app.html?t=${SLUG}#dash`); await O2.p.waitForSelector('#tbody .ev-open[data-id="qp"]', { timeout: 20000 });
-  const ob = (await O2.p.locator('#tbody tr:has(.ev-open[data-id="qp"]) .row-acts button').allTextContents()).map(x => x.trim()).join(' | ');
-  check(ob === '📄 צפייה | 🔄 החלף | 📋 פרטי אירוע | העתק קישור | מחק', 'owner sees: ' + ob);
-  fc = O2.p.waitForEvent('filechooser'); await O2.p.click('#tbody .upload-file[data-id="qp"]'); await (await fc).setFiles(pdfPath); await O2.p.waitForTimeout(1500);
+  await O2.p.goto(`${SYS}/vendors/app.html?t=${SLUG}#dash`); await O2.p.waitForSelector('#tbody .ev-open[data-id="qn"]', { timeout: 20000 });
+  const ob = (await O2.p.locator('#tbody tr:has(.ev-open[data-id="qn"]) .row-acts button').allTextContents()).map(x => x.trim()).join(' | ');
+  check(ob === '📄 צפייה | 🔄 החלף | 📋 פרטי אירוע | העתק קישור | מחיקה לצמיתות', 'owner sees: ' + ob);
+  fc = O2.p.waitForEvent('filechooser'); await O2.p.click('#tbody .upload-file[data-id="qn"]'); await (await fc).setFiles(pdfPath); await O2.p.waitForTimeout(1500);
   check(!O2.p.isClosed(), 'owner replaced the PDF');
+  console.log('5c. Owner sees the contract the vendor removed, and can restore it');
+  await O2.p.waitForSelector('#tbody .unhide-q[data-id="qs"]', { timeout: 10000 });
+  check(/הספק מחק מהרשימה שלו/.test(await O2.p.textContent('#tbody tr:has(.ev-open[data-id="qs"])')), 'owner sees "removed by the vendor · kept"');
+  await O2.p.click('#tbody .unhide-q[data-id="qs"]');
+  for (let i = 0; i < 20 && ((d = await emu('GET', `tenants/${SLUG}/quotes/qs`)).body.fields || {}).hidden; i++) await new Promise(r => setTimeout(r, 300));
+  check(!d.body.fields.hidden, 'restored for the vendor');
   await O2.ctx.close();
 
   console.log('6. Owner: sent offers — upload/replace + paid row');

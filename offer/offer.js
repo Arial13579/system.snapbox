@@ -202,7 +202,10 @@
             if (pdfBlob && pdfBlob.size <= 700 * 1024) {
                 const d = await blobToB64(pdfBlob);
                 // PDF במסמך נפרד (הרשימות נטענות מהר); אם הכללים עוד ישנים — כמו קודם, בתוך ההצעה
-                try { await withTimeout(f.fs.setDoc(f.fs.doc(f.db, 'platformQuotes', o.id, 'pdf', 'file'), { pdfData: d, at: f.fs.serverTimestamp() }).then(() => f.fs.updateDoc(ref, { hasPdf: true })), 15000, null); }
+                // נשמר כבינארי (Bytes) — רבע פחות מקום מטקסט base64; כללים ישנים — כטקסט כמו קודם
+                const fileRef = f.fs.doc(f.db, 'platformQuotes', o.id, 'pdf', 'file');
+                const put = v => withTimeout(f.fs.setDoc(fileRef, { ...v, at: f.fs.serverTimestamp() }), 15000, null);
+                try { await put({ pdfBin: f.fs.Bytes.fromUint8Array(new Uint8Array(await pdfBlob.arrayBuffer())) }).catch(() => put({ pdfData: d })); await withTimeout(f.fs.updateDoc(ref, { hasPdf: true }), 12000, null); }
                 catch(e2) { await withTimeout(f.fs.updateDoc(ref, { pdfData: d }), 12000, null); }
             }
         } catch(e) { console.warn('save failed', e); }
