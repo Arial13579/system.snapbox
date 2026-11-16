@@ -180,7 +180,7 @@
         el.style.cssText = 'position:absolute;left:0;top:0;width:760px;visibility:visible;background:#fff;z-index:1;';
         if (document.fonts && document.fonts.ready) { try { await withTimeout(document.fonts.ready, 4000, null); } catch(e){} }
         await new Promise(r => setTimeout(r, 250));
-        let big; try { big = await withTimeout(html2canvas(el, { scale: 2, backgroundColor: '#fff', logging: false, width: 760, windowWidth: 760, x: 0, y: 0, scrollX: 0, scrollY: 0 }), 15000, null); }
+        let big; try { big = await withTimeout(html2canvas(el, { scale: 1.5, backgroundColor: '#fff', logging: false, width: 760, windowWidth: 760, x: 0, y: 0, scrollX: 0, scrollY: 0 }), 15000, null); }
         finally { el.style.cssText = ''; }
         if (!big || big.height < 40) throw new Error('empty');
         const { jsPDF } = window.jspdf, pdf = new jsPDF({ unit: 'mm', format: 'a4', compress: true });
@@ -188,7 +188,7 @@
         for (let y = 0, i = 0; y < big.height && i < 20; i++) {
             const h = Math.min(pp, big.height - y), c = document.createElement('canvas'); c.width = big.width; c.height = h;
             const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, h); x.drawImage(big, 0, y, big.width, h, 0, 0, big.width, h);
-            if (i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', .95), 'JPEG', M, M, uw, h / ppm); y += h;
+            if (i) pdf.addPage(); pdf.addImage(c.toDataURL('image/jpeg', .8), 'JPEG', M, M, uw, h / ppm); y += h;
         }
         const blob = pdf.output('blob'); if (!blob || blob.size < 12000) throw new Error('blank'); return blob;
     }
