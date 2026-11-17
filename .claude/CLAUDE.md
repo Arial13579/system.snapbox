@@ -36,7 +36,7 @@
 - `core.js`: Firebase, התחברות, `shareUrl()` (פורמט הקישור), `loadTenant()`.
 - `platform.js`: `ownerEmail`, `customerBase`, ההגדרות של Firebase.
 - `registry.js`: **רשימת הספקים** (`slug`, `name`, `admins`). זה המקום היחיד שמוסיפים בו ספק בצד הזה.
-- `vendor.css`: שפת העיצוב של system.snapbox (טורקיז, Assistant + Secular One).
+- `vendor.css`: שפת העיצוב של system.snapbox (טורקיז כהה, Frank Ruhl Libre + IBM Plex Sans Hebrew מ-2026-11-17).
 - `firestore.rules` (בשורש): עותק של הכללים שפורסמו ב-Firebase. **פורסמו בהצלחה ב-2026-10-06.**
 
 **צד הלקוח: ב-repository ‏`hatzaa` (לא כאן):**
@@ -549,3 +549,10 @@
 - הכנסות מיובאות: `tenants/{slug}/incomes/{id}` = `{date, amount, label, category, createdAt}` (כמו expenses, אותם כללים). מוצגות ליד החוזים החתומים ("מקור"), נמחקות, נכללות במדדים/גרף/CSV. נמחקות במחיקת ספק.
 - ⚠️ **הכללים עודכנו** (incomes) — להדביק `firestore.rules` מחדש. גרסת מטמון `?v=20261013c`. בדיקות: rules 347/347, books (+ 3b: xlsx עם/בלי כותרת, CSV בנק עברי, כפולים, xls ישן, מחיקה).
 - מספרי המדדים קטנים יותר ב-≤420px (סכום כמו ₪10,919.5 גלש ב-320px).
+
+## עדכון 2026-11-17: עיצוב חדש בשני האתרים (בקשת הבעלים: "גופן אחר לגמרי… שלא ייראה סגנון AI, סגנון של מעצב אתרים מקצועי")
+- **גופנים:** כותרות **Frank Ruhl Libre**, טקסט **IBM Plex Sans Hebrew** (מספרים: IBM Plex Mono כמו קודם). במקום Assistant + Secular One (כאן) ו-Assistant + Playfair Display (snapbox.co.il).
+- **סגנון:** נייר חם (`#F5F2EC`) במקום רקע מנטה, כפתורים מלבניים (6px) במקום כמוסות, בלי קפיצה/הילה בריחוף, קווים דקים במקום כרטיסים עם צל, שלבים ממוספרים 01–06 בסגנון עריכתי, כותרות-על עם קו דק. ב-snapbox.co.il: כותרות ישרות (בלי הטיה מלאכותית בעברית), כרטיסי נייר אטומים במקום זכוכית מטושטשת, פינות 4–6px.
+- **איפה:** בלוק "שכבת עיצוב 2026-11" בסוף ה-`<style>` של `index.html`, בסוף `vendors/vendor.css` ו-`offer/offer.css`; ב-snapboxevent: `<style id="sb-design-2026-11">` לפני `</head>` ובסוף `pages.css`. ה-JS (גרפים, a11y, cookie) עודכן לגופן החדש.
+- **להחזרה (אם הבעלים לא אוהב):** `git revert` של ה-commit של העיצוב בשני ה-repositories (PR חדש ל-main) — ראו את מספרי ה-PR בהיסטוריה. גרסאות: vendors `?v=20261117a`, `cookie.js?v=4`, `a11y.js?v=2`, `pages.css?v=2`.
+- נבדק: axe WCAG AA (בהיר + כהה) בכל הדפים הסטטיים, בלי גלילה לצדדים ב-320–1024.

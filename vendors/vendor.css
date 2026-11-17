@@ -4,8 +4,8 @@
     --fg:#0F2321; --muted:#4F6B67; --faint:#8AA4A0;
     --accent:#0F766E; --accent-strong:#0B5F58; --accent-ink:#FFFFFF; --accent-soft:rgba(15,118,110,.1);
     --gold:#8A5A0F; --bad:#C62828; --ok:#18794E;
-    --f-display:'Secular One','Assistant',system-ui,sans-serif;
-    --f-body:'Assistant','Segoe UI',system-ui,sans-serif;
+    --f-display:'Frank Ruhl Libre','IBM Plex Sans Hebrew',Georgia,serif;
+    --f-body:'IBM Plex Sans Hebrew','Segoe UI',system-ui,sans-serif;
     --f-num:'IBM Plex Mono',ui-monospace,Menlo,monospace;
 }
 *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
@@ -418,3 +418,40 @@ dialog.modal.wl{ width:min(440px, calc(100vw - 24px)); }
 .imp-card{ margin-bottom:14px; }
 .imp-row{ display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
 @media(max-width:420px){ .kpi .n{ font-size:clamp(16px, 5.4vw, 24px); } }
+
+/* ===== שכבת עיצוב 2026-11: טיפוגרפיה עריכתית, נייר חם, קווים דקים, פינות חדות יותר (להחזרה: למחוק את הבלוק הזה) ===== */
+:root{
+    --bg:#F5F2EC; --surface:#FFFDF9; --surface-2:#ECE7DD; --line:#D9D2C4;
+    --fg:#151C1B; --muted:#545D59; --faint:#8A918C;
+    --accent:#0D6B63; --accent-strong:#0A514B; --accent-soft:rgba(13,107,99,.09);
+    --r:6px; --r-lg:10px;
+}
+body{ -webkit-font-smoothing:antialiased; }
+h1,h2,h3{ font-weight:700; letter-spacing:-.01em; }
+.bar{ background:rgba(245,242,236,.94); }
+.brand{ font-weight:700; font-size:1.2rem; }
+.brand-mark{ border-radius:var(--r); font-family:var(--f-num); }
+.btn{ border-radius:var(--r); font-weight:600; transition:background .15s, border-color .15s; }
+.btn:hover{ transform:none; }
+.btn:not(.primary):not(.wa):not(:disabled):hover{ border-color:var(--fg); }
+.btn.primary:not(:disabled):hover{ background:var(--accent-strong); border-color:var(--accent-strong); }
+.card{ border-radius:var(--r-lg); box-shadow:none; }
+.field{ border-radius:var(--r); background:var(--surface); }
+.field:focus{ box-shadow:0 0 0 3px var(--accent-soft); }
+.tabs, .seg{ border-radius:var(--r); }
+.tabs button, .seg button{ border-radius:4px; font-weight:600; }
+.tabs-row .tabs{ border-radius:var(--r); }
+.admin-tabs button{ border-radius:var(--r); font-weight:600; }
+.pill, .badge, .eyebrow-pill{ border-radius:3px; font-weight:700; letter-spacing:.02em; }
+.chip, .catalog button{ border-radius:4px; }
+.breakdown, .result, .for-note, .owner-banner, .consent-list, .support-card, .agr-card, .trial-bar, .limited-note,
+.items-box, .it-row, .sum-strip div, .wa-preview, .pkg-row, .more-box, .tips-box, .mrow, .vc-ref, .vc-card, fieldset.mg, .seg3 span,
+.gate p.callout, .doc section{ border-radius:var(--r-lg); }
+.doc .toc a{ border-radius:4px; }
+.doc section h2 .n{ border-radius:3px; }
+dialog.modal{ border-radius:var(--r-lg); }
+.cal-cell{ border-radius:4px; background:var(--surface); }
+.tlogo{ border-radius:var(--r); }
+.skip{ border-radius:var(--r); }
+.kpi .n, .sum-card .total b{ font-family:var(--f-display); font-weight:700; letter-spacing:-.01em; }
+fieldset.mg legend{ font-weight:700; }

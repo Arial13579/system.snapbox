@@ -34,12 +34,12 @@ canvas#sig-canvas{ display:block; width:100%; height:180px; touch-action:none; c
 #pdf-overlay span{ color:var(--muted); font-size:14px; }
 @keyframes spin{ to{ transform:rotate(360deg) } }
 @media (prefers-reduced-motion:reduce){ #pdf-overlay .spin{ animation-duration:3s } }
-#pdf-doc{ position:fixed; left:0; top:0; width:760px; visibility:hidden; pointer-events:none; background:#fff; color:#111; z-index:-1; font-family:'Assistant',Arial,sans-serif; }
+#pdf-doc{ position:fixed; left:0; top:0; width:760px; visibility:hidden; pointer-events:none; background:#fff; color:#111; z-index:-1; font-family:'IBM Plex Sans Hebrew',Arial,sans-serif; }
 #pdf-doc *{ box-sizing:border-box; margin:0; padding:0; }
 #pdf-doc .in{ padding:32px 36px; }
 #pdf-doc .sec{ margin-bottom:18px; }
 #pdf-doc .hd{ display:flex; justify-content:space-between; align-items:flex-end; border-bottom:4px solid #0D9488; padding-bottom:12px; }
-#pdf-doc .hd .nm{ font-family:'Secular One','Assistant',sans-serif; font-size:26px; color:#0F2321; }
+#pdf-doc .hd .nm{ font-family:'Frank Ruhl Libre',Georgia,serif; font-size:26px; color:#0F2321; }
 #pdf-doc .hd .tg{ font-size:11.5px; color:#4F6B67; }
 #pdf-doc .hd .tt{ font-size:15px; font-weight:800; text-align:left; }
 #pdf-doc .hd .tt small{ display:block; font-size:11px; color:#777; font-weight:500; }
@@ -57,3 +57,15 @@ canvas#sig-canvas{ display:block; width:100%; height:180px; touch-action:none; c
 #pdf-doc .meta{ font-size:11px; color:#666; margin-top:8px; line-height:1.6; }
 #pdf-doc .ft{ text-align:center; font-size:10px; color:#999; margin-top:22px; border-top:1px solid #E1EBE9; padding-top:10px; }
 @media print{ body.printing-doc>*:not(#pdf-doc){ display:none !important; } body.printing-doc #pdf-doc{ position:static !important; visibility:visible !important; width:100% !important; } }
+
+/* ===== שכבת עיצוב 2026-11 ===== */
+.offer-hero{ background:#12201E; border-radius:10px; }
+.offer-hero::after{ display:none; }
+.offer-hero .pill{ border-radius:3px; }
+.offer-hero h1{ font-weight:800; }
+.feat li{ border-radius:6px; }
+.feat li::before{ border-radius:3px; }
+.steps li::before{ border-radius:4px; font-family:var(--f-display); }
+.price-total b{ font-family:var(--f-display); font-weight:700; }
+canvas#sig-canvas, .callout, .done, .warnbox, .expired{ border-radius:8px; }
+#pdf-overlay{ background:rgba(245,242,236,.95); }

@@ -674,7 +674,7 @@
     }
     function renderCharts(){
         if (!window.Chart) return;
-        const font = { family: 'Assistant', weight: 700 }, { total, signed } = counts();
+        const font = { family: 'IBM Plex Sans Hebrew', weight: 600 }, { total, signed } = counts();
         if (statusChart) statusChart.destroy();
         statusChart = new Chart($('statusChart'), { type: 'doughnut',
             data: { labels: ['נחתמו', 'ממתינות'], datasets: [{ data: [signed, total - signed], backgroundColor: ['#0D9488', '#F2C46D'], borderWidth: 0 }] },

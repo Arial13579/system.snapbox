@@ -10,7 +10,7 @@
 
     function injectStyles(){
         var css =
-            '#a11y-wrap{ position:fixed; z-index:950; right:16px; bottom:calc(env(safe-area-inset-bottom) + 18px); font-family:Assistant,system-ui,sans-serif; }' +
+            '#a11y-wrap{ position:fixed; z-index:950; right:16px; bottom:calc(env(safe-area-inset-bottom) + 18px); font-family:"IBM Plex Sans Hebrew",Assistant,system-ui,sans-serif; }' +
             'html.has-cookie-bar #a11y-wrap{ bottom:calc(env(safe-area-inset-bottom) + 96px); }' +
             '#a11y-fab{ width:52px; height:52px; border-radius:50%; border:0; cursor:pointer; display:grid; place-items:center;' +
                 'background:var(--accent,#0D9488); color:var(--accent-ink,#fff); box-shadow:0 10px 24px -10px rgba(0,0,0,.45); padding:0; transition:transform .12s, box-shadow .12s; }' +
@@ -19,12 +19,12 @@
             '#a11y-panel{ position:absolute; right:0; bottom:64px; width:230px; background:#fff; color:#16161A; border:1px solid #E2E2E2;' +
                 'border-radius:16px; box-shadow:0 20px 40px -16px rgba(0,0,0,.35); padding:12px; display:none; flex-direction:column; gap:8px; }' +
             '#a11y-wrap.open #a11y-panel{ display:flex; }' +
-            '#a11y-panel h3{ margin:0 2px 2px; font:800 14px Assistant,sans-serif; }' +
+            '#a11y-panel h3{ margin:0 2px 2px; font:800 14px "IBM Plex Sans Hebrew",Assistant,sans-serif; }' +
             '.a11y-opt{ display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; cursor:pointer; text-align:right;' +
-                'border:1px solid #DDDDDD; border-radius:11px; background:#fff; padding:9px 11px; font:700 13.5px Assistant,system-ui,sans-serif; color:#16161A; }' +
+                'border:1px solid #DDDDDD; border-radius:11px; background:#fff; padding:9px 11px; font:700 13.5px "IBM Plex Sans Hebrew",Assistant,system-ui,sans-serif; color:#16161A; }' +
             '.a11y-opt[aria-pressed="true"]{ background:rgba(13,148,136,.12); border-color:var(--accent,#0D9488); }' +
             '.a11y-opt .st{ font-size:11px; font-weight:800; opacity:.7; }' +
-            '.a11y-reset{ background:none; border:0; cursor:pointer; font:700 12.5px Assistant,sans-serif; color:#D63A0A; text-decoration:underline; padding:4px; }' +
+            '.a11y-reset{ background:none; border:0; cursor:pointer; font:700 12.5px "IBM Plex Sans Hebrew",Assistant,sans-serif; color:#D63A0A; text-decoration:underline; padding:4px; }' +
             '#a11y-fab:focus-visible, .a11y-opt:focus-visible, .a11y-reset:focus-visible{ outline:3px solid #4D7CFE; outline-offset:2px; }' +
 
             /* ניגודיות גבוהה — דורס את משתני הצבע של האתר */
