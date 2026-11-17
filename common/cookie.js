@@ -15,11 +15,11 @@
             '#cookie-bar{ position:fixed; left:12px; right:12px; bottom:calc(12px + env(safe-area-inset-bottom)); z-index:980;' +
                 'max-width:560px; margin:0 auto; background:#1B1B1F; color:#F5F5F5; border:0; border-radius:16px;' +
                 'box-shadow:0 12px 30px -10px rgba(0,0,0,.5); display:flex; flex-wrap:wrap; gap:8px 12px; align-items:center; justify-content:space-between;' +
-                'padding:9px 12px; font-family:Assistant,system-ui,sans-serif; font-size:12.5px; }' +
+                'padding:9px 12px; font-family:"IBM Plex Sans Hebrew",Assistant,system-ui,sans-serif; font-size:12.5px; }' +
             '#cookie-bar p{ margin:0; flex:1 1 220px; line-height:1.5; }' +
             '#cookie-bar a{ color:#fff; font-weight:700; text-decoration:underline; }' +
             '#cookie-bar button{ flex:none; border:2px solid #F3EEE4; border-radius:999px; padding:6px 14px; font-weight:800;' +
-                'font-family:Assistant,sans-serif; font-size:13px; cursor:pointer; color:#16120E; background:#fff; }';
+                'font-family:"IBM Plex Sans Hebrew",Assistant,sans-serif; font-size:13px; cursor:pointer; color:#16120E; background:#fff; }';
         var style = document.createElement('style');
         style.textContent = css;
         document.head.appendChild(style);

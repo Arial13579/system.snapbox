@@ -40,15 +40,15 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230d9488'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='Arial'%3E%E2%82%AA%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700;800&family=Secular+One&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;800&family=IBM+Plex+Sans+Hebrew:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
 <style>
 /* Layout: a single RTL column; each section pairs copy with a hand-built "screen" mockup of the real system. */
 :root{
   --bg:#071312; --surface:#0d1f1d; --surface-2:#12302c; --line:#1f4540;
   --fg:#e8f3f1; --muted:#93b3ae; --accent:#2dd4bf; --accent-strong:#5eead4; --accent-ink:#04211d;
   --gold:#fbbf24; --paper:#ffffff; --paper-ink:#1b2b29; --paper-muted:#4f6461; --paper-line:#e1ebe9; --bad:#fca5a5;
-  --f-display:'Secular One','Assistant',system-ui,sans-serif;
-  --f-body:'Assistant','Segoe UI',system-ui,sans-serif;
+  --f-display:'Frank Ruhl Libre','IBM Plex Sans Hebrew',Georgia,serif;
+  --f-body:'IBM Plex Sans Hebrew','Segoe UI',system-ui,sans-serif;
   --f-num:'IBM Plex Mono',ui-monospace,Menlo,monospace;
   color-scheme:dark;
 }
@@ -350,6 +350,89 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
   .chat .bubble:nth-of-type(3){animation-delay:.5s}
   @keyframes pop{from{transform:translateY(6px)}to{transform:none}}
 }
+
+/* ===== שכבת עיצוב 2026-11: טיפוגרפיה עריכתית (Frank Ruhl Libre + IBM Plex Sans Hebrew), נייר חם, קווים דקים, פינות חדות יותר ===== */
+:root{
+  --bg:#0e1211; --surface:#141a19; --surface-2:#1b2321; --line:#2b3532;
+  --fg:#efebe3; --muted:#a6aea9; --accent:#5ccfbf; --accent-strong:#8fe0d4; --accent-ink:#06201c;
+  --gold:#e0b24f; --paper:#fffdf9; --paper-ink:#1b2422; --paper-muted:#525d59; --paper-line:#e6e0d4;
+  --r:6px; --r-lg:10px;
+}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){
+  --bg:#f5f2ec; --surface:#fffdf9; --surface-2:#ece7dd; --line:#d9d2c4;
+  --fg:#151c1b; --muted:#545d59; --accent:#0d6b63; --accent-strong:#0a514b; --accent-ink:#ffffff; --gold:#87570c;
+}}
+:root[data-theme="light"]{
+  --bg:#f5f2ec; --surface:#fffdf9; --surface-2:#ece7dd; --line:#d9d2c4;
+  --fg:#151c1b; --muted:#545d59; --accent:#0d6b63; --accent-strong:#0a514b; --accent-ink:#ffffff; --gold:#87570c;
+}
+body{font-size:16.5px;line-height:1.7;-webkit-font-smoothing:antialiased;font-feature-settings:"kern"}
+h1,h2,h3{font-weight:700;letter-spacing:-.01em}
+h1{font-size:clamp(2.3rem,5.6vw,4.1rem);line-height:1.04;font-weight:800}
+h2{font-size:clamp(1.8rem,3.8vw,2.75rem);line-height:1.1}
+h3{font-size:1.22rem;line-height:1.3}
+.hero h1 em{color:var(--accent);font-weight:500}
+.lead{font-size:1.1rem;line-height:1.75}
+/* כותרת-על: קו דק + טקסט קטן במקום תווית צבעונית */
+.eyebrow{display:inline-flex;align-items:center;gap:12px;font-weight:600;font-size:.8rem;letter-spacing:.14em;color:var(--muted)}
+.eyebrow::before{content:"";width:28px;height:1px;background:currentColor;flex:none}
+/* כותרת עליונה שטוחה */
+.top{background:color-mix(in srgb,var(--bg) 94%,transparent)}
+.brand{font-weight:700;font-size:1.25rem;letter-spacing:-.01em}
+.brand-mark{border-radius:var(--r);font-family:var(--f-num);font-size:.95rem}
+.top nav a{font-weight:500;font-size:.95rem}
+.vendor-login{border-radius:var(--r);border-width:1px;font-weight:600}
+/* כפתורים: מלבנים מדויקים, בלי קפיצה */
+.btn{border-radius:var(--r);font-weight:600;letter-spacing:.01em;transition:background .15s,border-color .15s,color .15s}
+.btn:hover{transform:none}
+.btn.primary:hover{background:var(--accent-strong);border-color:var(--accent-strong)}
+.btn:not(.primary):not(.wa):hover{border-color:var(--fg)}
+.btn.big{padding:15px 26px}
+.trial-btn{font-weight:600}
+.hero-offer{border-radius:var(--r);border-color:var(--line);padding:6px 6px 6px 14px}
+.hero-offer .tag,.badge{border-radius:3px;letter-spacing:.04em}
+.proof{gap:0;border-top:1px solid var(--line);padding-top:18px}
+.proof>div{padding-inline:0 26px;margin-inline-end:26px;border-inline-end:1px solid var(--line)}
+.proof>div:last-child{border:0;margin:0;padding:0}
+.proof b{font-family:var(--f-display);font-size:1.9rem;font-weight:700;line-height:1.1}
+.chat{border-radius:var(--r-lg);box-shadow:none}
+.bubble{border-radius:10px 10px 3px 10px}
+.bubble.them{border-radius:10px 10px 10px 3px}
+.link-card{border-radius:var(--r)}
+section{padding-block:88px}
+.sec-head{gap:16px;margin-bottom:48px}
+/* שלבים: מספור עריכתי במקום עיגולים בכרטיסים */
+.flow{gap:0;border-top:1px solid var(--line);margin-bottom:64px}
+.flow li{background:transparent;border:0;border-bottom:1px solid var(--line);border-radius:0;padding:26px 0 26px 28px;gap:6px}
+.flow li::before{content:counter(s,decimal-leading-zero);background:none;width:auto;height:auto;display:block;color:var(--accent);font-family:var(--f-display);font-size:2.1rem;font-weight:500;line-height:1;margin-bottom:6px}
+.flow .who{letter-spacing:.08em;font-weight:600;color:var(--muted)}
+@media (min-width:861px){.flow li:not(:nth-child(3n)){border-inline-end:1px solid var(--line)}.flow li:not(:nth-child(3n+1)){padding-inline-start:28px}}
+@media (max-width:860px) and (min-width:541px){.flow li:nth-child(odd){border-inline-end:1px solid var(--line)}.flow li:nth-child(even){padding-inline-start:28px}}
+.device{border-radius:var(--r-lg);border-width:6px;box-shadow:0 1px 0 var(--line),0 20px 40px -32px rgba(0,0,0,.55)}
+.dev-btn,.calc,.field .in,.kpi,.chart-box,.tbl div,.q-money div,.sig{border-radius:4px}
+figcaption b{font-family:var(--f-display);font-size:1.1rem;font-weight:700}
+.gain{border-top-width:1px;border-top-color:var(--fg);padding-top:18px}
+.role-tab{border-radius:var(--r);font-weight:600}
+.role-panel,.calc-box,.calm{border-radius:var(--r-lg)}
+.role-cols h4{letter-spacing:.1em;font-weight:600}
+.chip{border-radius:3px}
+.big{font-family:var(--f-display);font-weight:700}
+/* מחירים */
+.plan{border-radius:var(--r-lg);padding:34px}
+.plan.launch{border-width:1px;border-color:var(--fg);box-shadow:inset 0 3px 0 var(--accent)}
+.badge{top:-12px}
+.price .amt{font-family:var(--f-display);font-size:3.4rem;font-weight:700;letter-spacing:-.02em}
+.seats i{border-radius:1px;height:6px}
+.support-line,.trial-strip{border-radius:var(--r-lg);border-style:solid;border-width:1px;border-color:var(--line)}
+.trial-strip .ts-ic{display:none}
+.c-card,.lead-form{border-radius:var(--r-lg)}
+.lead-form input,.lead-form select{border-radius:var(--r)}
+.toast{border-radius:var(--r-lg)}
+.toast .t-ic{border-radius:var(--r)}
+.skip{border-radius:var(--r)}
+footer{font-size:.88rem}
+.plan.launch.soldout .price{opacity:.75}
+@media (max-width:540px){.eyebrow::before{display:none}}
 </style>
 </head>
 <body>
@@ -855,8 +938,8 @@ footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap}
 /* מזהה הפיקסל של טיקטוק (TikTok Ads Manager ← Assets ← Events ← Web events). ריק = כבוי. */
 window.MARKETING = { tiktokPixel: 'DB57MPRC77U074LG2QFG' };</script>
 <script src="common/track.js?v=7"></script>
-<script src="common/cookie.js?v=3"></script>
-<script src="common/a11y.js"></script>
+<script src="common/cookie.js?v=4"></script>
+<script src="common/a11y.js?v=2"></script>
 
 <!-- ===== Snap Box · פופאפ "חזרו אליי" (שם + טלפון) · קופץ אחרי 10 שניות ===== -->
 <div class="sbx-pop" id="sbxPop" hidden dir="rtl">

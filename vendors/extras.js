@@ -250,7 +250,7 @@
         const labels = HE_MONTHS.map(m => m.slice(0, 3)), I = new Array(12).fill(0), E = new Array(12).fill(0);
         inc.forEach(r => { I[+r.date.slice(5, 7) - 1] += r.amount; });
         exp.forEach(r => { E[+String(r.date).slice(5, 7) - 1] += Number(r.amount) || 0; });
-        const font = { family: 'Assistant', weight: 700 };
+        const font = { family: 'IBM Plex Sans Hebrew', weight: 600 };
         if (booksChart) booksChart.destroy();
         booksChart = new Chart($('booksChart'), {
             data: { labels, datasets: [

@@ -36,7 +36,7 @@
 - `core.js`: Firebase, התחברות, `shareUrl()` (פורמט הקישור), `loadTenant()`.
 - `platform.js`: `ownerEmail`, `customerBase`, ההגדרות של Firebase.
 - `registry.js`: **רשימת הספקים** (`slug`, `name`, `admins`). זה המקום היחיד שמוסיפים בו ספק בצד הזה.
-- `vendor.css`: שפת העיצוב של system.snapbox (טורקיז, Assistant + Secular One).
+- `vendor.css`: שפת העיצוב של system.snapbox (טורקיז כהה, Frank Ruhl Libre + IBM Plex Sans Hebrew מ-2026-11-17).
 - `firestore.rules` (בשורש): עותק של הכללים שפורסמו ב-Firebase. **פורסמו בהצלחה ב-2026-10-06.**
 
 **צד הלקוח: ב-repository ‏`hatzaa` (לא כאן):**
@@ -614,3 +614,10 @@
 - ⚠️ **הכללים עודכנו** — להדביק `firestore.rules`. בלי זה: "מחק" על הסכם חתום ייכשל בהרשאות (לא יימחק), וה-PDF יישמר כטקסט כמו קודם.
 - גרסת מטמון `?v=20261116b`. בדיקות: rules 402/402, full 135, evdetails 59 (+ הסתרה/שחזור/בינארי), views 26, trial 100, dash 12, create 62 (+1 ידוע), books (קבצי הדוגמה חסרים — ידוע).
 - **✅ בוצע אצל הבעלים (2026-11-16):** הכללים הודבקו ופורסמו (פרויקט CHECK ← Firestore ← Security). **מפתח ה-API הוגבל ל-Websites** (system.snapbox.co.il, arial13579.github.io, check-b2a66.firebaseapp.com, check-b2a66.web.app). נבדק מכאן: Referer זר / ריק ⇒ 403 "blocked"; system.snapbox ו-github.io ⇒ עובד. ⚠️ **דומיין חדש (למשל הדומיין הניטרלי של hatzaa) — להוסיף אותו להגבלה** ב-Google Cloud ← Credentials ← Browser key, אחרת הדף ייחסם. אף דף לא משתמש ב-`no-referrer` (נבדק) — לא להוסיף כזה.
+
+## עדכון 2026-11-17: עיצוב חדש בשני האתרים (בקשת הבעלים: "גופן אחר לגמרי… שלא ייראה סגנון AI, סגנון של מעצב אתרים מקצועי")
+- **גופנים:** כותרות **Frank Ruhl Libre**, טקסט **IBM Plex Sans Hebrew** (מספרים: IBM Plex Mono כמו קודם). במקום Assistant + Secular One (כאן) ו-Assistant + Playfair Display (snapbox.co.il).
+- **סגנון:** נייר חם (`#F5F2EC`) במקום רקע מנטה, כפתורים מלבניים (6px) במקום כמוסות, בלי קפיצה/הילה בריחוף, קווים דקים במקום כרטיסים עם צל, שלבים ממוספרים 01–06 בסגנון עריכתי, כותרות-על עם קו דק. ב-snapbox.co.il: כותרות ישרות (בלי הטיה מלאכותית בעברית), כרטיסי נייר אטומים במקום זכוכית מטושטשת, פינות 4–6px.
+- **איפה:** בלוק "שכבת עיצוב 2026-11" בסוף ה-`<style>` של `index.html`, בסוף `vendors/vendor.css` ו-`offer/offer.css`; ב-snapboxevent: `<style id="sb-design-2026-11">` לפני `</head>` ובסוף `pages.css`. ה-JS (גרפים, a11y, cookie) עודכן לגופן החדש.
+- **להחזרה (אם הבעלים לא אוהב):** `git revert` של ה-commit של העיצוב בשני ה-repositories (PR חדש ל-main) — ראו את מספרי ה-PR בהיסטוריה. גרסאות: vendors `?v=20261117a`, `cookie.js?v=4`, `a11y.js?v=2`, `pages.css?v=2`.
+- נבדק: axe WCAG AA (בהיר + כהה) בכל הדפים הסטטיים, בלי גלילה לצדדים ב-320–1024.
